@@ -1,4 +1,4 @@
-import { Store, Building2, ArrowLeft, User, Users } from 'lucide-react';
+import { Store, Building2, ArrowLeft, User, Users, ShoppingBag } from 'lucide-react';
 import { UserRole } from '../../types';
 
 interface RoleSelectionProps {
@@ -79,6 +79,21 @@ export function RoleSelection({ onSelectRole, onBack }: RoleSelectionProps) {
               <h3 className="font-semibold mb-2">Торговый представитель</h3>
               <p className="text-sm text-muted-foreground">
                 Аналитика по закрепленным магазинам и своим товарам
+              </p>
+            </button>
+
+            {/* Продавец магазина */}
+            <button
+              type="button"
+              onClick={() => onSelectRole('storeSeller')}
+              className="border-2 border-border rounded-lg p-6 hover:border-primary hover:bg-accent/50 transition-all group text-left"
+            >
+              <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors">
+                <ShoppingBag className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <h3 className="font-semibold mb-2">Продавец магазина</h3>
+              <p className="text-sm text-muted-foreground">
+                Присоединение к существующему магазину в качестве продавца
               </p>
             </button>
           </div>

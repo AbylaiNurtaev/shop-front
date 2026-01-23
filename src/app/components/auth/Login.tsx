@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Mail, Lock, ShoppingBag } from 'lucide-react';
+import { Store, Mail, Lock, ShoppingBag, Building2, Network, Users } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => void;
@@ -15,6 +15,20 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onLogin(email, password);
+  };
+
+  const quickLoginAccounts = [
+    { email: 'krutyev7@gmail.com', password: '12345678', label: 'Бренд', icon: Building2, color: 'bg-blue-500 hover:bg-blue-600' },
+    { email: 'krutyev6@gmail.com', password: '12345678', label: 'Дистрибьютор', icon: Network, color: 'bg-purple-500 hover:bg-purple-600' },
+    { email: 'krutyev5@gmail.com', password: '12345678', label: 'Торговый представитель', icon: Users, color: 'bg-green-500 hover:bg-green-600' },
+    { email: 'abylaynurtayev01@gmail.com', password: '12345678', label: 'Магазин', icon: Store, color: 'bg-orange-500 hover:bg-orange-600' },
+    { email: 'abylay.nurtayev.dev@gmail.com', password: '12345678', label: 'Продавец магазина', icon: ShoppingBag, color: 'bg-cyan-500 hover:bg-cyan-600' },
+  ];
+
+  const handleQuickLogin = (accountEmail: string, accountPassword: string) => {
+    setEmail(accountEmail);
+    setPassword(accountPassword);
+    onLogin(accountEmail, accountPassword);
   };
 
   return (
@@ -67,6 +81,37 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
               Войти
             </button>
           </form>
+
+          <div className="mt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">или</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-muted-foreground text-center mb-2">Быстрый вход (для разработки):</p>
+            <div className="grid grid-cols-2 gap-2">
+              {quickLoginAccounts.map((account) => {
+                const Icon = account.icon;
+                return (
+                  <button
+                    key={account.email}
+                    type="button"
+                    onClick={() => handleQuickLogin(account.email, account.password)}
+                    className={`${account.color} text-white py-2 px-3 rounded-md transition-opacity font-medium text-xs flex items-center justify-center gap-1.5`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="truncate">{account.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="mt-4">
             <div className="relative">

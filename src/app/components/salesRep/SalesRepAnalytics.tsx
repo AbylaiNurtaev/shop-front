@@ -82,11 +82,11 @@ export function SalesRepAnalytics() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Brain className="w-6 h-6" />
+          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+            <Brain className="w-5 h-5 md:w-6 md:h-6" />
             AI-аналитика
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -95,20 +95,20 @@ export function SalesRepAnalytics() {
         </div>
         <button
           onClick={loadAnalytics}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
+          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
         >
           Обновить
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
         <input
           type="number"
           min={0}
           value={threshold}
           onChange={(e) => setThreshold(e.target.value)}
           placeholder="Порог"
-          className="px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         />
         <input
           type="number"
@@ -116,7 +116,7 @@ export function SalesRepAnalytics() {
           value={expiringDays}
           onChange={(e) => setExpiringDays(e.target.value)}
           placeholder="Дней до истечения"
-          className="px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         />
         <input
           type="number"
@@ -124,12 +124,12 @@ export function SalesRepAnalytics() {
           value={targetStock}
           onChange={(e) => setTargetStock(e.target.value)}
           placeholder="Целевой остаток"
-          className="px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         />
       </div>
 
       {/* Основные метрики */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <Store className="w-5 h-5 text-primary" />

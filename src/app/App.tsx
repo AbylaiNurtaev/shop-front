@@ -6,33 +6,34 @@ import { StoreRegistration } from './components/auth/StoreRegistration';
 import { BrandRegistration } from './components/auth/BrandRegistration';
 import { DistributorRegistration } from './components/auth/DistributorRegistration';
 import { SalesRepRegistration } from './components/auth/SalesRepRegistration';
+import { StoreSellerRegistration } from './components/auth/StoreSellerRegistration';
 import { SalesRepHome } from './components/salesRep/SalesRepHome';
-import { SalesRepChat } from './components/salesRep/SalesRepChat';
 import { SalesRepHistory } from './components/salesRep/SalesRepHistory';
 import { SalesRepStores } from './components/salesRep/SalesRepStores';
 import { SalesRepProductGroups } from './components/salesRep/SalesRepProductGroups';
 import { SalesRepAnalytics } from './components/salesRep/SalesRepAnalytics';
+import { SalesRepSalesAnalytics } from './components/salesRep/SalesRepSalesAnalytics';
 import { SalesRepInventory } from './components/salesRep/SalesRepInventory';
-import { SalesRepAIRecommendations } from './components/salesRep/SalesRepAIRecommendations';
+import { SalesRepExpiringProducts } from './components/salesRep/SalesRepExpiringProducts';
+import { SalesRepPoorlySellingProducts } from './components/salesRep/SalesRepPoorlySellingProducts';
 import { SalesRepPlan } from './components/salesRep/SalesRepPlan';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MobileNav } from './components/MobileNav';
 import { ProductList } from './components/store/ProductList';
-import { ProductForm } from './components/store/ProductForm';
 import { BrandProductSelector } from './components/store/BrandProductSelector';
 import { Inventory } from './components/store/Inventory';
+import { QRScanner } from './components/store/QRScanner';
+import { POS } from './components/store/POS';
 import { CategoryManagement } from './components/store/CategoryManagement';
 import { ProductCatalog } from './components/brand/ProductCatalog';
 import { BrandProductForm } from './components/brand/BrandProductForm';
-import { StoreSearch } from './components/store/StoreSearch';
 import { AccountSettings } from './components/settings/AccountSettings';
 import { BuyerHome } from './components/buyer/BuyerHome';
 import { BrandModeration } from './components/admin/BrandModeration';
 import { AdminCategoryManagement } from './components/admin/AdminCategoryManagement';
 import { StoresList } from './components/distributor/StoresList';
 import { SalesRepsList } from './components/distributor/SalesRepsList';
-import { BrandsProducts } from './components/distributor/BrandsProducts';
 import { Analytics } from './components/distributor/Analytics';
 import { AIFAQ } from './components/distributor/AIFAQ';
 import { DemandForecast } from './components/distributor/DemandForecast';
@@ -160,6 +161,7 @@ export default function App() {
     if (upperRole.includes('ADMIN')) return 'admin';
     if (upperRole.includes('DISTRIBUTOR')) return 'distributor';
     if (upperRole.includes('BRAND')) return 'brand';
+    if (upperRole.includes('STORE_SELLER') || upperRole.includes('STORESELLER')) return 'storeSeller';
     if (upperRole.includes('STORE')) return 'store';
     if (upperRole.includes('SALES') || upperRole.includes('REP') || upperRole.includes('SALES_REP')) return 'salesRep';
     if (upperRole.includes('BUYER') || upperRole.includes('CLIENT')) return 'buyer';
@@ -320,6 +322,8 @@ export default function App() {
         navigate('/brand/catalog', { replace: true });
       } else if (role === 'salesRep') {
         navigate('/salesrep/home', { replace: true });
+      } else if (role === 'storeSeller') {
+        navigate('/store/qr-scanner', { replace: true });
       } else if (role === 'buyer') {
         navigate('/buyer', { replace: true });
       } else {
@@ -348,9 +352,13 @@ export default function App() {
       navigate('/register/salesrep');
       return;
     }
+    if (role === 'storeSeller') {
+      navigate('/register/store-seller');
+      return;
+    }
 
     // Для остальных ролей пока только сообщаем, что регистрация будет позже
-    toast.info('Регистрация этой роли появится позже. Сейчас доступны магазин, бренд, дистрибьютор и торговый представитель.');
+    toast.info('Регистрация этой роли появится позже. Сейчас доступны магазин, бренд, дистрибьютор, торговый представитель и продавец магазина.');
   };
 
   const handleStoreRegistration = async (profile: StoreProfile) => {
@@ -489,6 +497,7 @@ export default function App() {
       toast.error(errorMessage);
     }
   };
+
 
   const handleLogout = () => {
     setUser(null);
@@ -903,7 +912,8 @@ export default function App() {
       user?.role === 'distributor' ? '/distributor/stores' :
         user?.role === 'brand' ? '/brand/catalog' :
           user?.role === 'salesRep' ? '/salesrep/home' :
-            '/store/products';
+            user?.role === 'storeSeller' ? '/store/qr-scanner' :
+              '/store/products';
   const currentView = useMemo(() => {
     if (!user) return 'products';
     const path = location.pathname;
@@ -911,8 +921,8 @@ export default function App() {
     if (path.startsWith('/admin/categories')) return 'categories';
     if (path.startsWith('/store/products')) return 'products';
     if (path.startsWith('/store/inventory')) return 'inventory';
-    if (path.startsWith('/store/categories')) return 'categories';
-    if (path.startsWith('/store/search')) return 'search';
+    if (path.startsWith('/store/qr-scanner')) return 'qr-scanner';
+    if (path.startsWith('/store/pos')) return 'pos';
     if (path.startsWith('/store/settings')) return 'settings';
     if (path.startsWith('/brand/catalog')) return 'catalog';
     if (path.startsWith('/brand/distributors')) return 'distributors';
@@ -920,7 +930,6 @@ export default function App() {
     if (path.startsWith('/distributor/stores')) return 'stores';
     if (path.startsWith('/distributor/requests')) return 'requests';
     if (path.startsWith('/distributor/salesReps')) return 'salesReps';
-    if (path.startsWith('/distributor/brands')) return 'brands';
     if (path.startsWith('/distributor/analytics')) return 'analytics';
     if (path.startsWith('/distributor/aiFAQ')) return 'aiFAQ';
     if (path.startsWith('/distributor/forecast')) return 'forecast';
@@ -932,6 +941,8 @@ export default function App() {
     if (path.startsWith('/salesrep/productGroups')) return 'productGroups';
     if (path.startsWith('/salesrep/analytics')) return 'analytics';
     if (path.startsWith('/salesrep/inventory')) return 'inventory';
+    if (path.startsWith('/salesrep/expiring')) return 'expiring';
+    if (path.startsWith('/salesrep/poorly-selling')) return 'poorlySelling';
     if (path.startsWith('/salesrep/recommendations')) return 'recommendations';
     if (path.startsWith('/salesrep/plan')) return 'plan';
     if (path.startsWith('/salesrep/settings')) return 'settings';
@@ -951,7 +962,6 @@ export default function App() {
     if (user.role === 'distributor') {
       if (view === 'stores') navigate('/distributor/stores');
       if (view === 'salesReps') navigate('/distributor/salesReps');
-      if (view === 'brands') navigate('/distributor/brands');
       if (view === 'analytics') navigate('/distributor/analytics');
       if (view === 'aiFAQ') navigate('/distributor/aiFAQ');
       if (view === 'forecast') navigate('/distributor/forecast');
@@ -965,11 +975,11 @@ export default function App() {
       if (view === 'settings') navigate('/brand/settings');
       return;
     }
-    if (user.role === 'store') {
+    if (user.role === 'store' || user.role === 'storeSeller') {
       if (view === 'products') navigate('/store/products');
       if (view === 'inventory') navigate('/store/inventory');
-      if (view === 'categories') navigate('/store/categories');
-      if (view === 'search') navigate('/store/search');
+      if (view === 'qr-scanner') navigate('/store/qr-scanner');
+      if (view === 'pos') navigate('/store/pos');
       if (view === 'settings') navigate('/store/settings');
       return;
     }
@@ -981,6 +991,8 @@ export default function App() {
       if (view === 'productGroups') navigate('/salesrep/productGroups');
       if (view === 'analytics') navigate('/salesrep/analytics');
       if (view === 'inventory') navigate('/salesrep/inventory');
+      if (view === 'expiring') navigate('/salesrep/expiring');
+      if (view === 'poorlySelling') navigate('/salesrep/poorly-selling');
       if (view === 'recommendations') navigate('/salesrep/recommendations');
       if (view === 'plan') navigate('/salesrep/plan');
       if (view === 'settings') navigate('/salesrep/settings');
@@ -1026,27 +1038,85 @@ export default function App() {
             navigate('/login', { replace: true });
           }} onBack={() => navigate('/register/role')} />}
         />
+        <Route
+          path="/register/store-seller"
+          element={<StoreSellerRegistration onComplete={async () => {
+            // После регистрации токены уже сохранены, нужно восстановить сессию
+            const storedUserId = localStorage.getItem('userId');
+            const accessToken = localStorage.getItem('accessToken');
+            if (storedUserId && accessToken) {
+              try {
+                const userResponse = await api.get<ApiUser>(`/users/${storedUserId}`);
+                const role = mapApiRoleToUserRole(userResponse.data.role ?? 'STORE_SELLER');
+                setUser({
+                  id: userResponse.data.id,
+                  email: userResponse.data.email,
+                  role,
+                  profileComplete: true,
+                  firstName: userResponse.data.firstName,
+                  lastName: userResponse.data.lastName,
+                  storeId: userResponse.data.storeId,
+                  isActive: userResponse.data.isActive,
+                });
+                setUserId(userResponse.data.id);
+                if (userResponse.data.storeId) {
+                  setStoreId(userResponse.data.storeId);
+                  localStorage.setItem('storeId', userResponse.data.storeId);
+                  await api.get<ApiStore>(`/stores/${userResponse.data.storeId}`);
+                }
+                localStorage.setItem('userRole', role);
+                navigate('/store/products', { replace: true });
+              } catch (error) {
+                console.error('Ошибка восстановления сессии', error);
+                toast.success('Регистрация успешна! Войдите в систему.');
+                navigate('/login', { replace: true });
+              }
+            } else {
+              toast.success('Регистрация успешна! Войдите в систему.');
+              navigate('/login', { replace: true });
+            }
+          }} onBack={() => navigate('/register/role')} />}
+        />
         <Route path="/buyer" element={<BuyerHome />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
   }
 
-  const uiRole = user.role === 'admin' ? 'admin' : user.role === 'distributor' ? 'distributor' : user.role === 'brand' ? 'brand' : user.role === 'salesRep' ? 'salesRep' : 'store';
+  const uiRole = user.role === 'admin' ? 'admin' : user.role === 'distributor' ? 'distributor' : user.role === 'brand' ? 'brand' : user.role === 'salesRep' ? 'salesRep' : user.role === 'storeSeller' ? 'store' : 'store';
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Desktop Sidebar - Hidden on Mobile */}
+      {/* Desktop Sidebar - Hidden on Mobile, but show burger menu for salesRep */}
       {user.role !== 'admin' && (
-        <div className="hidden md:block">
-          <Sidebar role={uiRole as 'store' | 'brand' | 'distributor' | 'salesRep'} currentView={currentView} onNavigate={handleNavigate} />
-        </div>
+        <>
+          {/* Desktop Sidebar */}
+          <div className="hidden md:block">
+            <Sidebar
+              role={uiRole as 'store' | 'brand' | 'distributor' | 'salesRep'}
+              currentView={currentView}
+              onNavigate={handleNavigate}
+              userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
+            />
+          </div>
+          {/* Mobile Sidebar with Burger Menu - Only for salesRep */}
+          {user.role === 'salesRep' && (
+            <div className="md:hidden">
+              <Sidebar
+                role={uiRole as 'store' | 'brand' | 'distributor' | 'salesRep'}
+                currentView={currentView}
+                onNavigate={handleNavigate}
+                userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden w-full">
         <TopBar userEmail={user.email} role={uiRole} onLogout={handleLogout} />
 
-        <main className="flex-1 overflow-y-auto md:p-6">
+        <main className={`flex-1 overflow-y-auto ${user.role === 'salesRep' ? 'p-0 md:p-6' : 'md:p-6 pb-20 md:pb-6'}`}>
           <Routes>
             {user.role === 'admin' ? (
               <>
@@ -1060,49 +1130,51 @@ export default function App() {
                 />
                 <Route path="/admin/*" element={<Navigate to="/admin/brands" replace />} />
               </>
-            ) : user.role === 'store' ? (
+            ) : user.role === 'store' || user.role === 'storeSeller' ? (
               <>
-                <Route
-                  path="/store/products"
-                  element={
-                    <ProductList
-                      products={storeProducts}
-                      categories={categories}
-                      onCreateProduct={handleCreateProduct}
-                      onEditProduct={handleEditProduct}
+                {user.role === 'store' && (
+                  <>
+                    <Route
+                      path="/store/products"
+                      element={
+                        <ProductList
+                          products={storeProducts}
+                          categories={categories}
+                          onCreateProduct={handleCreateProduct}
+                        />
+                      }
                     />
-                  }
-                />
-                <Route
-                  path="/store/inventory"
-                  element={
-                    <Inventory
-                      products={storeProducts}
-                      categories={categories}
-                      onUpdateQuantity={handleUpdateQuantity}
+                    <Route
+                      path="/store/inventory"
+                      element={
+                        <Inventory
+                          products={storeProducts}
+                          categories={categories}
+                          onUpdateQuantity={handleUpdateQuantity}
+                        />
+                      }
                     />
-                  }
-                />
-                <Route
-                  path="/store/categories"
-                  element={
-                    <CategoryManagement
-                      categories={categories}
-                      onCreateCategory={handleCreateCategory}
-                      onEditCategory={handleEditCategory}
-                      onDeleteCategory={handleDeleteCategory}
-                      readOnly
+                  </>
+                )}
+                {user.role === 'storeSeller' && (
+                  <>
+                    <Route
+                      path="/store/qr-scanner"
+                      element={<QRScanner />}
                     />
-                  }
-                />
-                <Route path="/store/search" element={<StoreSearch storesCount={storesCount} />} />
+                    <Route
+                      path="/store/pos"
+                      element={<POS />}
+                    />
+                  </>
+                )}
                 <Route
                   path="/store/settings"
                   element={
                     <AccountSettings
                       userId={user.id}
                       storeId={storeId}
-                      role="store"
+                      role={user.role === 'storeSeller' ? 'storeSeller' : 'store'}
                       onUserUpdated={(updatedUser) => setUser(updatedUser)}
                       onUserDeleted={handleLogout}
                       onStoreDeleted={() => {
@@ -1113,13 +1185,20 @@ export default function App() {
                     />
                   }
                 />
-                <Route path="/store/*" element={<Navigate to="/store/products" replace />} />
+                <Route
+                  path="/store/*"
+                  element={
+                    <Navigate
+                      to={user.role === 'storeSeller' ? '/store/qr-scanner' : '/store/products'}
+                      replace
+                    />
+                  }
+                />
               </>
             ) : user.role === 'distributor' ? (
               <>
                 <Route path="/distributor/stores" element={<StoresList />} />
                 <Route path="/distributor/salesReps" element={<SalesRepsList />} />
-                <Route path="/distributor/brands" element={<BrandsProducts />} />
                 <Route path="/distributor/analytics" element={<Analytics />} />
                 <Route path="/distributor/aiFAQ" element={<AIFAQ />} />
                 <Route path="/distributor/forecast" element={<DemandForecast />} />
@@ -1169,13 +1248,13 @@ export default function App() {
             ) : user.role === 'salesRep' ? (
               <>
                 <Route path="/salesrep/home" element={<SalesRepHome />} />
-                <Route path="/salesrep/chat" element={<SalesRepChat />} />
                 <Route path="/salesrep/history" element={<SalesRepHistory />} />
                 <Route path="/salesrep/stores" element={<SalesRepStores />} />
                 <Route path="/salesrep/productGroups" element={<SalesRepProductGroups />} />
-                <Route path="/salesrep/analytics" element={<SalesRepAnalytics />} />
+                <Route path="/salesrep/analytics" element={<SalesRepSalesAnalytics />} />
                 <Route path="/salesrep/inventory" element={<SalesRepInventory />} />
-                <Route path="/salesrep/recommendations" element={<SalesRepAIRecommendations />} />
+                <Route path="/salesrep/expiring" element={<SalesRepExpiringProducts />} />
+                <Route path="/salesrep/poorly-selling" element={<SalesRepPoorlySellingProducts />} />
                 <Route path="/salesrep/plan" element={<SalesRepPlan />} />
                 <Route
                   path="/salesrep/settings"
@@ -1196,36 +1275,19 @@ export default function App() {
           </Routes>
         </main>
 
-        {/* Mobile Bottom Navigation */}
-        <MobileNav
-          role={uiRole}
-          currentView={currentView}
-          onNavigate={handleNavigate}
-          userEmail={user.email}
-          onLogout={handleLogout}
-        />
+        {/* Mobile Bottom Navigation - Hidden for salesRep (they have burger menu) */}
+        {user.role !== 'salesRep' && (
+          <MobileNav
+            role={uiRole}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+            userEmail={user.email}
+            onLogout={handleLogout}
+            userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
+          />
+        )}
       </div>
 
-      {/* Product Form Modal */}
-      {showProductForm && user.role === 'store' && (
-        <ProductForm
-          product={editingProduct || undefined}
-          categories={categories}
-          onSave={handleSaveProduct}
-          onDelete={async () => {
-            if (!editingProduct) return;
-            const deleted = await handleDeleteProduct(editingProduct.id, editingProduct.offerId);
-            if (deleted) {
-              setShowProductForm(false);
-              setEditingProduct(null);
-            }
-          }}
-          onCancel={() => {
-            setShowProductForm(false);
-            setEditingProduct(null);
-          }}
-        />
-      )}
 
       {showProductForm && user.role === 'brand' && (
         <BrandProductForm

@@ -167,10 +167,15 @@
     line-height: 1.5;
   }
 
-  button {
+  button:not(:disabled) {
     font-size: var(--text-base);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
+    cursor: pointer;
+  }
+  
+  button:disabled {
+    cursor: not-allowed;
   }
 
   input {

@@ -45,11 +45,11 @@ export function SalesRepStores() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Store className="w-6 h-6" />
+          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+            <Store className="w-5 h-5 md:w-6 md:h-6" />
             Магазины
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -58,7 +58,7 @@ export function SalesRepStores() {
         </div>
         <button
           onClick={loadStores}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
+          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
         >
           Обновить
         </button>
@@ -70,7 +70,7 @@ export function SalesRepStores() {
           <p className="text-muted-foreground">Нет закрепленных магазинов</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {stores.map((store) => (
             <div
               key={store.id}
@@ -122,8 +122,8 @@ export function SalesRepStores() {
 
       {/* Модальное окно с деталями магазина */}
       {selectedStore && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 md:p-6">
+          <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-border flex items-center justify-between">
               <h2 className="text-xl font-semibold">{selectedStore.name}</h2>
               <button

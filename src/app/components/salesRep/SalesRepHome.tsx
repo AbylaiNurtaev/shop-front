@@ -43,17 +43,17 @@ export function SalesRepHome() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Закрепленные магазины</h1>
+          <h1 className="text-xl md:text-2xl font-semibold">Закрепленные магазины</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Всего магазинов: {stores.length}
           </p>
         </div>
         <button
           onClick={loadStores}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
+          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
         >
           Обновить
         </button>
@@ -68,7 +68,7 @@ export function SalesRepHome() {
           </p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {stores.map((store) => (
             <div
               key={store.id}

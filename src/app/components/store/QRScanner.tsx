@@ -1,0 +1,449 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { QrCode, Search, Plus, Package, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import api from '../../api/axios';
+import { toast } from 'sonner';
+
+interface ProductInfo {
+  id: string;
+  name: string;
+  sku: string;
+  brandName?: string;
+  categoryId?: string;
+}
+
+interface OfferInfo {
+  id: string;
+  quantity: number;
+  price: number;
+  currency: string;
+}
+
+interface BarcodeResponse {
+  product: ProductInfo;
+  offer: OfferInfo | null;
+}
+
+export function QRScanner() {
+  const [barcode, setBarcode] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [product, setProduct] = useState<BarcodeResponse | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [lastAdded, setLastAdded] = useState<{ barcode: string; quantity: number } | null>(null);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+
+  // Автофокус на поле ввода штрих-кода
+  useEffect(() => {
+    barcodeInputRef.current?.focus();
+  }, []);
+
+  // Автоматический поиск при вводе штрих-кода
+  useEffect(() => {
+    if (barcode.trim().length > 0) {
+      const timeoutId = setTimeout(() => {
+        handleSearch();
+      }, 500); // Задержка 500мс для предотвращения лишних запросов
+
+      return () => clearTimeout(timeoutId);
+    } else {
+      setProduct(null);
+    }
+  }, [barcode]);
+
+  const handleSearch = async () => {
+    if (!barcode.trim()) {
+      toast.error('Введите штрих-код');
+      return;
+    }
+
+    setIsSearching(true);
+    setProduct(null);
+    setLastAdded(null);
+
+    try {
+      const response = await api.get<BarcodeResponse>(`/warehouse/barcode/${barcode.trim()}`);
+      setProduct(response.data);
+      setQuantity(1);
+    } catch (error: any) {
+      console.error('Ошибка поиска товара', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Товар не найден';
+      toast.error(errorMessage);
+      setProduct(null);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleQuickAdd = async () => {
+    if (!barcode.trim()) {
+      toast.error('Введите штрих-код');
+      return;
+    }
+
+    if (!quantity || quantity <= 0) {
+      toast.error('Введите количество больше 0');
+      return;
+    }
+
+    setIsAdding(true);
+
+    try {
+      const response = await api.post<{
+        message: string;
+        product: ProductInfo;
+        offer: OfferInfo;
+      }>('/warehouse/barcode/quick-add', {
+        barcode: barcode.trim(),
+        quantity: quantity,
+      });
+
+      toast.success(`Товар добавлен! Текущее количество: ${response.data.offer.quantity}`);
+      setLastAdded({ barcode: barcode.trim(), quantity: quantity });
+      
+      // Обновляем информацию о товаре
+      const searchResponse = await api.get<BarcodeResponse>(`/warehouse/barcode/${barcode.trim()}`);
+      setProduct(searchResponse.data);
+      
+      // Очищаем поле ввода для следующего сканирования
+      setBarcode('');
+      setQuantity(1);
+      barcodeInputRef.current?.focus();
+    } catch (error: any) {
+      console.error('Ошибка добавления товара', error);
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Не удалось добавить товар';
+      toast.error(errorMessage);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      if (product && !isAdding) {
+        handleQuickAdd();
+      } else if (!isSearching) {
+        handleSearch();
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-muted/30 p-4">
+      {/* Mobile Layout */}
+      <div className="md:hidden">
+        {/* Header */}
+        <div className="bg-card border border-border rounded-lg shadow-sm p-6 mb-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+              <QrCode className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold">Приход товара</h1>
+              <p className="text-sm text-muted-foreground">Сканирование и быстрый приход товара</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Barcode Input */}
+        <div className="bg-card border border-border rounded-lg shadow-sm p-4 mb-4">
+          <label className="block text-sm font-medium mb-2">
+            Штрих-код (SKU)
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              ref={barcodeInputRef}
+              type="text"
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Введите или отсканируйте штрих-код"
+              className="w-full pl-10 pr-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base"
+              disabled={isSearching || isAdding}
+            />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Product Info */}
+        {product && (
+          <div className="bg-card border border-border rounded-lg shadow-sm p-4 mb-4">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Package className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-lg mb-1">{product.product.name}</h3>
+                <p className="text-sm text-muted-foreground font-mono mb-2">SKU: {product.product.sku}</p>
+                {product.product.brandName && (
+                  <p className="text-sm text-muted-foreground">Бренд: {product.product.brandName}</p>
+                )}
+              </div>
+            </div>
+
+            {product.offer ? (
+              <div className="bg-muted rounded-lg p-3 mb-4">
+                <p className="text-xs text-muted-foreground mb-1">Текущий остаток</p>
+                <p className="text-2xl font-bold">{product.offer.quantity} <span className="text-sm text-muted-foreground">шт</span></p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Цена: {product.offer.price} {product.offer.currency}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-yellow-800">Товар не найден на складе. Будет создан новый оффер.</p>
+              </div>
+            )}
+
+            {/* Quantity Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">
+                Количество для добавления
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  disabled={isAdding}
+                  className="w-12 h-12 flex items-center justify-center bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  <span className="text-xl font-bold">−</span>
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="flex-1 h-12 text-center text-xl font-bold bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                  disabled={isAdding}
+                />
+                <button
+                  type="button"
+                  onClick={() => setQuantity(quantity + 1)}
+                  disabled={isAdding}
+                  className="w-12 h-12 flex items-center justify-center bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  <span className="text-xl font-bold">+</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Add Button */}
+            <button
+              onClick={handleQuickAdd}
+              disabled={isAdding || quantity <= 0}
+              className="w-full h-12 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isAdding ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Добавление...</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5" />
+                  <span>Добавить на склад</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {lastAdded && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="font-semibold text-green-900">Товар успешно добавлен!</p>
+                <p className="text-sm text-green-700">
+                  SKU: {lastAdded.barcode}, Количество: +{lastAdded.quantity}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!product && !isSearching && barcode.trim() === '' && (
+          <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center">
+            <QrCode className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Введите или отсканируйте штрих-код товара</p>
+          </div>
+        )}
+
+        {/* Not Found State */}
+        {!product && !isSearching && barcode.trim() !== '' && (
+          <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center">
+            <XCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+            <p className="text-muted-foreground mb-2">Товар не найден</p>
+            <p className="text-sm text-muted-foreground">Проверьте правильность штрих-кода</p>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden md:block max-w-4xl mx-auto">
+        <div className="bg-card border border-border rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+              <QrCode className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold">Приход товара</h1>
+              <p className="text-sm text-muted-foreground">Сканирование и быстрый приход товара</p>
+            </div>
+          </div>
+
+          {/* Barcode Input */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-2">
+              Штрих-код (SKU)
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <input
+                ref={barcodeInputRef}
+                type="text"
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Введите или отсканируйте штрих-код"
+                className="w-full pl-10 pr-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={isSearching || isAdding}
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Product Info and Actions */}
+          {product && (
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Product Info */}
+              <div className="bg-muted rounded-lg p-4">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Package className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg mb-1">{product.product.name}</h3>
+                    <p className="text-sm text-muted-foreground font-mono mb-2">SKU: {product.product.sku}</p>
+                    {product.product.brandName && (
+                      <p className="text-sm text-muted-foreground">Бренд: {product.product.brandName}</p>
+                    )}
+                  </div>
+                </div>
+
+                {product.offer ? (
+                  <div className="bg-background rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground mb-1">Текущий остаток</p>
+                    <p className="text-2xl font-bold">{product.offer.quantity} <span className="text-sm text-muted-foreground">шт</span></p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Цена: {product.offer.price} {product.offer.currency}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800">Товар не найден на складе. Будет создан новый оффер.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Quantity and Add */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Количество для добавления
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={isAdding}
+                      className="w-12 h-12 flex items-center justify-center bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+                    >
+                      <span className="text-xl font-bold">−</span>
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="flex-1 h-12 text-center text-xl font-bold bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                      disabled={isAdding}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(quantity + 1)}
+                      disabled={isAdding}
+                      className="w-12 h-12 flex items-center justify-center bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+                    >
+                      <span className="text-xl font-bold">+</span>
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleQuickAdd}
+                  disabled={isAdding || quantity <= 0}
+                  className="w-full h-12 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isAdding ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Добавление...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      <span>Добавить на склад</span>
+                    </>
+                  )}
+                </button>
+
+                {lastAdded && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      <div>
+                        <p className="font-semibold text-green-900 text-sm">Товар успешно добавлен!</p>
+                        <p className="text-xs text-green-700">
+                          SKU: {lastAdded.barcode}, Количество: +{lastAdded.quantity}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!product && !isSearching && barcode.trim() === '' && (
+            <div className="bg-muted rounded-lg p-12 text-center">
+              <QrCode className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Введите или отсканируйте штрих-код товара</p>
+            </div>
+          )}
+
+          {/* Not Found State */}
+          {!product && !isSearching && barcode.trim() !== '' && (
+            <div className="bg-muted rounded-lg p-12 text-center">
+              <XCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
+              <p className="text-muted-foreground mb-2">Товар не найден</p>
+              <p className="text-sm text-muted-foreground">Проверьте правильность штрих-кода</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

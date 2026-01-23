@@ -1,12 +1,260 @@
-import React from 'react';
-import { BarChart3, Store, Package, TrendingUp, Users } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BarChart3, Store, Package, TrendingUp, Users, Loader2 } from 'lucide-react';
+import api from '../../api/axios';
+import { toast } from 'sonner';
+
+interface SummaryStats {
+  storesCount: number;
+  salesRepresentativesCount: number;
+  totalProducts: number;
+}
+
+interface StockItem {
+  offerId: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  brandName: string;
+  quantity: number;
+  price: number;
+  currency: string;
+  value: number;
+  isAvailable: boolean;
+}
+
+interface StockByStore {
+  storeId: string;
+  storeName: string;
+  storeAddress: string;
+  items: StockItem[];
+  totalItems: number;
+  totalQuantity: number;
+  totalValue: number;
+}
+
+interface TurnoverStoreItem {
+  storeId: string;
+  storeName: string;
+  storeAddress: string;
+  totalRevenue: number;
+  totalSales: number;
+  totalQuantity: number;
+}
+
+interface TurnoverBrandItem {
+  brandId: string;
+  brandName: string;
+  totalRevenue: number;
+  totalSales: number;
+  totalQuantity: number;
+}
+
+interface TurnoverProductItem {
+  productId: string;
+  productName: string;
+  sku: string;
+  brandName: string;
+  totalRevenue: number;
+  totalSales: number;
+  totalQuantity: number;
+}
+
+interface TurnoverData {
+  type: 'store' | 'brand' | 'product';
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  items: TurnoverStoreItem[] | TurnoverBrandItem[] | TurnoverProductItem[];
+  total: number;
+  summary: {
+    totalRevenue: number;
+    totalSales: number;
+    totalQuantity: number;
+  };
+}
+
+interface SalesRepPlan {
+  id: string;
+  targetAmount: number;
+  targetQuantity: number;
+  period: string;
+}
+
+interface SalesRepKPI {
+  salesRepresentativeId: string;
+  salesRepresentativeName: string;
+  email: string;
+  storesCount: number;
+  totalRevenue: number;
+  totalSales: number;
+  totalQuantity: number;
+  plan: SalesRepPlan | null;
+  planCompletionPercent: number | null;
+}
+
+interface KPIData {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  items: SalesRepKPI[];
+  total: number;
+}
 
 export function Analytics() {
-  // TODO: Заменить на реальные данные из API
-  const stats = {
-    storesCount: 0,
-    salesRepsCount: 0,
-    totalProducts: 0,
+  const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+
+  const [stockData, setStockData] = useState<StockByStore[]>([]);
+  const [isLoadingStock, setIsLoadingStock] = useState(false);
+
+  const [turnoverData, setTurnoverData] = useState<TurnoverData | null>(null);
+  const [isLoadingTurnover, setIsLoadingTurnover] = useState(false);
+  const [turnoverType, setTurnoverType] = useState<'store' | 'brand' | 'product'>('store');
+  const [turnoverStartDate, setTurnoverStartDate] = useState<string>('');
+  const [turnoverEndDate, setTurnoverEndDate] = useState<string>('');
+
+  const [kpiData, setKpiData] = useState<KPIData | null>(null);
+  const [isLoadingKPI, setIsLoadingKPI] = useState(false);
+  const [kpiPeriod, setKpiPeriod] = useState<'month' | 'quarter' | 'year' | 'custom'>('month');
+  const [kpiStartDate, setKpiStartDate] = useState<string>('');
+  const [kpiEndDate, setKpiEndDate] = useState<string>('');
+
+  useEffect(() => {
+    loadSummary();
+    loadStockByStores();
+    loadTurnover();
+    loadKPI();
+  }, []);
+
+  // Устанавливаем даты по умолчанию для периода
+  useEffect(() => {
+    if (kpiPeriod === 'month') {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      setKpiStartDate(firstDay.toISOString().split('T')[0]);
+      setKpiEndDate(now.toISOString().split('T')[0]);
+    } else if (kpiPeriod === 'quarter') {
+      const now = new Date();
+      const quarter = Math.floor(now.getMonth() / 3);
+      const firstDay = new Date(now.getFullYear(), quarter * 3, 1);
+      setKpiStartDate(firstDay.toISOString().split('T')[0]);
+      setKpiEndDate(now.toISOString().split('T')[0]);
+    } else if (kpiPeriod === 'year') {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), 0, 1);
+      setKpiStartDate(firstDay.toISOString().split('T')[0]);
+      setKpiEndDate(now.toISOString().split('T')[0]);
+    }
+  }, [kpiPeriod]);
+
+  const loadSummary = async () => {
+    setIsLoadingSummary(true);
+    try {
+      const response = await api.get<SummaryStats>('/distributors/me/analytics/summary');
+      setSummaryStats(response.data);
+    } catch (error: any) {
+      console.error('Ошибка загрузки статистики', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить статистику';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  const loadStockByStores = async () => {
+    setIsLoadingStock(true);
+    try {
+      const response = await api.get<{ items?: StockByStore[]; total?: number }>('/distributors/me/analytics/stock-by-stores');
+      const items = response.data?.items || [];
+      setStockData(Array.isArray(items) ? items : []);
+    } catch (error: any) {
+      console.error('Ошибка загрузки остатков', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить остатки по магазинам';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoadingStock(false);
+    }
+  };
+
+  const loadTurnover = async () => {
+    setIsLoadingTurnover(true);
+    try {
+      const params: Record<string, string> = {
+        type: turnoverType,
+      };
+      if (turnoverStartDate) {
+        const start = new Date(turnoverStartDate);
+        start.setHours(0, 0, 0, 0);
+        params.startDate = start.toISOString();
+      }
+      if (turnoverEndDate) {
+        const end = new Date(turnoverEndDate);
+        end.setHours(23, 59, 59, 999);
+        params.endDate = end.toISOString();
+      }
+      const response = await api.get<TurnoverData>('/distributors/me/analytics/turnover', { params });
+      setTurnoverData(response.data);
+    } catch (error: any) {
+      console.error('Ошибка загрузки оборота', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить данные оборота';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoadingTurnover(false);
+    }
+  };
+
+  const loadKPI = async () => {
+    setIsLoadingKPI(true);
+    try {
+      const params: Record<string, string> = {};
+      if (kpiPeriod === 'custom') {
+        if (kpiStartDate) {
+          const start = new Date(kpiStartDate);
+          start.setHours(0, 0, 0, 0);
+          params.startDate = start.toISOString();
+        }
+        if (kpiEndDate) {
+          const end = new Date(kpiEndDate);
+          end.setHours(23, 59, 59, 999);
+          params.endDate = end.toISOString();
+        }
+      } else {
+        params.period = kpiPeriod;
+      }
+      const response = await api.get<KPIData>('/distributors/me/analytics/sales-rep-kpi', { params });
+      setKpiData(response.data);
+    } catch (error: any) {
+      console.error('Ошибка загрузки KPI', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить KPI торговых представителей';
+      toast.error(errorMessage);
+    } finally {
+      setIsLoadingKPI(false);
+    }
+  };
+
+  const formatCurrency = (amount: number, currency: string = 'KZT') => {
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const getItemName = (item: TurnoverStoreItem | TurnoverBrandItem | TurnoverProductItem): string => {
+    if ('storeName' in item) return (item as TurnoverStoreItem).storeName;
+    if ('brandName' in item && !('productName' in item)) return (item as TurnoverBrandItem).brandName;
+    if ('productName' in item) return (item as TurnoverProductItem).productName;
+    return '';
+  };
+
+  const getItemId = (item: TurnoverStoreItem | TurnoverBrandItem | TurnoverProductItem): string => {
+    if ('storeId' in item) return (item as TurnoverStoreItem).storeId;
+    if ('brandId' in item) return (item as TurnoverBrandItem).brandId;
+    if ('productId' in item) return (item as TurnoverProductItem).productId;
+    return '';
   };
 
   return (
@@ -20,7 +268,11 @@ export function Analytics() {
             <Store className="w-6 h-6 text-primary" />
             <h3 className="font-semibold">Количество магазинов</h3>
           </div>
-          <p className="text-3xl font-bold">{stats.storesCount}</p>
+          {isLoadingSummary ? (
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          ) : (
+            <p className="text-3xl font-bold">{summaryStats?.storesCount ?? 0}</p>
+          )}
         </div>
 
         <div className="bg-card border border-border rounded-lg p-4">
@@ -28,7 +280,11 @@ export function Analytics() {
             <Users className="w-6 h-6 text-primary" />
             <h3 className="font-semibold">Торговые представители</h3>
           </div>
-          <p className="text-3xl font-bold">{stats.salesRepsCount}</p>
+          {isLoadingSummary ? (
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          ) : (
+            <p className="text-3xl font-bold">{summaryStats?.salesRepresentativesCount ?? 0}</p>
+          )}
         </div>
 
         <div className="bg-card border border-border rounded-lg p-4">
@@ -36,59 +292,292 @@ export function Analytics() {
             <Package className="w-6 h-6 text-primary" />
             <h3 className="font-semibold">Всего товаров</h3>
           </div>
-          <p className="text-3xl font-bold">{stats.totalProducts}</p>
+          {isLoadingSummary ? (
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          ) : (
+            <p className="text-3xl font-bold">{summaryStats?.totalProducts ?? 0}</p>
+          )}
         </div>
       </div>
 
-      {/* Разделы аналитики */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
-            Остатки по магазинам
-          </h3>
-          <p className="text-sm text-muted-foreground">Детальная информация об остатках товаров в каждом магазине</p>
-          <button className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity text-sm">
-            Просмотреть
-          </button>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5" />
-            Оборот
-          </h3>
-          <div className="space-y-2 text-sm">
-            <p className="text-muted-foreground">• По магазину</p>
-            <p className="text-muted-foreground">• По бренду</p>
-            <p className="text-muted-foreground">• По товару</p>
+      {/* Остатки по магазинам */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+          <BarChart3 className="w-5 h-5" />
+          Остатки по магазинам
+        </h3>
+        {isLoadingStock ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-          <button className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity text-sm">
-            Просмотреть
-          </button>
-        </div>
+        ) : stockData.length === 0 ? (
+          <p className="text-center text-muted-foreground py-12">Нет данных об остатках</p>
+        ) : (
+          <div className="space-y-6">
+            {stockData.map((store) => (
+              <div key={store.storeId} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h4 className="font-semibold text-lg">{store.storeName}</h4>
+                    <p className="text-sm text-muted-foreground">{store.storeAddress}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Позиций: {store.totalItems}</p>
+                    <p className="text-sm text-muted-foreground">Всего товаров: {store.totalQuantity}</p>
+                    <p className="text-lg font-semibold">Стоимость: {formatCurrency(store.totalValue)}</p>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Товар</th>
+                        <th className="text-left p-2">Бренд</th>
+                        <th className="text-left p-2">Артикул</th>
+                        <th className="text-right p-2">Количество</th>
+                        <th className="text-right p-2">Цена</th>
+                        <th className="text-right p-2">Стоимость</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {store.items && Array.isArray(store.items) ? (
+                        store.items.map((item) => (
+                          <tr key={item.offerId} className="border-b">
+                            <td className="p-2">{item.productName}</td>
+                            <td className="p-2">{item.brandName}</td>
+                            <td className="p-2">{item.sku}</td>
+                            <td className="text-right p-2">{item.quantity}</td>
+                            <td className="text-right p-2">{formatCurrency(item.price, item.currency)}</td>
+                            <td className="text-right p-2 font-semibold">{formatCurrency(item.value, item.currency)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="p-2 text-center text-muted-foreground">Нет товаров</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            KPI торговых представителей
-          </h3>
-          <p className="text-sm text-muted-foreground">Показатели эффективности работы торговых представителей</p>
-          <button className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity text-sm">
-            Просмотреть
-          </button>
+      {/* Оборот */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5" />
+          Оборот
+        </h3>
+        <div className="mb-4 space-y-4">
+          <div className="grid md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Тип</label>
+              <select
+                value={turnoverType}
+                onChange={(e) => {
+                  setTurnoverType(e.target.value as 'store' | 'brand' | 'product');
+                }}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="store">По магазину</option>
+                <option value="brand">По бренду</option>
+                <option value="product">По товару</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Дата начала</label>
+              <input
+                type="date"
+                value={turnoverStartDate}
+                onChange={(e) => setTurnoverStartDate(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Дата окончания</label>
+              <input
+                type="date"
+                value={turnoverEndDate}
+                onChange={(e) => setTurnoverEndDate(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={loadTurnover}
+                disabled={isLoadingTurnover}
+                className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {isLoadingTurnover ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Применить'}
+              </button>
+            </div>
+          </div>
         </div>
+        {isLoadingTurnover ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : !turnoverData ? (
+          <p className="text-center text-muted-foreground py-12">Нет данных об обороте</p>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="border rounded-lg p-4">
+                <p className="text-sm text-muted-foreground mb-1">Выручка</p>
+                <p className="text-2xl font-bold">{formatCurrency(turnoverData.summary.totalRevenue)}</p>
+              </div>
+              <div className="border rounded-lg p-4">
+                <p className="text-sm text-muted-foreground mb-1">Количество продаж</p>
+                <p className="text-2xl font-bold">{turnoverData.summary.totalSales}</p>
+              </div>
+              <div className="border rounded-lg p-4">
+                <p className="text-sm text-muted-foreground mb-1">Количество товаров</p>
+                <p className="text-2xl font-bold">{turnoverData.summary.totalQuantity}</p>
+              </div>
+            </div>
+            {turnoverData.items && Array.isArray(turnoverData.items) && turnoverData.items.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2">Название</th>
+                      {turnoverType === 'product' && <th className="text-left p-2">Бренд</th>}
+                      {turnoverType === 'product' && <th className="text-left p-2">Артикул</th>}
+                      {turnoverType === 'store' && <th className="text-left p-2">Адрес</th>}
+                      <th className="text-right p-2">Выручка</th>
+                      <th className="text-right p-2">Продажи</th>
+                      <th className="text-right p-2">Товары</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {turnoverData.items.map((item) => (
+                      <tr key={getItemId(item)} className="border-b">
+                        <td className="p-2">{getItemName(item)}</td>
+                        {turnoverType === 'product' && 'brandName' in item && (
+                          <>
+                            <td className="p-2">{item.brandName}</td>
+                            <td className="p-2">{item.sku}</td>
+                          </>
+                        )}
+                        {turnoverType === 'store' && 'storeAddress' in item && (
+                          <td className="p-2">{item.storeAddress}</td>
+                        )}
+                        <td className="text-right p-2 font-semibold">{formatCurrency(item.totalRevenue)}</td>
+                        <td className="text-right p-2">{item.totalSales}</td>
+                        <td className="text-right p-2">{item.totalQuantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-            <Store className="w-5 h-5" />
-            Закрепление ТП за магазинами
-          </h3>
-          <p className="text-sm text-muted-foreground">Управление привязкой торговых представителей к магазинам</p>
-          <button className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity text-sm">
-            Настроить
-          </button>
+      {/* KPI торговых представителей */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          KPI торговых представителей
+        </h3>
+        <div className="mb-4 space-y-4">
+          <div className="grid md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Период</label>
+              <select
+                value={kpiPeriod}
+                onChange={(e) => {
+                  setKpiPeriod(e.target.value as 'month' | 'quarter' | 'year' | 'custom');
+                }}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="month">Месяц</option>
+                <option value="quarter">Квартал</option>
+                <option value="year">Год</option>
+                <option value="custom">Произвольный период</option>
+              </select>
+            </div>
+            {kpiPeriod === 'custom' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Дата начала</label>
+                  <input
+                    type="date"
+                    value={kpiStartDate}
+                    onChange={(e) => setKpiStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Дата окончания</label>
+                  <input
+                    type="date"
+                    value={kpiEndDate}
+                    onChange={(e) => setKpiEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+              </>
+            )}
+            <div className="flex items-end">
+              <button
+                onClick={loadKPI}
+                disabled={isLoadingKPI}
+                className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {isLoadingKPI ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Применить'}
+              </button>
+            </div>
+          </div>
         </div>
+        {isLoadingKPI ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : !kpiData || kpiData.items.length === 0 ? (
+          <p className="text-center text-muted-foreground py-12">Нет данных о KPI</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Торговый представитель</th>
+                  <th className="text-left p-2">Email</th>
+                  <th className="text-right p-2">Выручка</th>
+                  <th className="text-right p-2">Продажи</th>
+                  <th className="text-right p-2">Товары продано</th>
+                  <th className="text-right p-2">Магазинов</th>
+                  {kpiData.items.some(item => item.planCompletionPercent !== undefined && item.planCompletionPercent !== null) && (
+                    <th className="text-right p-2">Выполнение плана</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {kpiData.items.map((rep) => (
+                  <tr key={rep.salesRepresentativeId} className="border-b">
+                    <td className="p-2 font-medium">{rep.salesRepresentativeName}</td>
+                    <td className="p-2 text-muted-foreground">{rep.email}</td>
+                    <td className="text-right p-2 font-semibold">{formatCurrency(rep.totalRevenue)}</td>
+                    <td className="text-right p-2">{rep.totalSales}</td>
+                    <td className="text-right p-2">{rep.totalQuantity}</td>
+                    <td className="text-right p-2">{rep.storesCount}</td>
+                    {rep.planCompletionPercent !== undefined && rep.planCompletionPercent !== null && (
+                      <td className="text-right p-2">
+                        <span className={`font-semibold ${rep.planCompletionPercent >= 100 ? 'text-green-600' : 'text-orange-600'}`}>
+                          {rep.planCompletionPercent.toFixed(1)}%
+                        </span>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

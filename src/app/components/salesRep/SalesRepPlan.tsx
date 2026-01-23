@@ -1,88 +1,66 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Package, Building2, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import { Calendar, Package, Target, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 
 interface PlanItem {
   id: string;
-  type: 'product' | 'brand';
-  name: string;
+  salesRepresentativeId: string;
+  distributorId: string;
+  targetAmount: number;
+  targetQuantity: number;
+  period: string;
   description?: string;
-  target?: string;
-  progress?: number;
-  status: 'pending' | 'in-progress' | 'completed' | 'overdue';
-  dueDate?: string;
-  storeName?: string;
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function SalesRepPlan() {
   const [plans, setPlans] = useState<PlanItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('all');
 
   useEffect(() => {
     loadPlans();
-  }, [filter]);
+  }, []);
 
   const loadPlans = async () => {
     setIsLoading(true);
     try {
-      const params = filter !== 'all' ? { status: filter } : {};
-      const response = await api.get<{ items: PlanItem[] }>('/sales-reps/plans', { params });
+      const response = await api.get<{ items: PlanItem[]; total?: number }>('/plans/me');
       setPlans(response.data?.items || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка загрузки планов', error);
-      toast.error('Не удалось загрузить планы');
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить планы';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const updatePlanStatus = async (id: string, status: PlanItem['status']) => {
-    try {
-      await api.patch(`/sales-reps/plans/${id}`, { status });
-      setPlans((prev) => prev.map((plan) => (plan.id === id ? { ...plan, status } : plan)));
-      toast.success('Статус обновлен');
-    } catch (error) {
-      console.error('Ошибка обновления статуса', error);
-      toast.error('Не удалось обновить статус');
-    }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'currency',
+      currency: 'KZT',
+      minimumFractionDigits: 0,
+    }).format(amount);
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return CheckCircle2;
-      case 'in-progress':
-        return Clock;
-      case 'overdue':
-        return Clock;
-      default:
-        return Calendar;
+  const formatPeriod = (period: string) => {
+    // Формат может быть "2024-01", "2024-Q1", "2024"
+    if (period.match(/^\d{4}-\d{2}$/)) {
+      // Месяц: "2024-01"
+      const [year, month] = period.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+      return date.toLocaleDateString('ru-RU', { year: 'numeric', month: 'long' });
+    } else if (period.match(/^\d{4}-Q\d$/)) {
+      // Квартал: "2024-Q1"
+      return period.replace('-Q', ' Q');
+    } else {
+      // Год: "2024"
+      return period;
     }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-700 border-green-200';
-      case 'in-progress':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'overdue':
-        return 'bg-red-100 text-red-700 border-red-200';
-      default:
-        return 'bg-muted text-muted-foreground border-border';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      pending: 'Ожидает',
-      'in-progress': 'В работе',
-      completed: 'Завершено',
-      overdue: 'Просрочено',
-    };
-    return labels[status] || status;
   };
 
   if (isLoading) {
@@ -94,133 +72,88 @@ export function SalesRepPlan() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Calendar className="w-6 h-6" />
-            План по товарам / брендам
+          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+            <Calendar className="w-5 h-5 md:w-6 md:h-6" />
+            Планы продаж
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Всего задач: {plans.length}
+            Всего планов: {plans.length}
           </p>
         </div>
-        <div className="flex gap-2">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-          >
-            <option value="all">Все статусы</option>
-            <option value="pending">Ожидает</option>
-            <option value="in-progress">В работе</option>
-            <option value="completed">Завершено</option>
-            <option value="overdue">Просрочено</option>
-          </select>
-          <button
-            onClick={loadPlans}
-            className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
-          >
-            Обновить
-          </button>
-        </div>
+        <button
+          onClick={loadPlans}
+          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
+        >
+          Обновить
+        </button>
       </div>
 
       {plans.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">Нет планов</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Планы будут отображаться здесь после их назначения дистрибьютором
+          </p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-4">
-          {plans.map((plan) => {
-            const StatusIcon = getStatusIcon(plan.status);
-            return (
-              <div
-                key={plan.id}
-                className={`bg-card border-2 rounded-lg p-4 ${getStatusColor(plan.status)}`}
-              >
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    {plan.type === 'product' ? (
-                      <Package className="w-5 h-5 text-primary" />
-                    ) : (
-                      <Building2 className="w-5 h-5 text-primary" />
-                    )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+          {plans.map((plan) => (
+            <div
+              key={plan.id}
+              className="bg-card border border-border rounded-lg p-4 space-y-3"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    <span className="font-semibold text-lg">{formatPeriod(plan.period)}</span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-1">
-                      <h3 className="font-semibold text-lg">{plan.name}</h3>
-                      <span className="text-xs px-2 py-1 rounded bg-white/50">
-                        {plan.type === 'product' ? 'Товар' : 'Бренд'}
-                      </span>
-                    </div>
-                    {plan.description && (
-                      <p className="text-sm opacity-90 mb-2">{plan.description}</p>
-                    )}
-                    {plan.storeName && (
-                      <p className="text-xs opacity-75 mb-1">
-                        Магазин: <span className="font-medium">{plan.storeName}</span>
-                      </p>
-                    )}
-                    {plan.target && (
-                      <p className="text-xs opacity-75 mb-1">
-                        Цель: <span className="font-medium">{plan.target}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {plan.progress !== undefined && (
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span>Прогресс</span>
-                      <span>{plan.progress}%</span>
-                    </div>
-                    <div className="w-full bg-white/50 rounded-full h-2">
-                      <div
-                        className="bg-primary rounded-full h-2 transition-all"
-                        style={{ width: `${plan.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-3 border-t border-current/20">
-                  <div className="flex items-center gap-2">
-                    <StatusIcon className="w-4 h-4" />
-                    <span className="text-xs font-medium">{getStatusLabel(plan.status)}</span>
-                  </div>
-                  {plan.dueDate && (
-                    <div className="text-xs opacity-75">
-                      {new Date(plan.dueDate).toLocaleDateString('ru-RU')}
-                    </div>
+                  {plan.description && (
+                    <p className="text-sm text-muted-foreground mb-2">{plan.description}</p>
                   )}
                 </div>
+              </div>
 
-                {plan.status !== 'completed' && (
-                  <div className="mt-3 flex gap-2">
-                    {plan.status === 'pending' && (
-                      <button
-                        onClick={() => updatePlanStatus(plan.id, 'in-progress')}
-                        className="flex-1 px-3 py-1.5 bg-white/50 rounded text-xs font-medium hover:bg-white/70 transition-colors"
-                      >
-                        Начать
-                      </button>
-                    )}
-                    {plan.status === 'in-progress' && (
-                      <button
-                        onClick={() => updatePlanStatus(plan.id, 'completed')}
-                        className="flex-1 px-3 py-1.5 bg-white/50 rounded text-xs font-medium hover:bg-white/70 transition-colors"
-                      >
-                        Завершить
-                      </button>
-                    )}
+              <div className="space-y-2 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">План по сумме:</span>
                   </div>
+                  <span className="font-semibold">{formatCurrency(plan.targetAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">План по количеству:</span>
+                  </div>
+                  <span className="font-semibold">{plan.targetQuantity} шт.</span>
+                </div>
+              </div>
+
+              {(plan.startDate || plan.endDate) && (
+                <div className="text-xs text-muted-foreground pt-2 border-t border-border">
+                  {plan.startDate && (
+                    <div>Начало: {new Date(plan.startDate).toLocaleDateString('ru-RU')}</div>
+                  )}
+                  {plan.endDate && (
+                    <div>Окончание: {new Date(plan.endDate).toLocaleDateString('ru-RU')}</div>
+                  )}
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground pt-2 border-t border-border">
+                <div>Создан: {new Date(plan.createdAt).toLocaleDateString('ru-RU')}</div>
+                {plan.updatedAt !== plan.createdAt && (
+                  <div>Обновлен: {new Date(plan.updatedAt).toLocaleDateString('ru-RU')}</div>
                 )}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>

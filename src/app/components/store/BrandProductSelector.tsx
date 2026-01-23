@@ -15,7 +15,7 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [initialQuantity, setInitialQuantity] = useState<number>(0);
   const [price, setPrice] = useState<number>(0);
-  const [currency, setCurrency] = useState('RUB');
+  const [currency, setCurrency] = useState('KZT');
   const [isAvailable, setIsAvailable] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -25,12 +25,12 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
   };
 
   const filteredProducts = brandProducts.filter((product) => {
-    const matchesSearch = 
+    const matchesSearch =
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesCategory = !selectedCategory || product.categoryId === selectedCategory;
-    
+
     return matchesSearch && matchesCategory;
   });
 
@@ -118,7 +118,7 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
                       {searchTerm || selectedCategory ? 'Товары не найдены' : 'Каталог брендов пуст'}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {searchTerm || selectedCategory 
+                      {searchTerm || selectedCategory
                         ? 'Попробуйте изменить параметры поиска'
                         : 'Бренды пока не добавили товары в каталог'
                       }
@@ -141,8 +141,8 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {filteredProducts.map((product) => (
-                          <tr 
-                            key={product.id} 
+                          <tr
+                            key={product.id}
                             className="hover:bg-gray-50 transition-colors"
                           >
                             <td className="px-4 py-4">
@@ -198,7 +198,7 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
                 {/* Product Details - Read Only */}
                 <div className="bg-white border-2 border-blue-200 rounded-xl p-5">
                   <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-4">Выбранный товар</p>
-                  
+
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Название</p>
@@ -242,42 +242,43 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
                   </p>
                 </div>
 
-                  <div className="bg-white border-2 border-gray-200 rounded-xl p-5">
-                    <label className="block text-sm font-bold text-gray-900 mb-3">
-                      Цена <span className="text-red-600">*</span>
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      <input
-                        type="number"
-                        value={price}
-                        onChange={(e) => setPrice(Math.max(0, parseInt(e.target.value) || 0))}
-                        placeholder="0"
-                        min="0"
-                        className="col-span-2 h-12 px-3 bg-gray-50 border-2 border-gray-300 rounded-lg text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <select
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        className="h-12 px-3 bg-gray-50 border-2 border-gray-300 rounded-lg text-base font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="RUB">RUB</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                      </select>
-                    </div>
+                <div className="bg-white border-2 border-gray-200 rounded-xl p-5">
+                  <label className="block text-sm font-bold text-gray-900 mb-3">
+                    Цена <span className="text-red-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <input
+                      type="number"
+                      value={price}
+                      onChange={(e) => setPrice(Math.max(0, parseInt(e.target.value) || 0))}
+                      placeholder="0"
+                      min="0"
+                      className="col-span-2 h-12 px-3 bg-gray-50 border-2 border-gray-300 rounded-lg text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="h-12 px-3 bg-gray-50 border-2 border-gray-300 rounded-lg text-base font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="KZT">KZT (₸)</option>
+                      <option value="RUB">RUB</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                    </select>
                   </div>
+                </div>
 
-                  <div className="bg-white border-2 border-gray-200 rounded-xl p-5">
-                    <label className="flex items-center gap-3 text-sm font-bold text-gray-900">
-                      <input
-                        type="checkbox"
-                        checked={isAvailable}
-                        onChange={(e) => setIsAvailable(e.target.checked)}
-                        className="h-5 w-5"
-                      />
-                      Доступен для продажи
-                    </label>
-                  </div>
+                <div className="bg-white border-2 border-gray-200 rounded-xl p-5">
+                  <label className="flex items-center gap-3 text-sm font-bold text-gray-900">
+                    <input
+                      type="checkbox"
+                      checked={isAvailable}
+                      onChange={(e) => setIsAvailable(e.target.checked)}
+                      className="h-5 w-5"
+                    />
+                    Доступен для продажи
+                  </label>
+                </div>
 
                 {/* Success Message */}
                 {showSuccess && (

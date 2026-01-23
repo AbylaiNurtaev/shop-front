@@ -29,8 +29,21 @@ interface DistributorRequest {
   createdAt: string;
 }
 
+interface DistributorsResponse {
+  attached?: {
+    items: Distributor[];
+    total: number;
+  };
+  notAttached?: {
+    items: Distributor[];
+    total: number;
+  };
+  items?: Distributor[]; // Для обратной совместимости
+}
+
 export function DistributorsList() {
-  const [distributors, setDistributors] = useState<Distributor[]>([]);
+  const [attachedDistributors, setAttachedDistributors] = useState<Distributor[]>([]);
+  const [notAttachedDistributors, setNotAttachedDistributors] = useState<Distributor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingRequest, setIsSendingRequest] = useState<string | null>(null);
   const [pendingRequests, setPendingRequests] = useState<DistributorRequest[]>([]);
@@ -182,12 +195,29 @@ export function DistributorsList() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
+      
+      // Получаем brandId из localStorage
+      const brandId = localStorage.getItem('brandId');
+      if (brandId) {
+        params.append('brandId', brandId);
+      }
+      
       if (filters.country) params.append('country', filters.country);
       if (filters.city) params.append('city', filters.city);
       if (filters.hasActiveStores) params.append('hasActiveStores', 'true');
 
-      const response = await api.get<{ items: Distributor[] }>(`/distributors?${params.toString()}`);
-      setDistributors(response.data?.items || []);
+      const response = await api.get<DistributorsResponse>(`/distributors?${params.toString()}`);
+      
+      // Обрабатываем новый формат ответа с brandId
+      if (brandId && response.data.attached !== undefined && response.data.notAttached !== undefined) {
+        setAttachedDistributors(response.data.attached?.items || []);
+        setNotAttachedDistributors(response.data.notAttached?.items || []);
+      } else {
+        // Обратная совместимость: если brandId не передан или формат старый
+        const allDistributors = response.data?.items || [];
+        setAttachedDistributors([]);
+        setNotAttachedDistributors(allDistributors);
+      }
     } catch (error) {
       console.error('Ошибка загрузки дистрибьюторов', error);
       toast.error('Не удалось загрузить список дистрибьюторов');
@@ -225,6 +255,8 @@ export function DistributorsList() {
       }
 
       await loadPendingRequests();
+      // Обновляем список дистрибьюторов после отправки запроса
+      await loadDistributors();
     } catch (error: any) {
       console.error('Ошибка отправки запроса', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось отправить запрос';
@@ -251,6 +283,104 @@ export function DistributorsList() {
       return formatTimeLeft(requestTimers[distributorId]);
     }
     return null;
+  };
+
+  const renderDistributorCard = (distributor: Distributor, isAttached: boolean) => {
+    const isPending = isRequestPending(distributor.id);
+    const isAccepted = isRequestAccepted(distributor.id) || isAttached;
+    const isOnCooldown = isRequestOnCooldown(distributor.id);
+    const timeLeft = getTimeLeft(distributor.id);
+    const isDisabled = isPending || isAccepted || isOnCooldown || isSendingRequest === distributor.id;
+
+    return (
+      <div
+        key={distributor.id}
+        className={`bg-card border rounded-lg p-4 hover:shadow-md transition-shadow ${isAttached ? 'border-green-500/50' : 'border-border'}`}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold text-lg">{distributor.name}</h3>
+          </div>
+        </div>
+
+        <div className="space-y-2 mb-4">
+          {distributor.email && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Mail className="w-4 h-4" />
+              <span>{distributor.email}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <MapPin className="w-4 h-4" />
+            <span>
+              {distributor.city}, {distributor.country}
+            </span>
+          </div>
+
+          {distributor.activeStoresCount !== undefined && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Store className="w-4 h-4" />
+              <span>Активных магазинов: {distributor.activeStoresCount}</span>
+            </div>
+          )}
+
+          {distributor.categories && distributor.categories.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Package className="w-4 h-4" />
+              <span>Категории: {distributor.categories.join(', ')}</span>
+            </div>
+          )}
+
+          {distributor.description && (
+            <p className="text-sm text-muted-foreground mt-2">{distributor.description}</p>
+          )}
+        </div>
+
+        {isAccepted || isAttached ? (
+          <div className="px-3 py-2 bg-green-500/10 text-green-600 rounded-md text-sm text-center font-medium">
+            {isAttached ? 'Прикреплен к бренду' : 'Подключен'}
+          </div>
+        ) : isPending ? (
+          <div className="px-3 py-2 bg-yellow-500/10 text-yellow-600 rounded-md text-sm text-center font-medium">
+            Запрос отправлен
+          </div>
+        ) : isOnCooldown && timeLeft ? (
+          <div className="space-y-2">
+            <div className="px-3 py-2 bg-muted rounded-md text-sm text-center">
+              <div className="text-muted-foreground mb-1">Запрос можно отправить через:</div>
+              <div className="font-semibold text-primary">{timeLeft}</div>
+            </div>
+            <button
+              disabled
+              className="w-full px-4 py-2 bg-muted text-muted-foreground rounded-md cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+            >
+              <Send className="w-4 h-4" />
+              <span>Отправить запрос на подключение</span>
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => handleSendRequest(distributor.id)}
+            disabled={isDisabled}
+            className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+          >
+            {isSendingRequest === distributor.id ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Отправка...</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                <span>Отправить запрос на подключение</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -329,112 +459,43 @@ export function DistributorsList() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
-      ) : distributors.length === 0 ? (
+      ) : attachedDistributors.length === 0 && notAttachedDistributors.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">Дистрибьюторы не найдены</p>
           <p className="text-sm text-muted-foreground mt-2">Попробуйте изменить фильтры поиска</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {distributors.map((distributor) => {
-            const isPending = isRequestPending(distributor.id);
-            const isAccepted = isRequestAccepted(distributor.id);
-            const isOnCooldown = isRequestOnCooldown(distributor.id);
-            const timeLeft = getTimeLeft(distributor.id);
-            const isDisabled = isPending || isAccepted || isOnCooldown || isSendingRequest === distributor.id;
-
-            return (
-              <div
-                key={distributor.id}
-                className="bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-primary" />
-                    <h3 className="font-semibold text-lg">{distributor.name}</h3>
-                  </div>
-                </div>
-
-                <div className="space-y-2 mb-4">
-                  {distributor.email && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="w-4 h-4" />
-                      <span>{distributor.email}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span>
-                      {distributor.city}, {distributor.country}
-                    </span>
-                  </div>
-
-
-                  {distributor.activeStoresCount !== undefined && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Store className="w-4 h-4" />
-                      <span>Активных магазинов: {distributor.activeStoresCount}</span>
-                    </div>
-                  )}
-
-                  {distributor.categories && distributor.categories.length > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Package className="w-4 h-4" />
-                      <span>Категории: {distributor.categories.join(', ')}</span>
-                    </div>
-                  )}
-
-                  {distributor.description && (
-                    <p className="text-sm text-muted-foreground mt-2">{distributor.description}</p>
-                  )}
-                </div>
-
-                {isAccepted ? (
-                  <div className="px-3 py-2 bg-green-500/10 text-green-600 rounded-md text-sm text-center font-medium">
-                    Подключен
-                  </div>
-                ) : isPending ? (
-                  <div className="px-3 py-2 bg-yellow-500/10 text-yellow-600 rounded-md text-sm text-center font-medium">
-                    Запрос отправлен
-                  </div>
-                ) : isOnCooldown && timeLeft ? (
-                  <div className="space-y-2">
-                    <div className="px-3 py-2 bg-muted rounded-md text-sm text-center">
-                      <div className="text-muted-foreground mb-1">Запрос можно отправить через:</div>
-                      <div className="font-semibold text-primary">{timeLeft}</div>
-                    </div>
-                    <button
-                      disabled
-                      className="w-full px-4 py-2 bg-muted text-muted-foreground rounded-md cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-                    >
-                      <Send className="w-4 h-4" />
-                      <span>Отправить запрос на подключение</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => handleSendRequest(distributor.id)}
-                    disabled={isDisabled}
-                    className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-                  >
-                    {isSendingRequest === distributor.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Отправка...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        <span>Отправить запрос на подключение</span>
-                      </>
-                    )}
-                  </button>
-                )}
+        <div className="space-y-6">
+          {/* Прикрепленные дистрибьюторы */}
+          {attachedDistributors.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                Прикрепленные к бренду ({attachedDistributors.length})
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {attachedDistributors.map((distributor) => {
+                  return renderDistributorCard(distributor, true);
+                })}
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {/* Свободные дистрибьюторы */}
+          {notAttachedDistributors.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                Свободные ({notAttachedDistributors.length})
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {notAttachedDistributors.map((distributor) => {
+                  return renderDistributorCard(distributor, false);
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

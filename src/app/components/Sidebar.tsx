@@ -1,23 +1,32 @@
-import { Package, BarChart3, FolderTree, Store, Menu, X, Search, Settings, Users, Building2, TrendingUp, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar } from 'lucide-react';
+import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface SidebarProps {
   role: 'store' | 'brand' | 'admin' | 'distributor' | 'salesRep';
   currentView: string;
   onNavigate: (view: string) => void;
+  userRole?: 'store' | 'storeSeller';
 }
 
-export function Sidebar({ role, currentView, onNavigate }: SidebarProps) {
+export function Sidebar({ role, currentView, onNavigate, userRole }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const storeMenuItems = [
+  // Меню для владельца магазина (полный доступ)
+  const storeOwnerMenuItems = [
     { id: 'products', label: 'Товары', icon: Package },
     { id: 'inventory', label: 'Склад', icon: BarChart3 },
-    { id: 'categories', label: 'Категории', icon: FolderTree },
-    { id: 'search', label: 'Поиск', icon: Search },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
+
+  // Меню для продавца магазина (ограниченный доступ)
+  const storeSellerMenuItems = [
+    { id: 'qr-scanner', label: 'Приход товара', icon: QrCode },
+    { id: 'pos', label: 'Касса', icon: ShoppingCart },
+    { id: 'settings', label: 'Настройки', icon: Settings },
+  ];
+
+  const storeMenuItems = userRole === 'storeSeller' ? storeSellerMenuItems : storeOwnerMenuItems;
 
   const brandMenuItems = [
     { id: 'catalog', label: 'Каталог товаров', icon: Package },
@@ -28,7 +37,6 @@ export function Sidebar({ role, currentView, onNavigate }: SidebarProps) {
   const distributorMenuItems = [
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'salesReps', label: 'Торговые представители', icon: Users },
-    { id: 'brands', label: 'Бренды / Товары', icon: Building2 },
     { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
     { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
     { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
@@ -38,23 +46,23 @@ export function Sidebar({ role, currentView, onNavigate }: SidebarProps) {
 
   const salesRepMenuItems = [
     { id: 'home', label: 'Главная', icon: Store },
-    { id: 'chat', label: 'Чат', icon: MessageCircle },
     { id: 'history', label: 'История', icon: History },
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'productGroups', label: 'Группы товаров', icon: FolderTreeIcon },
     { id: 'analytics', label: 'AI-аналитика', icon: Brain },
     { id: 'inventory', label: 'Контроль остатков', icon: BarChart3 },
-    { id: 'recommendations', label: 'AI-рекомендации', icon: Brain },
+    { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
+    { id: 'poorlySelling', label: 'Плохо продается', icon: TrendingDown },
     { id: 'plan', label: 'План', icon: Calendar },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
-  const menuItems = 
+  const menuItems =
     role === 'store' ? storeMenuItems :
-    role === 'brand' ? brandMenuItems :
-    role === 'distributor' ? distributorMenuItems :
-    role === 'salesRep' ? salesRepMenuItems :
-    [];
+      role === 'brand' ? brandMenuItems :
+        role === 'distributor' ? distributorMenuItems :
+          role === 'salesRep' ? salesRepMenuItems :
+            [];
 
   // Close mobile menu when view changes
   useEffect(() => {
@@ -66,7 +74,7 @@ export function Sidebar({ role, currentView, onNavigate }: SidebarProps) {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-card border border-border rounded-lg shadow-lg"
+        className="md:hidden fixed top-4 right-4 z-50 p-2 bg-card border border-border rounded-lg shadow-lg"
       >
         <Menu className="w-6 h-6" />
       </button>
@@ -81,11 +89,11 @@ export function Sidebar({ role, currentView, onNavigate }: SidebarProps) {
 
       {/* Sidebar */}
       <aside
-        className={`bg-card border-r border-border h-screen sticky top-0 flex flex-col transition-all duration-300 z-40
+        className={`bg-card border-l border-r border-border h-screen flex flex-col transition-all duration-300 z-40
           ${isCollapsed ? 'w-16' : 'w-64'}
-          md:translate-x-0 md:relative
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
-          fixed md:static
+          md:translate-x-0 md:relative md:sticky md:top-0 md:border-l-0
+          ${isMobileOpen ? 'translate-x-0' : 'translate-x-full'}
+          fixed top-0 right-0 md:static md:left-0
         `}
       >
         <div className="p-4 border-b border-border flex items-center justify-between">
@@ -115,11 +123,10 @@ export function Sidebar({ role, currentView, onNavigate }: SidebarProps) {
                 <li key={item.id}>
                   <button
                     onClick={() => onNavigate(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-md transition-colors min-h-[44px] ${
-                      isActive
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-md transition-colors min-h-[44px] ${isActive
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
+                      }`}
                     title={isCollapsed ? item.label : undefined}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />

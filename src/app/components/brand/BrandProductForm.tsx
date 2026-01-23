@@ -168,16 +168,54 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
   const handleImagesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
+
+    // Проверяем, что уже нет изображений
+    if (formData.images && formData.images.length > 0) {
+      toast.error('Можно загрузить только одно изображение. Удалите существующее изображение перед загрузкой нового.');
+      event.target.value = '';
+      return;
+    }
+
+    // Берем только первый файл
+    const file = files[0];
+    if (!file) return;
+
+    // Проверяем формат изображения (должно быть квадратным)
+    const checkImageSquare = (file: File): Promise<boolean> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const isSquare = Math.abs(img.width - img.height) < 5; // Допускаем небольшую погрешность в 5px
+          resolve(isSquare);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(false);
+        };
+        img.src = url;
+      });
+    };
+
     setIsImagesUploading(true);
     try {
-      const uploadedUrls = await Promise.all(
-        files.map(async (file) => uploadPhoto(file))
-      );
-      const newImages = uploadedUrls.filter(Boolean) as string[];
-      setFormData((prev) => ({
-        ...prev,
-        images: [...(prev.images ?? []), ...newImages],
-      }));
+      // Проверяем, что изображение квадратное
+      const isSquare = await checkImageSquare(file);
+      if (!isSquare) {
+        toast.error('Изображение должно быть квадратным (ширина должна равняться высоте).');
+        event.target.value = '';
+        return;
+      }
+
+      const uploadedUrl = await uploadPhoto(file);
+      if (uploadedUrl) {
+        setFormData((prev) => ({
+          ...prev,
+          images: [uploadedUrl],
+        }));
+        toast.success('Изображение успешно загружено.');
+      }
     } catch (error) {
       console.error('Ошибка загрузки изображений', error);
       toast.error('Не удалось загрузить изображение.');
@@ -471,43 +509,41 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Изображения товара</label>
+            <label className="block text-sm font-medium mb-2">Изображение товара</label>
             <div className="space-y-2">
               {formData.images && formData.images.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {formData.images.map((image, index) => (
-                    <div key={index} className="relative group aspect-square bg-muted rounded-lg border border-border overflow-hidden">
-                      <img src={image} alt={`Товар ${index + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newImages = formData.images?.filter((_, i) => i !== index) || [];
-                          updateField('images', newImages);
-                        }}
-                        className="absolute top-1 right-1 p-2 bg-destructive text-destructive-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity min-h-[36px] min-w-[36px]"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="max-w-xs">
+                  <div className="relative group aspect-square bg-muted rounded-lg border border-border overflow-hidden">
+                    <img src={formData.images[0]} alt="Товар" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateField('images', []);
+                      }}
+                      className="absolute top-1 right-1 p-2 bg-destructive text-destructive-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity min-h-[36px] min-w-[36px]"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               )}
-              <label className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors cursor-pointer block ${isImagesUploading ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/50'
-                }`}>
-                <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-1">
-                  {isImagesUploading ? 'Загрузка изображений...' : 'Нажмите для загрузки изображений товара'}
-                </p>
-                <p className="text-xs text-muted-foreground">PNG, JPG до 5 МБ (можно несколько)</p>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  multiple
-                  className="hidden"
-                  onChange={handleImagesChange}
-                  disabled={isImagesUploading}
-                />
-              </label>
+              {(!formData.images || formData.images.length === 0) && (
+                <label className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors cursor-pointer block ${isImagesUploading ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/50'
+                  }`}>
+                  <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground mb-1">
+                    {isImagesUploading ? 'Загрузка изображения...' : 'Нажмите для загрузки изображения товара'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">PNG, JPG до 5 МБ, квадратное изображение (1:1)</p>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleImagesChange}
+                    disabled={isImagesUploading}
+                  />
+                </label>
+              )}
             </div>
           </div>
 

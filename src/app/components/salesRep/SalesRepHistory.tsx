@@ -70,22 +70,22 @@ export function SalesRepHistory() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <History className="w-6 h-6" />
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="w-full">
+          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+            <History className="w-5 h-5 md:w-6 md:h-6" />
             История
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Всего записей: {history.length}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
           >
             <option value="all">Все</option>
             <option value="visit">Визиты</option>
@@ -95,7 +95,7 @@ export function SalesRepHistory() {
           </select>
           <button
             onClick={loadHistory}
-            className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
+            className="px-3 md:px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
           >
             Обновить
           </button>

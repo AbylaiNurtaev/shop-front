@@ -4,7 +4,8 @@ export type UserRole =
   | 'buyer'        // Покупатель (если останется)
   | 'admin'        // Администратор
   | 'distributor'  // Дистрибьютор
-  | 'salesRep';    // Торговый представитель
+  | 'salesRep'     // Торговый представитель
+  | 'storeSeller'; // Продавец магазина
 
 export interface User {
   id: string;

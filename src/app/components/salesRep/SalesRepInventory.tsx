@@ -159,11 +159,11 @@ export function SalesRepInventory() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Package className="w-6 h-6" />
+          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+            <Package className="w-5 h-5 md:w-6 md:h-6" />
             Контроль остатков
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -172,14 +172,14 @@ export function SalesRepInventory() {
         </div>
         <button
           onClick={loadInventory}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
+          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
         >
           Обновить
         </button>
       </div>
 
       {/* Фильтры */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -187,13 +187,13 @@ export function SalesRepInventory() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Поиск по товару, SKU или магазину..."
-            className="w-full pl-10 pr-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full pl-10 pr-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         >
           <option value="all">Все статусы</option>
           <option value="low">Дефицит</option>
@@ -203,7 +203,7 @@ export function SalesRepInventory() {
         <select
           value={storeFilter}
           onChange={(e) => setStoreFilter(e.target.value)}
-          className="px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         >
           <option value="all">Все магазины</option>
           {stores.map((store) => (
@@ -218,7 +218,7 @@ export function SalesRepInventory() {
           value={threshold}
           onChange={(e) => setThreshold(e.target.value)}
           placeholder="Порог"
-          className="px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         />
       </div>
 
@@ -231,32 +231,32 @@ export function SalesRepInventory() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+            <table className="w-full min-w-[800px]">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Товар</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">SKU</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Магазин</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Остаток</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Мин/Макс</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Статус</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Срок годности</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Товар</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">SKU</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Магазин</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Остаток</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Мин/Макс</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Статус</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Срок годности</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredInventory.map((item) => (
                   <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-medium">{item.productName}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{item.sku}</td>
-                    <td className="px-4 py-3 text-sm">{item.storeName}</td>
-                    <td className="px-4 py-3">
-                      <span className="font-medium">{item.currentStock}</span>
+                    <td className="px-3 md:px-4 py-2 md:py-3 text-sm md:text-base font-medium">{item.productName}</td>
+                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground font-mono">{item.sku}</td>
+                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">{item.storeName}</td>
+                    <td className="px-3 md:px-4 py-2 md:py-3">
+                      <span className="font-medium text-sm md:text-base">{item.currentStock}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">
                       {item.minStock} / {item.maxStock}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 md:px-4 py-2 md:py-3">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
                           item.status === 'low'
@@ -270,7 +270,7 @@ export function SalesRepInventory() {
                         {item.status === 'low' ? 'Дефицит' : item.status === 'high' ? 'Избыток' : 'Норма'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
                       {item.expiryDate ? (
                         <div className="flex items-center gap-1">
                           {item.daysUntilExpiry !== undefined && item.daysUntilExpiry < 7 && (

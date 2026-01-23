@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { Search, Plus, Package, ChevronRight } from 'lucide-react';
+import { Search, Plus, Package } from 'lucide-react';
 import { Product, Category } from '../../types';
 
 interface ProductListProps {
   products: Product[];
   categories: Category[];
   onCreateProduct: () => void;
-  onEditProduct: (product: Product) => void;
 }
 
-export function ProductList({ products, categories, onCreateProduct, onEditProduct }: ProductListProps) {
+export function ProductList({ products, categories, onCreateProduct }: ProductListProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const getCategoryName = (categoryId: string) => {
@@ -79,16 +78,7 @@ export function ProductList({ products, categories, onCreateProduct, onEditProdu
                 return (
                   <div
                     key={product.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onEditProduct(product)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        onEditProduct(product);
-                      }
-                    }}
-                    className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm transition-shadow cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm"
                   >
                     {/* Header */}
                     <div className="flex items-start justify-between gap-3 mb-4">
@@ -96,7 +86,6 @@ export function ProductList({ products, categories, onCreateProduct, onEditProdu
                         <h3 className="font-bold text-lg text-gray-900 mb-2 leading-tight">{product.name}</h3>
                         <p className="text-sm text-gray-500 font-mono">Артикул: {product.sku}</p>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-gray-400 mt-1" />
                     </div>
 
                     {/* Stock Badge */}
@@ -205,16 +194,7 @@ export function ProductList({ products, categories, onCreateProduct, onEditProdu
                 return (
                   <div
                     key={product.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onEditProduct(product)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        onEditProduct(product);
-                      }
-                    }}
-                    className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm transition-shadow cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm"
                   >
                     {/* Product Header */}
                     <div className="flex items-start gap-3 mb-4">
@@ -222,7 +202,6 @@ export function ProductList({ products, categories, onCreateProduct, onEditProdu
                         <h3 className="font-semibold text-base mb-1.5 leading-snug">{product.name}</h3>
                         <p className="text-sm text-gray-500 font-mono">Арт: {product.sku}</p>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-gray-400 mt-1" />
                     </div>
 
                     {/* Stock Status Badge */}
@@ -279,8 +258,7 @@ export function ProductList({ products, categories, onCreateProduct, onEditProdu
                       return (
                         <tr
                           key={product.id}
-                          onClick={() => onEditProduct(product)}
-                          className="hover:bg-gray-50 transition-colors cursor-pointer"
+                          className="hover:bg-gray-50 transition-colors"
                         >
                           <td className="px-4 py-3 font-medium">{product.name}</td>
                           <td className="px-4 py-3 text-sm text-gray-500 font-mono">{product.sku}</td>

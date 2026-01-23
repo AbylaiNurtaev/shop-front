@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Navigation, MapPin, Search, Mic, Paperclip, StopCircle, Store } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Navigation, MapPin, Search, Mic, Paperclip, Store, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../api/axios';
 
@@ -19,12 +19,21 @@ type StoreResult = {
   items: Array<{ name: string; price?: string; availability?: string }>;
 };
 
+type SelectedProduct = {
+  id: string;
+  name: string;
+  brandName?: string;
+  packageInfo?: string;
+};
+
 type Message = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   text: string;
   quickReplies?: string[];
   results?: StoreResult[];
+  selectedProduct?: SelectedProduct;
+  remainingProducts?: number;
 };
 
 export function BuyerHome() {
@@ -33,33 +42,19 @@ export function BuyerHome() {
   const [locationLink, setLocationLink] = useState('');
   const [linkGeo, setLinkGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [input, setInput] = useState('');
-  const [searching, setSearching] = useState(false);
+  const [sending, setSending] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'sys-geo',
-      role: 'system',
-      text: 'Разрешите геолокацию или укажите ссылку 2ГИС — так мы найдём магазины рядом.',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const sampleResults = useMemo<StoreResult[]>(
-    () => [
-      {
-        storeName: 'Магазин у дома',
-        distance: '320 м',
-        address: 'Кабанбай батыр проспект, 29',
-        updatedAgo: '5 мин назад',
-        deeplink: 'https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502',
-        items: [
-          { name: 'Молоко 2.5% 1 л', price: '520 ₸', availability: 'в наличии' },
-          { name: 'Хлеб ржаной', price: '260 ₸', availability: 'мало' },
-        ],
-      },
-    ],
-    []
-  );
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, sending]);
 
   const requestGeo = () => {
     if (!navigator.geolocation) {
@@ -74,39 +69,60 @@ export function BuyerHome() {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
+        toast.success('Геолокация получена');
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
           setGeoState({ status: 'blocked' });
+          toast.error('Доступ к геолокации запрещен');
           return;
         }
         setGeoState({ status: 'error', message: 'Не удалось получить геолокацию.' });
+        toast.error('Не удалось получить геолокацию');
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
 
+  const getDeviceId = (): string => {
+    let deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+      deviceId = `device-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('deviceId', deviceId);
+    }
+    return deviceId;
+  };
+
   const ensureSessionAndConversation = async () => {
     if (sessionId && conversationId) return { sessionId, conversationId };
     try {
-      const sessionResponse = await api.post('/customer/sessions');
-      const createdSessionId = sessionResponse.data?.id ?? sessionResponse.data?.sessionId;
+      const deviceId = getDeviceId();
+      const userAgent = navigator.userAgent;
+      
+      const sessionResponse = await api.post('/customer/sessions', {
+        deviceId,
+        userAgent,
+      });
+      const createdSessionId = sessionResponse.data?.sessionId;
       if (!createdSessionId) {
         toast.error('Не удалось создать сессию покупателя.');
         return null;
       }
       setSessionId(createdSessionId);
-      const convoResponse = await api.post('/customer/conversations', { sessionId: createdSessionId });
-      const createdConversationId = convoResponse.data?.id ?? convoResponse.data?.conversationId;
+      
+      const convoResponse = await api.post('/customer/conversations', {
+        sessionId: createdSessionId,
+      });
+      const createdConversationId = convoResponse.data?.conversationId;
       if (!createdConversationId) {
         toast.error('Не удалось создать чат.');
         return null;
       }
       setConversationId(createdConversationId);
       return { sessionId: createdSessionId, conversationId: createdConversationId };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка инициализации покупателя', error);
-      toast.error('Не удалось инициализировать поиск.');
+      toast.error(error?.response?.data?.message || 'Не удалось инициализировать поиск.');
       return null;
     }
   };
@@ -115,21 +131,39 @@ export function BuyerHome() {
     const init = async () => {
       const initData = await ensureSessionAndConversation();
       if (!initData) return;
+      
       try {
         const convo = await api.get(`/customer/conversations/${initData.conversationId}`);
         const history = convo.data?.messages;
         if (Array.isArray(history) && history.length > 0) {
-          setMessages((prev) => [
-            ...prev,
-            ...history.map((item: any) => ({
+          const loadedMessages: Message[] = history.map((item: any) => {
+            const role = item.sender === 'CUSTOMER' ? 'user' : item.sender === 'SYSTEM' ? 'system' : 'assistant';
+            return {
               id: item.id ?? `history-${Math.random()}`,
-              role: item.role ?? 'assistant',
+              role,
               text: item.text ?? item.message ?? '',
-            })),
+            };
+          });
+          setMessages(loadedMessages);
+        } else {
+          // Первое сообщение приветствия
+          setMessages([
+            {
+              id: 'welcome',
+              role: 'system',
+              text: 'Здравствуйте! Напишите, какой товар вы ищете, и я помогу найти его в ближайших магазинах.',
+            },
           ]);
         }
       } catch (error) {
         console.error('Ошибка загрузки истории', error);
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'system',
+            text: 'Здравствуйте! Напишите, какой товар вы ищете, и я помогу найти его в ближайших магазинах.',
+          },
+        ]);
       }
     };
     init();
@@ -155,7 +189,14 @@ export function BuyerHome() {
     if (!value) return '—';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'только что';
+    if (diffMins < 60) return `${diffMins} мин назад`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    return date.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   };
 
   const normalizeResults = (data: any): StoreResult[] => {
@@ -170,7 +211,7 @@ export function BuyerHome() {
           const existing = storesMap.get(storeId);
           const item = {
             name: product.name ?? 'Товар',
-            price: offer.price != null ? `${offer.price} ${offer.currency ?? ''}`.trim() : undefined,
+            price: offer.price != null ? `${offer.price} ${offer.currency ?? '₸'}`.trim() : undefined,
             availability: offer.isAvailable ? 'в наличии' : 'нет',
           };
           if (existing) {
@@ -180,7 +221,7 @@ export function BuyerHome() {
               storeName: store.name ?? 'Магазин',
               distance: formatDistance(store.distanceMeters ?? store.distance),
               address: store.address ?? '—',
-              updatedAgo: formatUpdated(data.updatedAt),
+              updatedAgo: formatUpdated(offer.updatedAt),
               deeplink: store.location ?? 'https://2gis.kz',
               items: [item],
             });
@@ -192,9 +233,10 @@ export function BuyerHome() {
     return [];
   };
 
-  const startSearch = async (text: string) => {
+  const sendMessage = async (text: string) => {
     const initData = await ensureSessionAndConversation();
     if (!initData) return;
+
     const geoFromLink = locationLink ? parse2GisLink(locationLink) : null;
     if (locationLink && !geoFromLink) {
       toast.error('Ссылка 2ГИС имеет неверный формат.');
@@ -204,87 +246,76 @@ export function BuyerHome() {
       geoState.status === 'granted'
         ? { lat: geoState.lat, lng: geoState.lng }
         : geoFromLink ?? undefined;
-    const payload = {
-      conversationId: initData.conversationId,
+
+    const payload: any = {
       text,
-      geo: geoValue,
-      radiusMeters: Math.round(radiusKm * 1000),
+      attachments: [],
     };
-    console.log('Buyer message payload', payload);
-    try {
-      await api.post(`/customer/conversations/${initData.conversationId}/messages`, payload);
-    } catch (error) {
-      console.error('Ошибка отправки сообщения', error);
+
+    if (geoValue) {
+      payload.geo = geoValue;
+      payload.radiusMeters = Math.round(radiusKm * 1000);
     }
 
-    setSearching(true);
-    const assistantMessageId = `assistant-search-${Date.now()}`;
-    setMessages((prev) => [
-      ...prev,
-      { id: assistantMessageId, role: 'assistant', text: 'Ищем ближайшие магазины…' },
-    ]);
+    setSending(true);
     try {
-      const searchResponse = await api.post('/customer/search', payload);
-      const requestId = searchResponse.data?.requestId ?? searchResponse.data?.id;
-      if (!requestId) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId ? { ...msg, text: 'Не удалось запустить поиск.' } : msg
-          )
-        );
-        setSearching(false);
-        return;
+      const response = await api.post(
+        `/customer/conversations/${initData.conversationId}/messages`,
+        payload
+      );
+
+      const responseData = response.data;
+      const state = responseData?.state;
+
+      // Добавляем ответ системы
+      const assistantMessage: Message = {
+        id: responseData?.messageId ?? `assistant-${Date.now()}`,
+        role: 'assistant',
+        text: Array.isArray(responseData?.questions) && responseData.questions.length > 0
+          ? responseData.questions.join('\n')
+          : responseData?.text || 'Обрабатываю ваш запрос...',
+        quickReplies: responseData?.quickReplies,
+        remainingProducts: responseData?.remainingProducts,
+        selectedProduct: responseData?.selectedProduct,
+      };
+
+      // Если найден товар и есть результаты поиска
+      if (state === 'DONE' && responseData?.items) {
+        const results = normalizeResults(responseData);
+        assistantMessage.results = results;
+        assistantMessage.text = results.length > 0
+          ? `Найдено ${results.length} магазин(ов) с товаром "${responseData?.selectedProduct?.name || 'товар'}"`
+          : 'Товар не найден в ближайших магазинах';
       }
 
-      let attempts = 0;
-      const poll = async () => {
-        attempts += 1;
-        try {
-          const response = await api.get(`/customer/search/${requestId}`);
-          console.log('Buyer search response', response.data);
-          const results = normalizeResults(response.data);
-          if (results.length > 0 || response.data?.status === 'done') {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessageId
-                ? {
-                      ...msg,
-                      text: results.length ? 'Нашли варианты рядом:' : 'Пока нет результатов.',
-                    results: results.length ? results : undefined,
-                    }
-                  : msg
-              )
-            );
-            setSearching(false);
-            return;
-          }
-        } catch (error) {
-          console.error('Ошибка получения результатов', error);
-        }
-        if (attempts < 10) {
-          setTimeout(poll, 1000);
-        } else {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, text: 'Ответ занимает больше времени. Попробуйте повторить.' }
-                : msg
-            )
-          );
-          setSearching(false);
-        }
-      };
-      poll();
-    } catch (error) {
-      console.error('Ошибка запуска поиска', error);
-      toast.error('Не удалось запустить поиск.');
-      setSearching(false);
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // Если нужно уточнение и есть selectedProduct, показываем его
+      if (responseData?.selectedProduct && state !== 'DONE') {
+        toast.info(`Найден товар: ${responseData.selectedProduct.name}`);
+      }
+    } catch (error: any) {
+      console.error('Ошибка отправки сообщения', error);
+      toast.error(error?.response?.data?.message || 'Не удалось отправить сообщение');
+      
+      // Добавляем сообщение об ошибке
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          role: 'system',
+          text: 'Произошла ошибка. Попробуйте еще раз.',
+        },
+      ]);
+    } finally {
+      setSending(false);
     }
   };
 
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed || searching) return;
+    if (!trimmed || sending) return;
+    
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -292,31 +323,18 @@ export function BuyerHome() {
     };
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
-    startSearch(trimmed);
+    sendMessage(trimmed);
   };
 
   const handleQuickReply = (reply: string) => {
-    if (searching) return;
+    if (sending) return;
     const userMessage: Message = {
       id: `user-reply-${Date.now()}`,
       role: 'user',
       text: reply,
     };
     setMessages((prev) => [...prev, userMessage]);
-    startSearch(reply);
-  };
-
-  const handleStopSearch = () => {
-    if (!searching) return;
-    setSearching(false);
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `assistant-stop-${Date.now()}`,
-        role: 'assistant',
-        text: 'Поиск остановлен. Можно уточнить запрос.',
-      },
-    ]);
+    sendMessage(reply);
   };
 
   const handleLocationChange = (value: string) => {
@@ -328,14 +346,7 @@ export function BuyerHome() {
       return;
     }
     setLinkGeo(coords);
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `system-location-${Date.now()}`,
-        role: 'system',
-        text: `Локация из 2ГИС сохранена (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}).`,
-      },
-    ]);
+    toast.success('Локация из 2ГИС сохранена');
   };
 
   return (
@@ -354,7 +365,7 @@ export function BuyerHome() {
         </div>
 
         <div className="space-y-3">
-          <label className="text-xs font-medium text-muted-foreground">Радиус</label>
+          <label className="text-xs font-medium text-muted-foreground">Радиус поиска</label>
           <div className="flex gap-2">
             {[0.5, 1, 2, 3].map((value) => (
               <button
@@ -409,7 +420,32 @@ export function BuyerHome() {
                       : 'bg-accent/60 text-foreground'
                 }`}
               >
-                <div>{message.text}</div>
+                <div className="whitespace-pre-wrap">{message.text}</div>
+                
+                {message.selectedProduct && (
+                  <div className="mt-3 p-2 bg-background/80 rounded-lg border border-border">
+                    <div className="flex items-center gap-2 text-xs font-semibold">
+                      <Package className="w-4 h-4 text-primary" />
+                      Найден товар:
+                    </div>
+                    <div className="mt-1 text-xs">
+                      <div className="font-medium">{message.selectedProduct.name}</div>
+                      {message.selectedProduct.brandName && (
+                        <div className="text-muted-foreground">Бренд: {message.selectedProduct.brandName}</div>
+                      )}
+                      {message.selectedProduct.packageInfo && (
+                        <div className="text-muted-foreground">Упаковка: {message.selectedProduct.packageInfo}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {message.remainingProducts !== undefined && message.remainingProducts > 1 && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Осталось вариантов: {message.remainingProducts}
+                  </div>
+                )}
+
                 {message.quickReplies && message.quickReplies.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {message.quickReplies.map((reply) => (
@@ -417,17 +453,19 @@ export function BuyerHome() {
                         key={reply}
                         type="button"
                         onClick={() => handleQuickReply(reply)}
-                        className="px-3 py-1.5 rounded-full bg-background border border-border text-xs hover:bg-muted"
+                        disabled={sending}
+                        className="px-3 py-1.5 rounded-full bg-background border border-border text-xs hover:bg-muted disabled:opacity-50"
                       >
                         {reply}
                       </button>
                     ))}
                   </div>
                 )}
+                
                 {message.results && message.results.length > 0 && (
                   <div className="mt-3 space-y-3">
-                    {message.results.map((store) => (
-                      <div key={store.storeName} className="border border-border rounded-xl p-3 bg-background/80">
+                    {message.results.map((store, idx) => (
+                      <div key={`${store.storeName}-${idx}`} className="border border-border rounded-xl p-3 bg-background/80">
                         <div className="flex items-center gap-2 text-sm font-semibold">
                           <Store className="w-4 h-4 text-primary" />
                           {store.storeName}
@@ -439,8 +477,8 @@ export function BuyerHome() {
                           Обновлено {store.updatedAgo}
                         </div>
                         <div className="mt-2 space-y-1">
-                          {store.items.map((item) => (
-                            <div key={item.name} className="flex justify-between text-xs">
+                          {store.items.map((item, itemIdx) => (
+                            <div key={`${item.name}-${itemIdx}`} className="flex justify-between text-xs">
                               <span>{item.name}</span>
                               <span className="text-muted-foreground">
                                 {item.price} {item.availability ? `· ${item.availability}` : ''}
@@ -457,12 +495,6 @@ export function BuyerHome() {
                           >
                             Открыть в 2ГИС
                           </a>
-                          <button
-                            type="button"
-                            className="flex-1 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted"
-                          >
-                            Товары в магазине
-                          </button>
                         </div>
                       </div>
                     ))}
@@ -471,6 +503,39 @@ export function BuyerHome() {
               </div>
             </div>
           ))}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm bg-accent/60 text-foreground">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground text-xs">Ищу товары</span>
+                  <div className="flex gap-1 items-center">
+                    <span 
+                      className="w-2 h-2 bg-muted-foreground/70 rounded-full" 
+                      style={{ 
+                        animation: 'typing 1.4s infinite',
+                        animationDelay: '0ms'
+                      }} 
+                    />
+                    <span 
+                      className="w-2 h-2 bg-muted-foreground/70 rounded-full" 
+                      style={{ 
+                        animation: 'typing 1.4s infinite',
+                        animationDelay: '200ms'
+                      }} 
+                    />
+                    <span 
+                      className="w-2 h-2 bg-muted-foreground/70 rounded-full" 
+                      style={{ 
+                        animation: 'typing 1.4s infinite',
+                        animationDelay: '400ms'
+                      }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="border-t border-border pt-3">
@@ -478,12 +543,14 @@ export function BuyerHome() {
             <button
               type="button"
               className="w-10 h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted"
+              title="Прикрепить файл"
             >
               <Paperclip className="w-4 h-4" />
             </button>
             <button
               type="button"
               className="w-10 h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted"
+              title="Голосовое сообщение"
             >
               <Mic className="w-4 h-4" />
             </button>
@@ -494,30 +561,24 @@ export function BuyerHome() {
               placeholder="Напишите, что ищете..."
               className="flex-1 px-3 py-2 bg-input-background border border-border rounded-md text-sm"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSend();
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
               }}
+              disabled={sending}
             />
-            {searching ? (
-              <button
-                type="button"
-                onClick={handleStopSearch}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground"
-              >
-                <StopCircle className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSend}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground"
-              >
-                <Search className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!input.trim() || sending}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Search className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
