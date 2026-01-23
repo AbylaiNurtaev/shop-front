@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
-  // baseURL: import.meta.env.VITE_API_BASE_URL || 'https://shop-back-production-a38c.up.railway.app/api',
+  // baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://shop-back-production-a38c.up.railway.app/api',
   headers: {
     'Content-Type': 'application/json',
   },
