@@ -15,6 +15,8 @@ interface InventoryItem {
   status: 'low' | 'normal' | 'high';
   expiryDate?: string;
   daysUntilExpiry?: number;
+  categoryId?: string;
+  categoryName?: string;
 }
 
 type ApiInventoryItem = {
@@ -24,6 +26,11 @@ type ApiInventoryItem = {
   product?: {
     name?: string;
     sku?: string;
+    categoryId?: string;
+    category?: {
+      id?: string;
+      name?: string;
+    };
   };
   sku?: string;
   storeName?: string;
@@ -42,28 +49,48 @@ type ApiInventoryItem = {
   lowStock?: boolean;
   expiryDate?: string;
   daysUntilExpiry?: number;
+  categoryId?: string;
+  categoryName?: string;
+};
+
+type ApiCategory = {
+  id: string;
+  name: string;
 };
 
 export function SalesRepInventory() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [filteredInventory, setFilteredInventory] = useState<InventoryItem[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [storeFilter, setStoreFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [threshold, setThreshold] = useState<string>('');
 
   useEffect(() => {
+    loadCategories();
     loadInventory();
   }, []);
 
   useEffect(() => {
     filterInventory();
-  }, [inventory, searchQuery, statusFilter, storeFilter]);
+  }, [inventory, searchQuery, statusFilter, storeFilter, categoryFilter]);
 
   useEffect(() => {
     loadInventory();
   }, [storeFilter, threshold]);
+
+  const loadCategories = async () => {
+    try {
+      const response = await api.get<{ items?: ApiCategory[] }>('/categories');
+      const items = response.data?.items || response.data || [];
+      setCategories(Array.isArray(items) ? items : []);
+    } catch (error) {
+      console.error('Ошибка загрузки категорий', error);
+    }
+  };
 
   const loadInventory = async () => {
     setIsLoading(true);
@@ -89,6 +116,8 @@ export function SalesRepInventory() {
         const currentStock = item.currentStock ?? item.stock ?? item.quantity ?? 0;
         const minStock = item.minStock ?? item.threshold ?? 0;
         const maxStock = item.maxStock ?? 0;
+        const categoryId = item.categoryId ?? item.product?.categoryId ?? item.product?.category?.id;
+        const categoryName = item.categoryName ?? item.product?.category?.name;
         let status: InventoryItem['status'] =
           item.status ?? (item.lowStock ? 'low' : 'normal');
 
@@ -112,6 +141,8 @@ export function SalesRepInventory() {
           status,
           expiryDate: item.expiryDate,
           daysUntilExpiry: item.daysUntilExpiry,
+          categoryId,
+          categoryName,
         } as InventoryItem;
       });
       setInventory(mappedItems);
@@ -144,11 +175,20 @@ export function SalesRepInventory() {
       filtered = filtered.filter((item) => item.storeId === storeFilter);
     }
 
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter((item) => item.categoryId === categoryFilter);
+    }
+
     setFilteredInventory(filtered);
   };
 
-  const stores = Array.from(new Set(inventory.map((item) => ({ id: item.storeId, name: item.storeName }))))
-    .filter((store, index, self) => self.findIndex((s) => s.id === store.id) === index);
+  const storesMap = new Map<string, { id: string; name: string }>();
+  inventory.forEach((item) => {
+    if (!storesMap.has(item.storeId)) {
+      storesMap.set(item.storeId, { id: item.storeId, name: item.storeName });
+    }
+  });
+  const stores = Array.from(storesMap.values());
 
   if (isLoading) {
     return (
@@ -190,6 +230,18 @@ export function SalesRepInventory() {
             className="w-full pl-10 pr-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
           />
         </div>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+        >
+          <option value="all">Все категории</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -237,6 +289,7 @@ export function SalesRepInventory() {
                 <tr>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Товар</th>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">SKU</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Категория</th>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Магазин</th>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Остаток</th>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Мин/Макс</th>
@@ -249,6 +302,7 @@ export function SalesRepInventory() {
                   <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-3 md:px-4 py-2 md:py-3 text-sm md:text-base font-medium">{item.productName}</td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground font-mono">{item.sku}</td>
+                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{item.categoryName || '—'}</td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">{item.storeName}</td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       <span className="font-medium text-sm md:text-base">{item.currentStock}</span>
@@ -258,13 +312,12 @@ export function SalesRepInventory() {
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3">
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                          item.status === 'low'
-                            ? 'bg-red-100 text-red-700'
-                            : item.status === 'high'
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${item.status === 'low'
+                          ? 'bg-red-100 text-red-700'
+                          : item.status === 'high'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-green-100 text-green-700'
-                        }`}
+                          }`}
                       >
                         {item.status === 'low' && <AlertCircle className="w-3 h-3" />}
                         {item.status === 'low' ? 'Дефицит' : item.status === 'high' ? 'Избыток' : 'Норма'}

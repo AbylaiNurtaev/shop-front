@@ -38,6 +38,7 @@ import { Analytics } from './components/distributor/Analytics';
 import { AIFAQ } from './components/distributor/AIFAQ';
 import { DemandForecast } from './components/distributor/DemandForecast';
 import { BrandRequests } from './components/distributor/BrandRequests';
+import { DistributorProducts } from './components/distributor/DistributorProducts';
 import { DistributorsList } from './components/brand/DistributorsList';
 import { CategoryRequest } from './components/brand/CategoryRequest';
 import { User, UserRole, StoreProfile, BrandProfile, DistributorProfile, Product, Category } from './types';
@@ -102,6 +103,15 @@ type ApiProduct = {
   productionDate?: string;
   allergens?: string | string[];
   ageRestrictions?: string;
+  // Себестоимость от дистрибьютора
+  costPrice?: number | null;
+  costCurrency?: string | null;
+  // Цена магазина
+  storePrice?: number | null;
+  storeCurrency?: string | null;
+  // Дополнительные поля из API
+  hasOffer?: boolean;
+  offerQuantity?: number | null;
 };
 
 type ApiOffer = {
@@ -142,6 +152,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [offers, setOffers] = useState<ApiOffer[]>([]);
   const [stores, setStores] = useState<ApiStore[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [showBrandProductSelector, setShowBrandProductSelector] = useState(false);
@@ -189,7 +200,7 @@ export default function App() {
       name: apiProduct.name ?? overrides.name ?? '—',
       categoryId: apiProduct.categoryId ?? apiProduct.category?.id ?? overrides.categoryId ?? '',
       sku: apiProduct.sku ?? overrides.sku ?? '—',
-      quantity: overrides.quantity ?? 0,
+      quantity: apiProduct.offerQuantity ?? overrides.quantity ?? 0,
       weight: apiProduct.weight ?? overrides.weight ?? '—',
       volume: apiProduct.volume ?? overrides.volume ?? '—',
       unitsPerBox: apiProduct.unitsPerPack ?? overrides.unitsPerBox ?? 1,
@@ -206,6 +217,12 @@ export default function App() {
       price: overrides.price,
       currency: overrides.currency,
       isAvailable: overrides.isAvailable,
+      // Себестоимость от дистрибьютора (из API напрямую)
+      costPrice: apiProduct.costPrice ?? undefined,
+      costCurrency: apiProduct.costCurrency ?? undefined,
+      // Цена магазина (из API напрямую)
+      storePrice: apiProduct.storePrice ?? undefined,
+      storeCurrency: apiProduct.storeCurrency ?? undefined,
     };
   };
 
@@ -321,9 +338,9 @@ export default function App() {
       } else if (role === 'brand') {
         navigate('/brand/catalog', { replace: true });
       } else if (role === 'salesRep') {
-        navigate('/salesrep/home', { replace: true });
+        navigate('/salesrep/analytics', { replace: true });
       } else if (role === 'storeSeller') {
-        navigate('/store/qr-scanner', { replace: true });
+        navigate('/store/pos', { replace: true });
       } else if (role === 'buyer') {
         navigate('/buyer', { replace: true });
       } else {
@@ -785,6 +802,7 @@ export default function App() {
     if (!user) return;
     let isActive = true;
     const loadData = async () => {
+      setIsLoadingProducts(true);
       try {
         const [categoriesResponse, productsResponse, offersResponse, storesResponse] = await Promise.all([
           api.get<ApiListResponse<ApiCategory>>('/categories'),
@@ -795,6 +813,7 @@ export default function App() {
         if (!isActive) return;
 
         console.log('GET /products response', productsResponse.data);
+        console.log('GET /offers response', offersResponse.data);
 
         const loadedCategories = categoriesResponse.data?.items?.map((category) => ({
           id: category.id,
@@ -844,6 +863,10 @@ export default function App() {
         setStores(loadedStores);
       } catch (error) {
         console.error('Ошибка загрузки данных', error);
+      } finally {
+        if (isActive) {
+          setIsLoadingProducts(false);
+        }
       }
     };
     loadData();
@@ -855,54 +878,53 @@ export default function App() {
   const storeProducts = useMemo(() => {
     if (!storeId) return [];
     const normalizedStoreId = String(storeId);
-    return offers
-      .filter((offer) => {
-        const rawOfferStoreId =
-          offer.storeId ?? (offer as unknown as { store?: { id?: string | number } }).store?.id;
-        if (rawOfferStoreId === undefined || rawOfferStoreId === null) {
-          return true;
-        }
-        return String(rawOfferStoreId) === normalizedStoreId;
-      })
-      .map((offer) => {
-        if (offer.product) {
-          return mapApiProduct(offer.product, {
-            quantity: offer.quantity ?? 0,
-            createdBy: 'brand',
-            offerId: offer.id,
-            storeId: offer.storeId,
-            price: offer.price,
-            currency: offer.currency,
-            isAvailable: offer.isAvailable ?? true,
-          });
-        }
-        const fallbackProduct = products.find((item) => item.id === offer.productId);
-        if (!fallbackProduct) {
-          return null;
-        }
-        return mapApiProduct(
-          {
-            id: fallbackProduct.id,
-            name: fallbackProduct.name,
-            categoryId: fallbackProduct.categoryId,
-            sku: fallbackProduct.sku,
-            images: fallbackProduct.images,
-            weight: fallbackProduct.weight,
-            volume: fallbackProduct.volume,
-            unitsPerPack: fallbackProduct.unitsPerBox,
-          },
-          {
-            quantity: offer.quantity ?? 0,
-            createdBy: 'brand',
-            offerId: offer.id,
-            storeId: offer.storeId,
-            price: offer.price,
-            currency: offer.currency,
-            isAvailable: offer.isAvailable ?? true,
+
+    // Используем продукты напрямую, так как API теперь возвращает все данные в /products
+    // Включая costPrice, costCurrency, storePrice, storeCurrency, offerQuantity
+    // Фильтруем продукты, которые имеют offer для этого магазина (hasOffer: true)
+    return products
+      .filter((product) => {
+        // Проверяем через offers - продукт должен иметь offer для этого магазина
+        const productOffer = offers.find(
+          (offer) => {
+            const rawOfferStoreId =
+              offer.storeId ?? (offer as unknown as { store?: { id?: string | number } }).store?.id;
+            const offerStoreId = rawOfferStoreId !== undefined && rawOfferStoreId !== null
+              ? String(rawOfferStoreId)
+              : null;
+            return (
+              (offer.productId === product.id || offer.product?.id === product.id) &&
+              (offerStoreId === normalizedStoreId || offerStoreId === null)
+            );
           }
         );
+        return !!productOffer;
       })
-      .filter(Boolean) as Product[];
+      .map((product) => {
+        // Находим соответствующий offer для получения дополнительных данных
+        const productOffer = offers.find(
+          (offer) => {
+            const rawOfferStoreId =
+              offer.storeId ?? (offer as unknown as { store?: { id?: string | number } }).store?.id;
+            const offerStoreId = rawOfferStoreId !== undefined && rawOfferStoreId !== null
+              ? String(rawOfferStoreId)
+              : null;
+            return (
+              (offer.productId === product.id || offer.product?.id === product.id) &&
+              (offerStoreId === normalizedStoreId || offerStoreId === null)
+            );
+          }
+        );
+
+        // costPrice, costCurrency, storePrice, storeCurrency уже должны быть в продукте из API
+        // quantity берем из offerQuantity (которое приходит в API) или из offer
+        return {
+          ...product,
+          quantity: productOffer?.quantity ?? product.quantity ?? 0,
+          // Убеждаемся, что offerId установлен
+          offerId: productOffer?.id ?? product.offerId,
+        };
+      });
   }, [offers, products, storeId]);
 
   const storesCount = stores.length;
@@ -911,8 +933,8 @@ export default function App() {
     user?.role === 'admin' ? '/admin/brands' :
       user?.role === 'distributor' ? '/distributor/stores' :
         user?.role === 'brand' ? '/brand/catalog' :
-          user?.role === 'salesRep' ? '/salesrep/home' :
-            user?.role === 'storeSeller' ? '/store/qr-scanner' :
+          user?.role === 'salesRep' ? '/salesrep/analytics' :
+            user?.role === 'storeSeller' ? '/store/pos' :
               '/store/products';
   const currentView = useMemo(() => {
     if (!user) return 'products';
@@ -928,8 +950,9 @@ export default function App() {
     if (path.startsWith('/brand/distributors')) return 'distributors';
     if (path.startsWith('/brand/settings')) return 'settings';
     if (path.startsWith('/distributor/stores')) return 'stores';
-    if (path.startsWith('/distributor/requests')) return 'requests';
     if (path.startsWith('/distributor/salesReps')) return 'salesReps';
+    if (path.startsWith('/distributor/products')) return 'products';
+    if (path.startsWith('/distributor/requests')) return 'requests';
     if (path.startsWith('/distributor/analytics')) return 'analytics';
     if (path.startsWith('/distributor/aiFAQ')) return 'aiFAQ';
     if (path.startsWith('/distributor/forecast')) return 'forecast';
@@ -948,7 +971,8 @@ export default function App() {
     if (path.startsWith('/salesrep/settings')) return 'settings';
     if (user.role === 'admin') return 'brands';
     if (user.role === 'distributor') return 'stores';
-    if (user.role === 'salesRep') return 'home';
+    if (user.role === 'salesRep') return 'analytics';
+    if (user.role === 'storeSeller') return 'pos';
     return user.role === 'brand' ? 'catalog' : 'products';
   }, [location.pathname, user]);
 
@@ -962,6 +986,7 @@ export default function App() {
     if (user.role === 'distributor') {
       if (view === 'stores') navigate('/distributor/stores');
       if (view === 'salesReps') navigate('/distributor/salesReps');
+      if (view === 'products') navigate('/distributor/products');
       if (view === 'analytics') navigate('/distributor/analytics');
       if (view === 'aiFAQ') navigate('/distributor/aiFAQ');
       if (view === 'forecast') navigate('/distributor/forecast');
@@ -976,20 +1001,20 @@ export default function App() {
       return;
     }
     if (user.role === 'store' || user.role === 'storeSeller') {
+      if (view === 'pos') navigate('/store/pos');
       if (view === 'products') navigate('/store/products');
       if (view === 'inventory') navigate('/store/inventory');
       if (view === 'qr-scanner') navigate('/store/qr-scanner');
-      if (view === 'pos') navigate('/store/pos');
       if (view === 'settings') navigate('/store/settings');
       return;
     }
     if (user.role === 'salesRep') {
+      if (view === 'analytics') navigate('/salesrep/analytics');
       if (view === 'home') navigate('/salesrep/home');
       if (view === 'chat') navigate('/salesrep/chat');
       if (view === 'history') navigate('/salesrep/history');
       if (view === 'stores') navigate('/salesrep/stores');
       if (view === 'productGroups') navigate('/salesrep/productGroups');
-      if (view === 'analytics') navigate('/salesrep/analytics');
       if (view === 'inventory') navigate('/salesrep/inventory');
       if (view === 'expiring') navigate('/salesrep/expiring');
       if (view === 'poorlySelling') navigate('/salesrep/poorly-selling');
@@ -1065,7 +1090,7 @@ export default function App() {
                   await api.get<ApiStore>(`/stores/${userResponse.data.storeId}`);
                 }
                 localStorage.setItem('userRole', role);
-                navigate('/store/products', { replace: true });
+                navigate('/store/pos', { replace: true });
               } catch (error) {
                 console.error('Ошибка восстановления сессии', error);
                 toast.success('Регистрация успешна! Войдите в систему.');
@@ -1141,6 +1166,7 @@ export default function App() {
                           products={storeProducts}
                           categories={categories}
                           onCreateProduct={handleCreateProduct}
+                          isLoading={isLoadingProducts}
                         />
                       }
                     />
@@ -1159,12 +1185,23 @@ export default function App() {
                 {user.role === 'storeSeller' && (
                   <>
                     <Route
-                      path="/store/qr-scanner"
-                      element={<QRScanner />}
-                    />
-                    <Route
                       path="/store/pos"
                       element={<POS />}
+                    />
+                    <Route
+                      path="/store/products"
+                      element={
+                        <ProductList
+                          products={storeProducts}
+                          categories={categories}
+                          onCreateProduct={handleCreateProduct}
+                          isLoading={isLoadingProducts}
+                        />
+                      }
+                    />
+                    <Route
+                      path="/store/qr-scanner"
+                      element={<QRScanner />}
                     />
                   </>
                 )}
@@ -1189,7 +1226,7 @@ export default function App() {
                   path="/store/*"
                   element={
                     <Navigate
-                      to={user.role === 'storeSeller' ? '/store/qr-scanner' : '/store/products'}
+                      to={user.role === 'storeSeller' ? '/store/pos' : '/store/products'}
                       replace
                     />
                   }
@@ -1199,6 +1236,7 @@ export default function App() {
               <>
                 <Route path="/distributor/stores" element={<StoresList />} />
                 <Route path="/distributor/salesReps" element={<SalesRepsList />} />
+                <Route path="/distributor/products" element={<DistributorProducts />} />
                 <Route path="/distributor/analytics" element={<Analytics />} />
                 <Route path="/distributor/aiFAQ" element={<AIFAQ />} />
                 <Route path="/distributor/forecast" element={<DemandForecast />} />
@@ -1267,7 +1305,7 @@ export default function App() {
                     />
                   }
                 />
-                <Route path="/salesrep/*" element={<Navigate to="/salesrep/home" replace />} />
+                <Route path="/salesrep/*" element={<Navigate to="/salesrep/analytics" replace />} />
               </>
             ) : null}
             <Route path="/" element={<Navigate to={defaultAuthedPath} replace />} />

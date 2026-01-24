@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingDown, Package, Store, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { TrendingDown, Package, Store, Loader2, RefreshCw, AlertCircle, Eye } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { ProductSalesModal } from './ProductSalesModal';
 
 interface PoorlySellingProduct {
   offerId: string;
@@ -32,6 +33,8 @@ export function SalesRepPoorlySellingProducts() {
   const [maxSales, setMaxSales] = useState<string>('5');
   const [periodDays, setPeriodDays] = useState<string>('30');
   const [total, setTotal] = useState<number>(0);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
 
   useEffect(() => {
     loadPoorlySellingProducts();
@@ -100,6 +103,16 @@ export function SalesRepPoorlySellingProducts() {
     const diffTime = Math.abs(now.getTime() - lastSale.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+  };
+
+  const handleViewSales = (productId: string) => {
+    setSelectedProductId(productId);
+    setIsSalesModalOpen(true);
+  };
+
+  const handleCloseSalesModal = () => {
+    setIsSalesModalOpen(false);
+    setSelectedProductId(null);
   };
 
   if (isLoading) {
@@ -230,8 +243,18 @@ export function SalesRepPoorlySellingProducts() {
                             <span>{product.brandName}</span>
                           </div>
                         </div>
-                        <div className="px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-sm font-medium whitespace-nowrap">
-                          {product.salesCount === 0 ? 'Нет продаж' : `${product.salesCount} продаж`}
+                        <div className="flex items-center gap-2">
+                          <div className="px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-sm font-medium whitespace-nowrap">
+                            {product.salesCount === 0 ? 'Нет продаж' : `${product.salesCount} продаж`}
+                          </div>
+                          <button
+                            onClick={() => handleViewSales(product.productId)}
+                            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium flex items-center gap-2"
+                            title="Посмотреть продажи"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Продажи
+                          </button>
                         </div>
                       </div>
 
@@ -327,6 +350,15 @@ export function SalesRepPoorlySellingProducts() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Модальное окно продаж товара */}
+      {selectedProductId && (
+        <ProductSalesModal
+          isOpen={isSalesModalOpen}
+          onClose={handleCloseSalesModal}
+          productId={selectedProductId}
+        />
       )}
     </div>
   );

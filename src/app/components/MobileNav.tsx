@@ -20,8 +20,9 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
   const storeSellerMenuItems = [
-    { id: 'qr-scanner', label: 'Приход', icon: QrCode },
     { id: 'pos', label: 'Касса', icon: ShoppingCart },
+    { id: 'products', label: 'Товары', icon: Package },
+    { id: 'qr-scanner', label: 'Приход', icon: QrCode },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
   const storeMenuItems = userRole === 'storeSeller' ? storeSellerMenuItems : storeOwnerMenuItems;
@@ -43,11 +44,11 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   ];
 
   const salesRepMenuItems = [
+    { id: 'analytics', label: 'Аналитика', icon: Brain },
     { id: 'home', label: 'Главная', icon: Store },
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'productGroups', label: 'Товары', icon: FolderTree },
     { id: 'inventory', label: 'Остатки', icon: BarChart3 },
-    { id: 'analytics', label: 'Аналитика', icon: Brain },
     { id: 'expiring', label: 'Срок', icon: AlertTriangle },
     { id: 'poorlySelling', label: 'Плохо', icon: TrendingDown },
     { id: 'plan', label: 'План', icon: Calendar },

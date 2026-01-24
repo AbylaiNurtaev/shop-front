@@ -106,4 +106,10 @@ export interface Product {
   isPayed?: boolean;
   paymentDate?: string; // ISO-строка
   paymentExpiresAt?: string; // ISO-строка
+  // Себестоимость от дистрибьютора
+  costPrice?: number;
+  costCurrency?: string;
+  // Цена магазина
+  storePrice?: number;
+  storeCurrency?: string;
 }

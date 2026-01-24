@@ -21,8 +21,9 @@ export function Sidebar({ role, currentView, onNavigate, userRole }: SidebarProp
 
   // Меню для продавца магазина (ограниченный доступ)
   const storeSellerMenuItems = [
-    { id: 'qr-scanner', label: 'Приход товара', icon: QrCode },
     { id: 'pos', label: 'Касса', icon: ShoppingCart },
+    { id: 'products', label: 'Товары', icon: Package },
+    { id: 'qr-scanner', label: 'Приход товара', icon: QrCode },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
@@ -37,6 +38,7 @@ export function Sidebar({ role, currentView, onNavigate, userRole }: SidebarProp
   const distributorMenuItems = [
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'salesReps', label: 'Торговые представители', icon: Users },
+    { id: 'products', label: 'Товары и себестоимость', icon: Package },
     { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
     { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
     { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
@@ -45,11 +47,11 @@ export function Sidebar({ role, currentView, onNavigate, userRole }: SidebarProp
   ];
 
   const salesRepMenuItems = [
+    { id: 'analytics', label: 'AI-аналитика', icon: Brain },
     { id: 'home', label: 'Главная', icon: Store },
     { id: 'history', label: 'История', icon: History },
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'productGroups', label: 'Группы товаров', icon: FolderTreeIcon },
-    { id: 'analytics', label: 'AI-аналитика', icon: Brain },
     { id: 'inventory', label: 'Контроль остатков', icon: BarChart3 },
     { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
     { id: 'poorlySelling', label: 'Плохо продается', icon: TrendingDown },

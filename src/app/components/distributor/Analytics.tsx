@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart3, Store, Package, TrendingUp, Users, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
 interface SummaryStats {
   storesCount: number;
@@ -22,11 +23,30 @@ interface StockItem {
   isAvailable: boolean;
 }
 
+interface SalesRepresentative {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName?: string;
+}
+
 interface StockByStore {
   storeId: string;
   storeName: string;
   storeAddress: string;
+  salesRepresentatives: SalesRepresentative[];
+  salesRepresentativesCount: number;
   items: StockItem[];
+  totalItems: number;
+  totalQuantity: number;
+  totalValue: number;
+}
+
+interface StockBySalesRep {
+  salesRepId: string;
+  salesRepName: string;
+  salesRepEmail: string;
+  stores: StockByStore[];
   totalItems: number;
   totalQuantity: number;
   totalValue: number;
@@ -108,6 +128,38 @@ export function Analytics() {
 
   const [stockData, setStockData] = useState<StockByStore[]>([]);
   const [isLoadingStock, setIsLoadingStock] = useState(false);
+
+  // Группировка данных по торговым представителям
+  const stockBySalesRep = useMemo(() => {
+    const salesRepMap = new Map<string, StockBySalesRep>();
+
+    stockData.forEach((store) => {
+      if (store.salesRepresentatives && store.salesRepresentatives.length > 0) {
+        store.salesRepresentatives.forEach((salesRep) => {
+          const repId = salesRep.id;
+          if (!salesRepMap.has(repId)) {
+            salesRepMap.set(repId, {
+              salesRepId: repId,
+              salesRepName: `${salesRep.firstName}${salesRep.lastName ? ' ' + salesRep.lastName : ''}`,
+              salesRepEmail: salesRep.email,
+              stores: [],
+              totalItems: 0,
+              totalQuantity: 0,
+              totalValue: 0,
+            });
+          }
+
+          const repData = salesRepMap.get(repId)!;
+          repData.stores.push(store);
+          repData.totalItems += store.totalItems;
+          repData.totalQuantity += store.totalQuantity;
+          repData.totalValue += store.totalValue;
+        });
+      }
+    });
+
+    return Array.from(salesRepMap.values());
+  }, [stockData]);
 
   const [turnoverData, setTurnoverData] = useState<TurnoverData | null>(null);
   const [isLoadingTurnover, setIsLoadingTurnover] = useState(false);
@@ -300,68 +352,93 @@ export function Analytics() {
         </div>
       </div>
 
-      {/* Остатки по магазинам */}
+      {/* Остатки по торговым представителям */}
       <div className="bg-card border border-border rounded-lg p-6">
         <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
           <BarChart3 className="w-5 h-5" />
-          Остатки по магазинам
+          Остатки по торговым представителям
         </h3>
         {isLoadingStock ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : stockData.length === 0 ? (
+        ) : stockBySalesRep.length === 0 ? (
           <p className="text-center text-muted-foreground py-12">Нет данных об остатках</p>
         ) : (
-          <div className="space-y-6">
-            {stockData.map((store) => (
-              <div key={store.storeId} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="font-semibold text-lg">{store.storeName}</h4>
-                    <p className="text-sm text-muted-foreground">{store.storeAddress}</p>
+          <Accordion type="single" collapsible className="space-y-4">
+            {stockBySalesRep.map((salesRep) => (
+              <AccordionItem key={salesRep.salesRepId} value={salesRep.salesRepId} className="border rounded-lg px-4">
+                <AccordionTrigger className="hover:no-underline">
+                  <div className="flex items-center justify-between w-full pr-4">
+                    <div className="flex items-center gap-3">
+                      <Users className="w-5 h-5 text-primary" />
+                      <div className="text-left">
+                        <h4 className="font-semibold text-lg">{salesRep.salesRepName}</h4>
+                        <p className="text-sm text-muted-foreground">{salesRep.salesRepEmail}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Магазинов: {salesRep.stores.length}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Позиций: {salesRep.totalItems}</p>
+                      <p className="text-sm text-muted-foreground">Всего товаров: {salesRep.totalQuantity}</p>
+                      <p className="text-lg font-semibold">Стоимость: {formatCurrency(salesRep.totalValue)}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Позиций: {store.totalItems}</p>
-                    <p className="text-sm text-muted-foreground">Всего товаров: {store.totalQuantity}</p>
-                    <p className="text-lg font-semibold">Стоимость: {formatCurrency(store.totalValue)}</p>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-6 pt-4">
+                    {salesRep.stores.map((store) => (
+                      <div key={store.storeId} className="border rounded-lg p-4 bg-muted/30">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h5 className="font-semibold text-base">{store.storeName}</h5>
+                            <p className="text-sm text-muted-foreground">{store.storeAddress}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Позиций: {store.totalItems}</p>
+                            <p className="text-sm text-muted-foreground">Всего товаров: {store.totalQuantity}</p>
+                            <p className="text-base font-semibold">Стоимость: {formatCurrency(store.totalValue)}</p>
+                          </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left p-2">Товар</th>
+                                <th className="text-left p-2">Бренд</th>
+                                <th className="text-left p-2">Артикул</th>
+                                <th className="text-right p-2">Количество</th>
+                                <th className="text-right p-2">Цена</th>
+                                <th className="text-right p-2">Стоимость</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {store.items && Array.isArray(store.items) ? (
+                                store.items.map((item) => (
+                                  <tr key={item.offerId} className="border-b">
+                                    <td className="p-2">{item.productName}</td>
+                                    <td className="p-2">{item.brandName}</td>
+                                    <td className="p-2">{item.sku}</td>
+                                    <td className="text-right p-2">{item.quantity}</td>
+                                    <td className="text-right p-2">{formatCurrency(item.price, item.currency)}</td>
+                                    <td className="text-right p-2 font-semibold">{formatCurrency(item.value, item.currency)}</td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={6} className="p-2 text-center text-muted-foreground">Нет товаров</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Товар</th>
-                        <th className="text-left p-2">Бренд</th>
-                        <th className="text-left p-2">Артикул</th>
-                        <th className="text-right p-2">Количество</th>
-                        <th className="text-right p-2">Цена</th>
-                        <th className="text-right p-2">Стоимость</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {store.items && Array.isArray(store.items) ? (
-                        store.items.map((item) => (
-                          <tr key={item.offerId} className="border-b">
-                            <td className="p-2">{item.productName}</td>
-                            <td className="p-2">{item.brandName}</td>
-                            <td className="p-2">{item.sku}</td>
-                            <td className="text-right p-2">{item.quantity}</td>
-                            <td className="text-right p-2">{formatCurrency(item.price, item.currency)}</td>
-                            <td className="text-right p-2 font-semibold">{formatCurrency(item.value, item.currency)}</td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={6} className="p-2 text-center text-muted-foreground">Нет товаров</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </div>
+          </Accordion>
         )}
       </div>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Phone, Mail, MapPin, Loader2, Trash2, Plus, Store, ChevronRight, Package, Search, ArrowLeft, Target } from 'lucide-react';
+import { Users, Phone, Mail, MapPin, Loader2, Trash2, Plus, Store, ChevronRight, Package, Search, ArrowLeft, Target, FolderTree, Eye } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 import {
@@ -16,6 +16,8 @@ import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { PlanManagement } from './PlanManagement';
+import { CategoryPlansManagement } from './CategoryPlansManagement';
+import { ProductSalesModal } from '../salesRep/ProductSalesModal';
 
 interface SalesRep {
   id: string;
@@ -75,6 +77,9 @@ export function SalesRepsList() {
   const [isBatchAddingProducts, setIsBatchAddingProducts] = useState(false);
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [isPlanManagementOpen, setIsPlanManagementOpen] = useState(false);
+  const [isCategoryPlansManagementOpen, setIsCategoryPlansManagementOpen] = useState(false);
+  const [selectedProductIdForSales, setSelectedProductIdForSales] = useState<string | null>(null);
+  const [isProductSalesModalOpen, setIsProductSalesModalOpen] = useState(false);
 
   useEffect(() => {
     loadSalesReps();
@@ -445,6 +450,16 @@ export function SalesRepsList() {
     );
   });
 
+  const handleViewProductSales = (productId: string) => {
+    setSelectedProductIdForSales(productId);
+    setIsProductSalesModalOpen(true);
+  };
+
+  const handleCloseProductSalesModal = () => {
+    setIsProductSalesModalOpen(false);
+    setSelectedProductIdForSales(null);
+  };
+
   // Загрузка товаров при переключении на вкладку товаров
   useEffect(() => {
     if (activeTab === 'products' && selectedSalesRep && isDetailView) {
@@ -636,8 +651,8 @@ export function SalesRepsList() {
               />
             </div>
 
-            {/* Кнопка управления планами */}
-            <div className="flex justify-end">
+            {/* Кнопки управления планами */}
+            <div className="flex justify-end gap-2">
               <Button
                 onClick={() => setIsPlanManagementOpen(true)}
                 variant="outline"
@@ -645,6 +660,14 @@ export function SalesRepsList() {
               >
                 <Target className="w-4 h-4" />
                 Задать план
+              </Button>
+              <Button
+                onClick={() => setIsCategoryPlansManagementOpen(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <FolderTree className="w-4 h-4" />
+                Планы по категориям
               </Button>
             </div>
 
@@ -669,29 +692,40 @@ export function SalesRepsList() {
                   {filteredAssignedProducts.map((product) => (
                     <div
                       key={product.id}
-                      className="bg-card border border-border rounded-lg p-3 flex items-start justify-between"
+                      className="bg-card border border-border rounded-lg p-3"
                     >
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium mb-1">{product.name}</h4>
-                        {product.sku && (
-                          <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
-                        )}
-                        {product.brandName && (
-                          <p className="text-xs text-muted-foreground">Бренд: {product.brandName}</p>
-                        )}
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium mb-1">{product.name}</h4>
+                          {product.sku && (
+                            <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                          )}
+                          {product.brandName && (
+                            <p className="text-xs text-muted-foreground">Бренд: {product.brandName}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteProduct(product.id)}
+                          disabled={isDeletingProduct === product.id}
+                          className="ml-2 p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                          title="Открепить товар"
+                        >
+                          {isDeletingProduct === product.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleDeleteProduct(product.id)}
-                        disabled={isDeletingProduct === product.id}
-                        className="ml-2 p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                        title="Открепить товар"
+                      <Button
+                        onClick={() => handleViewProductSales(product.id)}
+                        variant="outline"
+                        size="sm"
+                        className="w-full flex items-center gap-2"
                       >
-                        {isDeletingProduct === product.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
+                        <Eye className="w-4 h-4" />
+                        Посмотреть продажи
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -805,6 +839,37 @@ export function SalesRepsList() {
                   salesRepresentativeId={selectedSalesRep.id}
                   salesRepName={`${selectedSalesRep.firstName} ${selectedSalesRep.lastName}`}
                   onClose={() => setIsPlanManagementOpen(false)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Модальное окно управления планами по категориям */}
+        {isCategoryPlansManagementOpen && selectedSalesRep && (
+          <div 
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setIsCategoryPlansManagementOpen(false);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setIsCategoryPlansManagementOpen(false);
+              }
+            }}
+            tabIndex={-1}
+          >
+            <div 
+              className="bg-card border border-border rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <CategoryPlansManagement
+                  salesRepresentativeId={selectedSalesRep.id}
+                  salesRepName={`${selectedSalesRep.firstName} ${selectedSalesRep.lastName}`}
+                  onClose={() => setIsCategoryPlansManagementOpen(false)}
                 />
               </div>
             </div>
@@ -950,6 +1015,16 @@ export function SalesRepsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Модальное окно продаж товара */}
+      {selectedProductIdForSales && selectedSalesRep && (
+        <ProductSalesModal
+          isOpen={isProductSalesModalOpen}
+          onClose={handleCloseProductSalesModal}
+          productId={selectedProductIdForSales}
+          salesRepresentativeId={selectedSalesRep.id}
+        />
+      )}
 
     </div>
   );

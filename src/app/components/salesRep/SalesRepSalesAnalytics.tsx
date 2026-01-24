@@ -57,6 +57,13 @@ interface SalesAnalyticsData {
     totalQuantity: number;
     totalRevenue: number;
     salesCount: number;
+    topStore?: {
+      storeId: string;
+      storeName: string;
+      storeAddress: string;
+      quantity: number;
+      revenue: number;
+    };
   }>;
   byBrand: Array<{
     brandId: string;
@@ -449,6 +456,7 @@ export function SalesRepSalesAnalytics() {
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Товар</th>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">SKU</th>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Бренд</th>
+                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Магазин</th>
                   <th className="text-right px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Количество</th>
                   <th className="text-right px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Выручка</th>
                   <th className="text-right px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Продаж</th>
@@ -467,6 +475,16 @@ export function SalesRepSalesAnalytics() {
                     </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground font-mono">{product.sku}</td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{product.brandName}</td>
+                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                      {product.topStore ? (
+                        <div className="flex items-center gap-1">
+                          <Store className="w-3 h-3 text-muted-foreground" />
+                          <span>{product.topStore.storeName}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-right text-sm md:text-base">{product.totalQuantity}</td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-right text-sm md:text-base font-medium">{formatCurrency(product.totalRevenue)}</td>
                     <td className="px-3 md:px-4 py-2 md:py-3 text-right text-sm md:text-base">{product.salesCount}</td>

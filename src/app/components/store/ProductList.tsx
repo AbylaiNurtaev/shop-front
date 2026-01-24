@@ -1,15 +1,50 @@
-import React, { useState } from 'react';
-import { Search, Plus, Package } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, Package, Save, Loader2 } from 'lucide-react';
 import { Product, Category } from '../../types';
+import api from '../../api/axios';
+import { toast } from 'sonner';
 
 interface ProductListProps {
   products: Product[];
   categories: Category[];
   onCreateProduct: () => void;
+  isLoading?: boolean;
 }
 
-export function ProductList({ products, categories, onCreateProduct }: ProductListProps) {
+export function ProductList({ products, categories, onCreateProduct, isLoading = false }: ProductListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Состояние для редактирования цен
+  const [editingPrices, setEditingPrices] = useState<Record<string, { price: string; currency: string }>>({});
+
+  // Оригинальные значения для отслеживания изменений
+  const [originalPrices, setOriginalPrices] = useState<Record<string, { price?: number; currency?: string }>>({});
+
+  useEffect(() => {
+    // Инициализируем значения при загрузке продуктов
+    const initialPrices: Record<string, { price: string; currency: string }> = {};
+    const initialOriginal: Record<string, { price?: number; currency?: string }> = {};
+
+    products.forEach((product) => {
+      // Инициализируем для всех товаров, у которых есть offerId или storePrice
+      // Если есть storePrice, значит должен быть и offerId
+      if (product.offerId || (product.storePrice !== undefined && product.storePrice !== null)) {
+        const offerId = product.offerId || `temp-${product.id}`;
+        initialPrices[offerId] = {
+          price: product.storePrice?.toString() || '',
+          currency: product.storeCurrency || 'KZT',
+        };
+        initialOriginal[offerId] = {
+          price: product.storePrice,
+          currency: product.storeCurrency,
+        };
+      }
+    });
+
+    setEditingPrices(initialPrices);
+    setOriginalPrices(initialOriginal);
+  }, [products]);
 
   const getCategoryName = (categoryId: string) => {
     const category = categories.find((c) => c.id === categoryId);
@@ -22,10 +57,127 @@ export function ProductList({ products, categories, onCreateProduct }: ProductLi
     return { label: 'В наличии', color: 'bg-green-100 text-green-800', icon: '✓' };
   };
 
+  const handlePriceChange = (offerId: string, value: string) => {
+    setEditingPrices((prev) => ({
+      ...prev,
+      [offerId]: {
+        ...prev[offerId],
+        price: value,
+      },
+    }));
+  };
+
+  const handleCurrencyChange = (offerId: string, value: string) => {
+    setEditingPrices((prev) => ({
+      ...prev,
+      [offerId]: {
+        ...prev[offerId],
+        currency: value,
+      },
+    }));
+  };
+
+  const hasChanges = () => {
+    return Object.keys(editingPrices).some((offerId) => {
+      const edited = editingPrices[offerId];
+      const original = originalPrices[offerId];
+
+      if (!edited) return false;
+
+      const editedPrice = edited.price.trim() === '' ? null : parseFloat(edited.price);
+      const originalPrice = original?.price ?? null;
+
+      const editedCurrency = edited.currency || 'KZT';
+      const originalCurrency = original?.currency || 'KZT';
+
+      return editedPrice !== originalPrice || editedCurrency !== originalCurrency;
+    });
+  };
+
+  const handleSaveAll = async () => {
+    if (!hasChanges()) return;
+
+    setIsSaving(true);
+    const savePromises: Promise<void>[] = [];
+
+    Object.keys(editingPrices).forEach((offerId) => {
+      const edited = editingPrices[offerId];
+      const original = originalPrices[offerId];
+
+      if (!edited) return;
+
+      // Пропускаем временные ID (temp-*), так как для них нет offerId
+      if (offerId.startsWith('temp-')) {
+        console.warn(`Пропущен товар с временным ID: ${offerId}. Нужен offerId для сохранения.`);
+        return;
+      }
+
+      const editedPrice = edited.price.trim() === '' ? null : parseFloat(edited.price);
+      const originalPrice = original?.price ?? null;
+
+      const editedCurrency = edited.currency || 'KZT';
+      const originalCurrency = original?.currency || 'KZT';
+
+      // Проверяем, есть ли изменения
+      if (editedPrice !== originalPrice || editedCurrency !== originalCurrency) {
+        if (editedPrice === null || isNaN(editedPrice) || editedPrice < 0) {
+          toast.error(`Некорректная цена для товара`);
+          return;
+        }
+
+        savePromises.push(
+          api.put(`/offers/${offerId}`, {
+            price: editedPrice,
+            currency: editedCurrency,
+          }).then(() => { }).catch((error) => {
+            console.error(`Ошибка сохранения цены для ${offerId}`, error);
+            throw error;
+          })
+        );
+      }
+    });
+
+    try {
+      await Promise.all(savePromises);
+      toast.success('Цены сохранены');
+      // Обновляем оригинальные значения
+      setOriginalPrices((prev) => {
+        const updated = { ...prev };
+        Object.keys(editingPrices).forEach((offerId) => {
+          const edited = editingPrices[offerId];
+          updated[offerId] = {
+            price: edited.price.trim() === '' ? undefined : parseFloat(edited.price),
+            currency: edited.currency,
+          };
+        });
+        return updated;
+      });
+      // Перезагружаем страницу для обновления данных
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Ошибка сохранения цен', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось сохранить цены';
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Загрузка товаров...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,15 +272,48 @@ export function ProductList({ products, categories, onCreateProduct }: ProductLi
                         <span className="text-sm font-medium text-gray-500">В упаковке</span>
                         <span className="text-sm font-bold text-gray-900">{product.unitsPerBox} шт</span>
                       </div>
+                      {product.costPrice !== undefined && product.costPrice !== null && (
+                        <div className="flex items-center justify-between py-2">
+                          <span className="text-sm font-medium text-gray-500">Себестоимость</span>
+                          <span className="text-sm font-bold text-gray-900">
+                            {product.costPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {product.costCurrency || 'KZT'}
+                          </span>
+                        </div>
+                      )}
+                      {(product.offerId || product.storePrice !== undefined) && (
+                        <div className="flex items-center justify-between py-2">
+                          <span className="text-sm font-medium text-gray-500">Цена</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editingPrices[product.offerId || `temp-${product.id}`]?.price || ''}
+                              onChange={(e) => handlePriceChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                              placeholder="0.00"
+                              className="w-24 px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                            <select
+                              value={editingPrices[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
+                              onChange={(e) => handleCurrencyChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                              className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="KZT">KZT (₸)</option>
+                              <option value="RUB">RUB (₽)</option>
+                              <option value="USD">USD ($)</option>
+                              <option value="EUR">EUR (€)</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Source */}
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold ${
-                        product.createdBy === 'brand'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
+                      <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold ${product.createdBy === 'brand'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-700'
+                        }`}>
                         {product.brandName
                           ? `Источник: ${product.brandName || 'Брендs'}`
                           : 'Источник: Магазин'}
@@ -221,15 +406,48 @@ export function ProductList({ products, categories, onCreateProduct }: ProductLi
                         <p className="text-xs text-gray-500 mb-1">Упаковка</p>
                         <p className="text-sm font-medium">{product.packageInfo || '—'}</p>
                       </div>
+                      {product.costPrice !== undefined && product.costPrice !== null && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Себестоимость</p>
+                          <p className="text-sm font-medium">
+                            {product.costPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {product.costCurrency || 'KZT'}
+                          </p>
+                        </div>
+                      )}
+                      {(product.offerId || product.storePrice !== undefined) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Цена</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editingPrices[product.offerId || `temp-${product.id}`]?.price || ''}
+                              onChange={(e) => handlePriceChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                              placeholder="0.00"
+                              className="flex-1 px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                            <select
+                              value={editingPrices[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
+                              onChange={(e) => handleCurrencyChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                              className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            >
+                              <option value="KZT">KZT</option>
+                              <option value="RUB">RUB</option>
+                              <option value="USD">USD</option>
+                              <option value="EUR">EUR</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Source Badge */}
                     <div className="mt-3 pt-3 border-t border-gray-200">
-                      <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-medium ${
-                        product.createdBy === 'brand'
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
+                      <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-medium ${product.createdBy === 'brand'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
+                        }`}>
                         Источник: {product.brandName ? product.brandName : 'Бренд'}
                       </span>
                     </div>
@@ -249,6 +467,8 @@ export function ProductList({ products, categories, onCreateProduct }: ProductLi
                       <th className="text-left px-4 py-3 text-sm font-medium">Категория</th>
                       <th className="text-left px-4 py-3 text-sm font-medium">Остаток</th>
                       <th className="text-left px-4 py-3 text-sm font-medium">Упаковка</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium">Себестоимость</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium">Цена</th>
                       <th className="text-left px-4 py-3 text-sm font-medium">Источник</th>
                     </tr>
                   </thead>
@@ -272,10 +492,45 @@ export function ProductList({ products, categories, onCreateProduct }: ProductLi
                             </div>
                           </td>
                           <td className="px-4 py-3 text-sm">{product.packageInfo || '—'}</td>
+                          <td className="px-4 py-3 text-sm">
+                            {product.costPrice !== undefined && product.costPrice !== null ? (
+                              <span className="text-gray-700">
+                                {product.costPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {product.costCurrency || 'KZT'}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3">
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              product.createdBy === 'brand' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'
-                            }`}>
+                            {(product.offerId || product.storePrice !== undefined) ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={editingPrices[product.offerId || `temp-${product.id}`]?.price || ''}
+                                  onChange={(e) => handlePriceChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                                  placeholder="0.00"
+                                  className="w-28 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                                <select
+                                  value={editingPrices[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
+                                  onChange={(e) => handleCurrencyChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                                  className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                >
+                                  <option value="KZT">KZT (₸)</option>
+                                  <option value="RUB">RUB (₽)</option>
+                                  <option value="USD">USD ($)</option>
+                                  <option value="EUR">EUR (€)</option>
+                                </select>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-1 rounded ${product.createdBy === 'brand' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-700'
+                              }`}>
                               {product.brandName ? product.brandName : 'Бренд'}
                             </span>
                           </td>
@@ -289,6 +544,29 @@ export function ProductList({ products, categories, onCreateProduct }: ProductLi
           </>
         )}
       </div>
+
+      {/* Кнопка сохранения - появляется только при изменениях */}
+      {hasChanges() && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <button
+            onClick={handleSaveAll}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                Сохранить изменения
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
