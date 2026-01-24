@@ -1121,6 +1121,7 @@ export default function App() {
               role={uiRole as 'store' | 'brand' | 'distributor' | 'salesRep'}
               currentView={currentView}
               onNavigate={handleNavigate}
+              onLogout={handleLogout}
               userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
             />
           </div>
@@ -1131,6 +1132,7 @@ export default function App() {
                 role={uiRole as 'store' | 'brand' | 'distributor' | 'salesRep'}
                 currentView={currentView}
                 onNavigate={handleNavigate}
+                onLogout={handleLogout}
                 userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
               />
             </div>

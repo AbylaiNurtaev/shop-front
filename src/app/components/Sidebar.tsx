@@ -1,14 +1,15 @@
-import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface SidebarProps {
   role: 'store' | 'brand' | 'admin' | 'distributor' | 'salesRep';
   currentView: string;
   onNavigate: (view: string) => void;
+  onLogout: () => void;
   userRole?: 'store' | 'storeSeller';
 }
 
-export function Sidebar({ role, currentView, onNavigate, userRole }: SidebarProps) {
+export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -140,7 +141,18 @@ export function Sidebar({ role, currentView, onNavigate, userRole }: SidebarProp
           </ul>
         </nav>
 
-        <div className="p-3 border-t border-border">
+        <div className="p-3 border-t border-border space-y-2">
+          <button
+            onClick={() => {
+              onLogout();
+              setIsMobileOpen(false);
+            }}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-md transition-colors min-h-[44px] text-muted-foreground hover:bg-accent hover:text-accent-foreground ${isCollapsed ? 'justify-center' : ''}`}
+            title={isCollapsed ? 'Выход' : undefined}
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span>Выход</span>}
+          </button>
           <div className={`text-xs text-muted-foreground ${isCollapsed ? 'text-center' : ''}`}>
             {isCollapsed ? 'v1' : 'Версия 1.0.0'}
           </div>
