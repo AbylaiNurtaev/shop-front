@@ -44,6 +44,8 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
     { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
     { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
     { id: 'forecast', label: 'Прогноз спроса (AI)', icon: Brain },
+    { id: 'poorlySelling', label: 'Плохо продается', icon: TrendingDown },
+    { id: 'history', label: 'История', icon: History },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 

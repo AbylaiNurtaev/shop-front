@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Navigation, MapPin, Search, Mic, Paperclip, Store, Package } from 'lucide-react';
+import { Navigation, MapPin, Search, Mic, Paperclip, Store, Package, Image as ImageIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../api/axios';
 
@@ -34,6 +34,93 @@ type Message = {
   results?: StoreResult[];
   selectedProduct?: SelectedProduct;
   remainingProducts?: number;
+  imageUrl?: string;
+  imageAnalysis?: {
+    productName?: string;
+    brand?: string;
+    packageType?: string;
+    packageInfo?: string;
+    type?: string;
+    description?: string;
+  };
+  candidates?: Array<{
+    id: string;
+    name: string;
+    brandName?: string;
+    packageInfo?: string;
+    description?: string;
+    images?: string[];
+    offers?: Array<{
+      offerId: string;
+      price: number;
+      currency: string;
+      isAvailable?: boolean;
+      quantity?: number;
+      store?: {
+        id: string;
+        name: string;
+        address: string;
+        location?: string;
+        distanceMeters?: number | null;
+        distanceFormatted?: string | null;
+        isWithinRadius?: boolean | null;
+      };
+    }>;
+    totalOffers?: number;
+    offersInRadius?: number;
+    nearestStore?: {
+      name: string;
+      distance?: string | null;
+      distanceMeters?: number | null;
+      address: string;
+      location?: string;
+      isWithinRadius?: boolean | null;
+    } | null;
+  }>;
+};
+
+interface SpeechRecognition extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionResultList {
+  [index: number]: SpeechRecognitionResult;
+  length: number;
+}
+
+interface SpeechRecognitionResult {
+  [index: number]: SpeechRecognitionAlternative;
+  length: number;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+declare var webkitSpeechRecognition: {
+  new(): SpeechRecognition;
+};
+
+declare var SpeechRecognition: {
+  new(): SpeechRecognition;
 };
 
 export function BuyerHome() {
@@ -47,6 +134,10 @@ export function BuyerHome() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -55,6 +146,26 @@ export function BuyerHome() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, sending]);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
+
+  // Очищаем URL объектов изображений при размонтировании
+  useEffect(() => {
+    return () => {
+      messages.forEach((message) => {
+        if (message.imageUrl && message.imageUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(message.imageUrl);
+        }
+      });
+    };
+  }, [messages]);
 
   const requestGeo = () => {
     if (!navigator.geolocation) {
@@ -98,8 +209,8 @@ export function BuyerHome() {
     try {
       const deviceId = getDeviceId();
       const userAgent = navigator.userAgent;
-      
-      const sessionResponse = await api.post('/customer/sessions', {
+
+      const sessionResponse = await api.post('/customers/sessions', {
         deviceId,
         userAgent,
       });
@@ -109,8 +220,8 @@ export function BuyerHome() {
         return null;
       }
       setSessionId(createdSessionId);
-      
-      const convoResponse = await api.post('/customer/conversations', {
+
+      const convoResponse = await api.post('/customers/conversations', {
         sessionId: createdSessionId,
       });
       const createdConversationId = convoResponse.data?.conversationId;
@@ -131,9 +242,9 @@ export function BuyerHome() {
     const init = async () => {
       const initData = await ensureSessionAndConversation();
       if (!initData) return;
-      
+
       try {
-        const convo = await api.get(`/customer/conversations/${initData.conversationId}`);
+        const convo = await api.get(`/customers/conversations/${initData.conversationId}`);
         const history = convo.data?.messages;
         if (Array.isArray(history) && history.length > 0) {
           const loadedMessages: Message[] = history.map((item: any) => {
@@ -200,8 +311,10 @@ export function BuyerHome() {
   };
 
   const normalizeResults = (data: any): StoreResult[] => {
+    const storesMap = new Map<string, StoreResult>();
+
+    // Обрабатываем items (старый формат)
     if (Array.isArray(data?.items)) {
-      const storesMap = new Map<string, StoreResult>();
       data.items.forEach((entry: any) => {
         const product = entry?.product ?? {};
         const offers = Array.isArray(entry?.offers) ? entry.offers : [];
@@ -217,20 +330,72 @@ export function BuyerHome() {
           if (existing) {
             existing.items.push(item);
           } else {
+            const distance = store.distanceFormatted ?? formatDistance(store.distanceMeters ?? store.distance);
+            const locationLink = typeof store.location === 'string'
+              ? store.location
+              : (store.location?.link ?? 'https://2gis.kz');
+
             storesMap.set(storeId, {
               storeName: store.name ?? 'Магазин',
-              distance: formatDistance(store.distanceMeters ?? store.distance),
+              distance,
               address: store.address ?? '—',
               updatedAgo: formatUpdated(offer.updatedAt),
-              deeplink: store.location ?? 'https://2gis.kz',
+              deeplink: locationLink,
               items: [item],
             });
           }
         });
       });
-      return Array.from(storesMap.values());
     }
-    return [];
+
+    // Обрабатываем candidates с offers (новый формат)
+    if (Array.isArray(data?.candidates)) {
+      data.candidates.forEach((candidate: any) => {
+        const productName = candidate.name ?? 'Товар';
+        const offers = Array.isArray(candidate?.offers) ? candidate.offers : [];
+
+        offers.forEach((offer: any) => {
+          const store = offer?.store ?? {};
+          const storeId = store.id ?? store.name ?? `store-${Math.random()}`;
+          const existing = storesMap.get(storeId);
+
+          const item = {
+            name: productName,
+            price: offer.price != null ? `${offer.price} ${offer.currency ?? '₸'}`.trim() : undefined,
+            availability: offer.isAvailable !== false ? 'в наличии' : 'нет',
+          };
+
+          if (existing) {
+            // Проверяем, нет ли уже такого товара в этом магазине
+            const itemExists = existing.items.some(i => i.name === productName);
+            if (!itemExists) {
+              existing.items.push(item);
+            }
+          } else {
+            // Используем distanceFormatted если есть, иначе форматируем distanceMeters
+            const distance = store.distanceFormatted ?? (store.distanceMeters != null
+              ? formatDistance(store.distanceMeters)
+              : '—');
+
+            // Используем location как ссылку на 2GIS
+            const locationLink = typeof store.location === 'string'
+              ? store.location
+              : (store.location?.link ?? 'https://2gis.kz');
+
+            storesMap.set(storeId, {
+              storeName: store.name ?? 'Магазин',
+              distance,
+              address: store.address ?? '—',
+              updatedAgo: formatUpdated(offer.updatedAt),
+              deeplink: locationLink,
+              items: [item],
+            });
+          }
+        });
+      });
+    }
+
+    return Array.from(storesMap.values());
   };
 
   const sendMessage = async (text: string) => {
@@ -260,7 +425,7 @@ export function BuyerHome() {
     setSending(true);
     try {
       const response = await api.post(
-        `/customer/conversations/${initData.conversationId}/messages`,
+        `/customers/conversations/${initData.conversationId}/messages`,
         payload
       );
 
@@ -297,7 +462,7 @@ export function BuyerHome() {
     } catch (error: any) {
       console.error('Ошибка отправки сообщения', error);
       toast.error(error?.response?.data?.message || 'Не удалось отправить сообщение');
-      
+
       // Добавляем сообщение об ошибке
       setMessages((prev) => [
         ...prev,
@@ -315,7 +480,7 @@ export function BuyerHome() {
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed || sending) return;
-    
+
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -349,6 +514,205 @@ export function BuyerHome() {
     toast.success('Локация из 2ГИС сохранена');
   };
 
+  const startVoiceRecognition = () => {
+    const SpeechRecognitionClass = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+
+    if (!SpeechRecognitionClass) {
+      toast.error('Распознавание речи не поддерживается в вашем браузере');
+      return;
+    }
+
+    const recognition = new SpeechRecognitionClass() as SpeechRecognition;
+
+    recognition.lang = 'ru-RU';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+      toast.info('Говорите...');
+    };
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Ошибка распознавания речи:', event.error);
+      setIsRecording(false);
+      recognitionRef.current = null;
+
+      if (event.error === 'no-speech') {
+        toast.error('Речь не обнаружена');
+      } else if (event.error === 'audio-capture') {
+        toast.error('Микрофон недоступен');
+      } else if (event.error === 'not-allowed') {
+        toast.error('Доступ к микрофону запрещен');
+      } else {
+        toast.error('Ошибка распознавания речи');
+      }
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (error) {
+      console.error('Ошибка запуска распознавания:', error);
+      toast.error('Не удалось запустить распознавание речи');
+      setIsRecording(false);
+    }
+  };
+
+  const stopVoiceRecognition = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+      setIsRecording(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Проверяем тип файла
+    if (!file.type.startsWith('image/')) {
+      toast.error('Пожалуйста, выберите изображение');
+      return;
+    }
+
+    // Проверяем размер файла (макс 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Размер изображения не должен превышать 10MB');
+      return;
+    }
+
+    sendImage(file);
+
+    // Сбрасываем input, чтобы можно было выбрать тот же файл снова
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const sendImage = async (file: File) => {
+    // Создаем URL для предпросмотра изображения
+    const imageUrl = URL.createObjectURL(file);
+
+    // Добавляем сообщение пользователя с изображением
+    const userMessage: Message = {
+      id: `user-image-${Date.now()}`,
+      role: 'user',
+      text: '',
+      imageUrl,
+    };
+    setMessages((prev) => [...prev, userMessage]);
+
+    setUploadingImage(true);
+
+    try {
+      // Получаем геолокацию
+      const geoFromLink = locationLink ? parse2GisLink(locationLink) : null;
+      const geoValue =
+        geoState.status === 'granted'
+          ? { lat: geoState.lat, lng: geoState.lng }
+          : geoFromLink ?? undefined;
+
+      // Создаем FormData для отправки изображения
+      const formData = new FormData();
+      formData.append('image', file);
+
+      if (geoValue) {
+        formData.append('geo', JSON.stringify(geoValue));
+      }
+
+      if (radiusKm) {
+        formData.append('radiusMeters', (radiusKm * 1000).toString());
+      }
+
+      // Пытаемся получить conversationId, но не блокируем отправку, если его нет
+      const initData = await ensureSessionAndConversation();
+      if (initData?.conversationId) {
+        formData.append('conversationId', initData.conversationId);
+      }
+
+      // Отправляем изображение на API
+      const response = await api.post('/customers/search-by-image', formData);
+
+      const responseData = response.data;
+
+      // Проверяем успешность операции
+      if (responseData.success === false) {
+        const assistantMessage: Message = {
+          id: `assistant-image-${Date.now()}`,
+          role: 'assistant',
+          text: responseData.message || 'Товар не найден в базе данных',
+          imageAnalysis: responseData.imageAnalysis,
+          candidates: responseData.candidates || [],
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+        return;
+      }
+
+      // Создаем простое сообщение со списком найденных товаров
+      const candidates = responseData.candidates || [];
+      const totalCandidates = candidates.length;
+
+      let text = '';
+      if (totalCandidates > 0) {
+        text = `Найдено ${totalCandidates} товар(ов). Выберите товар для просмотра ближайшего магазина:`;
+      } else {
+        text = 'Товар не найден. Попробуйте другое изображение.';
+      }
+
+      const assistantMessage: Message = {
+        id: `assistant-image-${Date.now()}`,
+        role: 'assistant',
+        text,
+        candidates: candidates,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error: any) {
+      console.error('Ошибка отправки изображения', error);
+
+      let errorMessage = 'Не удалось обработать изображение';
+      if (error?.response?.status === 400) {
+        errorMessage = error?.response?.data?.message || 'Неверный формат изображения';
+      } else if (error?.response?.status === 500) {
+        errorMessage = 'Ошибка при анализе изображения. Попробуйте еще раз.';
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      toast.error(errorMessage);
+
+      // Добавляем сообщение об ошибке
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-image-${Date.now()}`,
+          role: 'system',
+          text: errorMessage,
+        },
+      ]);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
       <div className="w-full max-w-xl bg-card border border-border rounded-lg shadow-sm p-4 flex flex-col gap-4 min-h-[80vh]">
@@ -372,11 +736,10 @@ export function BuyerHome() {
                 key={value}
                 type="button"
                 onClick={() => setRadiusKm(value)}
-                className={`px-3 py-1.5 rounded-full border text-xs ${
-                  radiusKm === value
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border hover:bg-accent'
-                }`}
+                className={`px-3 py-1.5 rounded-full border text-xs ${radiusKm === value
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border hover:bg-accent'
+                  }`}
               >
                 {value} км
               </button>
@@ -412,16 +775,85 @@ export function BuyerHome() {
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
-                  message.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : message.role === 'system'
-                      ? 'bg-muted text-muted-foreground'
-                      : 'bg-accent/60 text-foreground'
-                }`}
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${message.role === 'user'
+                  ? 'bg-primary text-primary-foreground'
+                  : message.role === 'system'
+                    ? 'bg-muted text-muted-foreground'
+                    : 'bg-accent/60 text-foreground'
+                  }`}
               >
-                <div className="whitespace-pre-wrap">{message.text}</div>
-                
+                {message.imageUrl && (
+                  <div className="mb-2 rounded-lg overflow-hidden">
+                    <img
+                      src={message.imageUrl}
+                      alt="Загруженное изображение"
+                      className="max-w-full max-h-64 object-contain bg-background/50 rounded-lg"
+                    />
+                  </div>
+                )}
+                {message.text && <div className="whitespace-pre-wrap">{message.text}</div>}
+
+                {message.candidates && message.candidates.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {message.candidates.map((candidate, idx) => {
+                      const hasOffers = candidate.totalOffers && candidate.totalOffers > 0;
+
+                      return (
+                        <button
+                          key={candidate.id || idx}
+                          type="button"
+                          onClick={() => {
+                            // Добавляем новое сообщение с информацией о ближайшем магазине
+                            const nearestStore = candidate.nearestStore;
+                            if (!nearestStore) {
+                              toast.info('Информация о магазине недоступна');
+                              return;
+                            }
+
+                            const storeMessage: Message = {
+                              id: `store-${candidate.id}-${Date.now()}`,
+                              role: 'assistant',
+                              text: `Ближайший магазин для "${candidate.name}":`,
+                              selectedProduct: {
+                                id: candidate.id,
+                                name: candidate.name,
+                                brandName: candidate.brandName,
+                                packageInfo: candidate.packageInfo,
+                              },
+                              results: nearestStore ? [{
+                                storeName: nearestStore.name,
+                                distance: nearestStore.distance || '—',
+                                address: nearestStore.address,
+                                updatedAgo: '',
+                                deeplink: nearestStore.location || 'https://2gis.kz',
+                                items: [],
+                              }] : undefined,
+                            };
+
+                            setMessages((prev) => [...prev, storeMessage]);
+                          }}
+                          className="w-full text-left border border-border rounded-lg p-3 bg-background/50 hover:bg-background/70 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm">{candidate.name}</div>
+                              {hasOffers && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Доступно в {candidate.totalOffers} магазин(ах)
+                                </div>
+                              )}
+                              {!hasOffers && (
+                                <div className="text-xs text-muted-foreground mt-1">Нет в наличии</div>
+                              )}
+                            </div>
+                            <Navigation className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {message.selectedProduct && (
                   <div className="mt-3 p-2 bg-background/80 rounded-lg border border-border">
                     <div className="flex items-center gap-2 text-xs font-semibold">
@@ -461,38 +893,33 @@ export function BuyerHome() {
                     ))}
                   </div>
                 )}
-                
+
                 {message.results && message.results.length > 0 && (
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-3">
                     {message.results.map((store, idx) => (
-                      <div key={`${store.storeName}-${idx}`} className="border border-border rounded-xl p-3 bg-background/80">
-                        <div className="flex items-center gap-2 text-sm font-semibold">
-                          <Store className="w-4 h-4 text-primary" />
-                          {store.storeName}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {store.distance} · {store.address}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Обновлено {store.updatedAgo}
-                        </div>
-                        <div className="mt-2 space-y-1">
-                          {store.items.map((item, itemIdx) => (
-                            <div key={`${item.name}-${itemIdx}`} className="flex justify-between text-xs">
-                              <span>{item.name}</span>
-                              <span className="text-muted-foreground">
-                                {item.price} {item.availability ? `· ${item.availability}` : ''}
-                              </span>
+                      <div key={`${store.storeName}-${idx}`} className="border border-border rounded-lg p-4 bg-background/80">
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="text-sm font-semibold mb-1">{store.storeName}</h4>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span>{store.address}</span>
                             </div>
-                          ))}
-                        </div>
-                        <div className="mt-3 flex gap-2">
+                            {store.distance && store.distance !== '—' && (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Navigation className="w-3.5 h-3.5" />
+                                <span>{store.distance}</span>
+                              </div>
+                            )}
+                          </div>
+
                           <a
                             href={store.deeplink}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex-1 text-center text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted"
+                            className="flex items-center justify-center gap-2 w-full text-xs px-3 py-2 rounded-md border border-primary/30 hover:bg-primary/10 transition-colors text-primary font-medium"
                           >
+                            <MapPin className="w-3.5 h-3.5" />
                             Открыть в 2ГИС
                           </a>
                         </div>
@@ -509,28 +936,38 @@ export function BuyerHome() {
                 <div className="flex items-center gap-1.5">
                   <span className="text-muted-foreground text-xs">Ищу товары</span>
                   <div className="flex gap-1 items-center">
-                    <span 
-                      className="w-2 h-2 bg-muted-foreground/70 rounded-full" 
-                      style={{ 
+                    <span
+                      className="w-2 h-2 bg-muted-foreground/70 rounded-full"
+                      style={{
                         animation: 'typing 1.4s infinite',
                         animationDelay: '0ms'
-                      }} 
+                      }}
                     />
-                    <span 
-                      className="w-2 h-2 bg-muted-foreground/70 rounded-full" 
-                      style={{ 
+                    <span
+                      className="w-2 h-2 bg-muted-foreground/70 rounded-full"
+                      style={{
                         animation: 'typing 1.4s infinite',
                         animationDelay: '200ms'
-                      }} 
+                      }}
                     />
-                    <span 
-                      className="w-2 h-2 bg-muted-foreground/70 rounded-full" 
-                      style={{ 
+                    <span
+                      className="w-2 h-2 bg-muted-foreground/70 rounded-full"
+                      style={{
                         animation: 'typing 1.4s infinite',
                         animationDelay: '400ms'
-                      }} 
+                      }}
                     />
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {uploadingImage && (
+            <div className="flex justify-start">
+              <div className="max-w-[85%] rounded-2xl px-4 py-3 text-sm bg-accent/60 text-foreground">
+                <div className="flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-primary animate-pulse" />
+                  <span className="text-muted-foreground text-xs">Анализирую изображение...</span>
                 </div>
               </div>
             </div>
@@ -539,20 +976,22 @@ export function BuyerHome() {
         </div>
 
         <div className="border-t border-border pt-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted"
-              title="Прикрепить файл"
+              onClick={handleAttachClick}
+              disabled={sending || uploadingImage || isRecording}
+              className="w-10 h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Прикрепить изображение"
             >
               <Paperclip className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted"
-              title="Голосовое сообщение"
-            >
-              <Mic className="w-4 h-4" />
             </button>
             <input
               type="text"
@@ -566,12 +1005,24 @@ export function BuyerHome() {
                   handleSend();
                 }
               }}
-              disabled={sending}
+              disabled={sending || uploadingImage || isRecording}
             />
             <button
               type="button"
+              onClick={isRecording ? stopVoiceRecognition : startVoiceRecognition}
+              disabled={sending || uploadingImage}
+              className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${isRecording
+                ? 'bg-red-500 text-white border-red-500 hover:bg-red-600'
+                : 'border-border hover:bg-muted'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              title={isRecording ? 'Остановить запись' : 'Голосовое сообщение'}
+            >
+              <Mic className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
+            </button>
+            <button
+              type="button"
               onClick={handleSend}
-              disabled={!input.trim() || sending}
+              disabled={!input.trim() || sending || uploadingImage || isRecording}
               className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Search className="w-4 h-4" />

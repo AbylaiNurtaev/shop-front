@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Search, Minus, Plus } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, Minus, Plus, Upload, FileText, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Product, Category } from '../../types';
+import api from '../../api/axios';
+import { toast } from 'sonner';
 
 interface InventoryProps {
   products: Product[];
@@ -8,10 +10,40 @@ interface InventoryProps {
   onUpdateQuantity: (product: Product, newQuantity: number) => void;
 }
 
+type InvoiceProcessingResult = {
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  supplier?: string;
+  summary: {
+    processed: number;
+    notFound: number;
+    errors: number;
+  };
+  processedItems: Array<{
+    productId: string;
+    productName: string;
+    quantity: number;
+    sku?: string;
+  }>;
+  notFoundItems: Array<{
+    name: string;
+    quantity: number;
+    sku?: string;
+  }>;
+  errors: Array<{
+    message: string;
+    item?: string;
+  }>;
+};
+
 export function Inventory({ products, categories, onUpdateQuantity }: InventoryProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
+  const [isProcessingInvoice, setIsProcessingInvoice] = useState(false);
+  const [invoiceResult, setInvoiceResult] = useState<InvoiceProcessingResult | null>(null);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getCategoryName = (categoryId: string) => {
     const category = categories.find((c) => c.id === categoryId);
@@ -46,6 +78,53 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
   const lowStockCount = products.filter((p) => p.quantity < 20 && p.quantity > 0).length;
   const outOfStockCount = products.filter((p) => p.quantity === 0).length;
 
+  const handleInvoiceUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Пожалуйста, выберите изображение');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Размер изображения не должен превышать 10MB');
+      return;
+    }
+
+    setIsProcessingInvoice(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await api.post('/warehouse/invoice/process', formData);
+      const result: InvoiceProcessingResult = response.data;
+
+      setInvoiceResult(result);
+      setShowResultModal(true);
+
+      if (result.summary.processed > 0) {
+        toast.success(`Обработано ${result.summary.processed} товар(ов)`);
+        // Обновляем страницу или перезагружаем товары
+        window.location.reload();
+      } else {
+        toast.warning('Товары не были обработаны');
+      }
+    } catch (error: any) {
+      console.error('Ошибка обработки накладной', error);
+      toast.error(error?.response?.data?.message || 'Не удалось обработать накладную');
+    } finally {
+      setIsProcessingInvoice(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleInvoiceUpload(file);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ========== MOBILE LAYOUT ========== */}
@@ -53,8 +132,36 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
         {/* Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
           <div className="p-4">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Управление складом</h1>
-            <p className="text-sm text-gray-600">Быстрое изменение остатков</p>
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Управление складом</h1>
+                <p className="text-sm text-gray-600">Быстрое изменение остатков</p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isProcessingInvoice}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isProcessingInvoice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Обработка...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span className="text-sm">Загрузить накладную</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -209,11 +316,37 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
       {/* ========== DESKTOP LAYOUT ========== */}
       <div className="hidden md:block">
         {/* Desktop Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-semibold">Управление складом</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Быстрое редактирование остатков и контроль запасов
-          </p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">Управление складом</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Быстрое редактирование остатков и контроль запасов
+            </p>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessingInvoice}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isProcessingInvoice ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Обработка...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                <span>Загрузить накладную</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Stats Cards - Desktop */}
@@ -331,6 +464,143 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
           </div>
         </div>
       </div>
+
+      {/* Modal для результатов обработки накладной */}
+      {showResultModal && invoiceResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Результаты обработки накладной
+              </h3>
+              <button
+                onClick={() => setShowResultModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Информация о накладной */}
+              {(invoiceResult.invoiceNumber || invoiceResult.invoiceDate || invoiceResult.supplier) && (
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  {invoiceResult.invoiceNumber && (
+                    <div className="text-sm">
+                      <span className="font-medium">Номер накладной:</span> {invoiceResult.invoiceNumber}
+                    </div>
+                  )}
+                  {invoiceResult.invoiceDate && (
+                    <div className="text-sm">
+                      <span className="font-medium">Дата:</span> {invoiceResult.invoiceDate}
+                    </div>
+                  )}
+                  {invoiceResult.supplier && (
+                    <div className="text-sm">
+                      <span className="font-medium">Поставщик:</span> {invoiceResult.supplier}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Сводка */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-green-700">Обработано</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-900">{invoiceResult.summary.processed}</p>
+                </div>
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle className="w-5 h-5 text-orange-600" />
+                    <span className="text-sm font-medium text-orange-700">Не найдено</span>
+                  </div>
+                  <p className="text-2xl font-bold text-orange-900">{invoiceResult.summary.notFound}</p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <X className="w-5 h-5 text-red-600" />
+                    <span className="text-sm font-medium text-red-700">Ошибки</span>
+                  </div>
+                  <p className="text-2xl font-bold text-red-900">{invoiceResult.summary.errors}</p>
+                </div>
+              </div>
+
+              {/* Обработанные товары */}
+              {invoiceResult.processedItems.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    Обработанные товары ({invoiceResult.processedItems.length})
+                  </h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {invoiceResult.processedItems.map((item, idx) => (
+                      <div key={idx} className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+                        <div className="font-medium">{item.productName}</div>
+                        <div className="text-gray-600 mt-1">
+                          Количество: <span className="font-semibold">{item.quantity}</span>
+                          {item.sku && <span className="ml-2">Артикул: {item.sku}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Не найденные товары */}
+              {invoiceResult.notFoundItems.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-orange-600" />
+                    Товары не найдены в базе ({invoiceResult.notFoundItems.length})
+                  </h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {invoiceResult.notFoundItems.map((item, idx) => (
+                      <div key={idx} className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
+                        <div className="font-medium">{item.name}</div>
+                        <div className="text-gray-600 mt-1">
+                          Количество: <span className="font-semibold">{item.quantity}</span>
+                          {item.sku && <span className="ml-2">Артикул: {item.sku}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Ошибки */}
+              {invoiceResult.errors.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <X className="w-4 h-4 text-red-600" />
+                    Ошибки ({invoiceResult.errors.length})
+                  </h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {invoiceResult.errors.map((error, idx) => (
+                      <div key={idx} className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
+                        <div className="font-medium text-red-700">{error.message}</div>
+                        {error.item && <div className="text-gray-600 mt-1">Товар: {error.item}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowResultModal(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

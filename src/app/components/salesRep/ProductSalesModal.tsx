@@ -14,11 +14,12 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
 interface Sale {
-  id: string;
-  date: string;
+  saleId: string;
+  saleDate: string;
   quantity: number;
   price: number;
   revenue: number;
+  totalAmount: number;
   currency: string;
 }
 
@@ -27,16 +28,23 @@ interface StoreSales {
   storeName: string;
   storeAddress: string;
   sales: Sale[];
+  totalSales: number;
   totalQuantity: number;
   totalRevenue: number;
 }
 
 interface ProductSalesData {
+  productId?: string;
   product: {
     id: string;
     name: string;
     sku: string;
+    brandId?: string;
     brandName: string;
+  };
+  period?: {
+    startDate: string;
+    endDate: string;
   };
   salesRepresentative?: {
     id: string;
@@ -44,7 +52,12 @@ interface ProductSalesData {
     lastName: string;
   };
   stores: StoreSales[];
-  statistics: {
+  summary: {
+    totalSales: number;
+    totalRevenue: number;
+    totalQuantity: number;
+  };
+  statistics?: {
     totalSales: number;
     totalRevenue: number;
     totalQuantity: number;
@@ -55,10 +68,11 @@ interface ProductSalesModalProps {
   isOpen: boolean;
   onClose: () => void;
   productId: string;
-  salesRepresentativeId?: string; // Для дистрибьютора
+  salesRepresentativeId?: string; // Для дистрибьютора (когда смотрит продажи конкретного торгового представителя)
+  useDistributorEndpoint?: boolean; // Для дистрибьютора (когда смотрит свои товары)
 }
 
-export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentativeId }: ProductSalesModalProps) {
+export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentativeId, useDistributorEndpoint }: ProductSalesModalProps) {
   const [data, setData] = useState<ProductSalesData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [startDate, setStartDate] = useState<string>('');
@@ -98,8 +112,11 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
       if (endDateParam) params.endDate = endDateParam;
       
       if (salesRepresentativeId) {
-        // Для дистрибьютора
+        // Для дистрибьютора (когда смотрит продажи конкретного торгового представителя)
         url = `/distributors/sales-representatives/${salesRepresentativeId}/products/${productId}/sales-by-stores`;
+      } else if (useDistributorEndpoint) {
+        // Для дистрибьютора (когда смотрит свои товары)
+        url = `/distributors/me/products/${productId}/sales-by-stores`;
       } else {
         // Для торгового представителя
         url = `/sales-representatives/products/${productId}/sales-by-stores`;
@@ -107,10 +124,25 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
       
       console.log('Загрузка продаж товара:', { url, params, productId, salesRepresentativeId });
       
-      const response = await api.get<ProductSalesData>(url, { params });
+      const response = await api.get<any>(url, { params });
       
       console.log('Ответ от сервера:', response.data);
-      setData(response.data);
+      
+      // Преобразуем данные из формата API в формат компонента
+      const apiData = response.data;
+      const transformedData: ProductSalesData = {
+        product: apiData.product,
+        stores: apiData.stores || [],
+        summary: apiData.summary || {
+          totalSales: 0,
+          totalRevenue: 0,
+          totalQuantity: 0,
+        },
+        // Поддержка обратной совместимости
+        statistics: apiData.summary || apiData.statistics,
+      };
+      
+      setData(transformedData);
     } catch (error: any) {
       console.error('Ошибка загрузки продаж товара', error);
       console.error('Детали ошибки:', {
@@ -236,17 +268,17 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Всего продаж</div>
-                  <div className="text-2xl font-semibold">{data.statistics.totalSales}</div>
+                  <div className="text-2xl font-semibold">{(data.summary || data.statistics)?.totalSales || 0}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Проданных единиц</div>
-                  <div className="text-2xl font-semibold">{data.statistics.totalQuantity}</div>
+                  <div className="text-2xl font-semibold">{(data.summary || data.statistics)?.totalQuantity || 0}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Общая выручка</div>
                   <div className="text-2xl font-semibold text-green-600">
                     {formatCurrency(
-                      data.statistics.totalRevenue,
+                      (data.summary || data.statistics)?.totalRevenue || 0,
                       data.stores[0]?.sales[0]?.currency || 'KZT'
                     )}
                   </div>
@@ -279,7 +311,7 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
                           <p className="text-sm text-muted-foreground mt-1">{store.storeAddress}</p>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm text-muted-foreground">Продаж: {store.sales.length}</div>
+                          <div className="text-sm text-muted-foreground">Продаж: {store.totalSales || store.sales.length}</div>
                           <div className="text-sm font-semibold text-green-600">
                             {formatCurrency(store.totalRevenue, store.sales[0]?.currency || 'KZT')}
                           </div>
@@ -301,14 +333,14 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
                               </thead>
                               <tbody>
                                 {store.sales.map((sale) => (
-                                  <tr key={sale.id} className="border-b border-border/50">
-                                    <td className="py-2 px-2">{formatDate(sale.date)}</td>
+                                  <tr key={sale.saleId || sale.id} className="border-b border-border/50">
+                                    <td className="py-2 px-2">{formatDate(sale.saleDate || sale.date)}</td>
                                     <td className="py-2 px-2 text-right">{sale.quantity}</td>
                                     <td className="py-2 px-2 text-right">
                                       {formatCurrency(sale.price, sale.currency)}
                                     </td>
                                     <td className="py-2 px-2 text-right font-semibold text-green-600">
-                                      {formatCurrency(sale.revenue, sale.currency)}
+                                      {formatCurrency(sale.revenue || sale.totalAmount, sale.currency)}
                                     </td>
                                   </tr>
                                 ))}

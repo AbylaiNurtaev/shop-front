@@ -39,6 +39,8 @@ import { AIFAQ } from './components/distributor/AIFAQ';
 import { DemandForecast } from './components/distributor/DemandForecast';
 import { BrandRequests } from './components/distributor/BrandRequests';
 import { DistributorProducts } from './components/distributor/DistributorProducts';
+import { DistributorHistory } from './components/distributor/DistributorHistory';
+import { DistributorPoorlySellingProducts } from './components/distributor/DistributorPoorlySellingProducts';
 import { DistributorsList } from './components/brand/DistributorsList';
 import { CategoryRequest } from './components/brand/CategoryRequest';
 import { User, UserRole, StoreProfile, BrandProfile, DistributorProfile, Product, Category } from './types';
@@ -956,6 +958,8 @@ export default function App() {
     if (path.startsWith('/distributor/analytics')) return 'analytics';
     if (path.startsWith('/distributor/aiFAQ')) return 'aiFAQ';
     if (path.startsWith('/distributor/forecast')) return 'forecast';
+    if (path.startsWith('/distributor/poorlySelling')) return 'poorlySelling';
+    if (path.startsWith('/distributor/history')) return 'history';
     if (path.startsWith('/distributor/settings')) return 'settings';
     if (path.startsWith('/salesrep/home')) return 'home';
     if (path.startsWith('/salesrep/chat')) return 'chat';
@@ -991,6 +995,8 @@ export default function App() {
       if (view === 'aiFAQ') navigate('/distributor/aiFAQ');
       if (view === 'forecast') navigate('/distributor/forecast');
       if (view === 'requests') navigate('/distributor/requests');
+      if (view === 'poorlySelling') navigate('/distributor/poorlySelling');
+      if (view === 'history') navigate('/distributor/history');
       if (view === 'settings') navigate('/distributor/settings');
       return;
     }
@@ -1112,38 +1118,23 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Desktop Sidebar - Hidden on Mobile, but show burger menu for salesRep */}
+      {/* Desktop Sidebar - Hidden on Mobile */}
       {user.role !== 'admin' && (
-        <>
-          {/* Desktop Sidebar */}
-          <div className="hidden md:block">
-            <Sidebar
-              role={uiRole as 'store' | 'brand' | 'distributor' | 'salesRep'}
-              currentView={currentView}
-              onNavigate={handleNavigate}
-              onLogout={handleLogout}
-              userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
-            />
-          </div>
-          {/* Mobile Sidebar with Burger Menu - Only for salesRep */}
-          {user.role === 'salesRep' && (
-            <div className="md:hidden">
-              <Sidebar
-                role={uiRole as 'store' | 'brand' | 'distributor' | 'salesRep'}
-                currentView={currentView}
-                onNavigate={handleNavigate}
-                onLogout={handleLogout}
-                userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
-              />
-            </div>
-          )}
-        </>
+        <div className="hidden md:block">
+          <Sidebar
+            role={uiRole as 'store' | 'brand' | 'distributor' | 'salesRep'}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+            onLogout={handleLogout}
+            userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
+          />
+        </div>
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden w-full">
         <TopBar userEmail={user.email} role={uiRole} onLogout={handleLogout} />
 
-        <main className={`flex-1 overflow-y-auto ${user.role === 'salesRep' ? 'p-0 md:p-6' : 'md:p-6 pb-20 md:pb-6'}`}>
+        <main className="flex-1 overflow-y-auto md:p-6 pb-20 md:pb-6">
           <Routes>
             {user.role === 'admin' ? (
               <>
@@ -1243,6 +1234,8 @@ export default function App() {
                 <Route path="/distributor/aiFAQ" element={<AIFAQ />} />
                 <Route path="/distributor/forecast" element={<DemandForecast />} />
                 <Route path="/distributor/requests" element={<BrandRequests />} />
+                <Route path="/distributor/history" element={<DistributorHistory />} />
+                <Route path="/distributor/poorlySelling" element={<DistributorPoorlySellingProducts />} />
                 <Route
                   path="/distributor/settings"
                   element={
@@ -1315,17 +1308,15 @@ export default function App() {
           </Routes>
         </main>
 
-        {/* Mobile Bottom Navigation - Hidden for salesRep (they have burger menu) */}
-        {user.role !== 'salesRep' && (
-          <MobileNav
-            role={uiRole}
-            currentView={currentView}
-            onNavigate={handleNavigate}
-            userEmail={user.email}
-            onLogout={handleLogout}
-            userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
-          />
-        )}
+        {/* Mobile Bottom Navigation */}
+        <MobileNav
+          role={uiRole}
+          currentView={currentView}
+          onNavigate={handleNavigate}
+          userEmail={user.email}
+          onLogout={handleLogout}
+          userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
+        />
       </div>
 
 

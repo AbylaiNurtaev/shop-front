@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { MapPin, Navigation, Store, ExternalLink } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 
@@ -11,11 +12,13 @@ type SearchOffer = {
     id: string;
     name: string;
     address: string;
-    location: {
+    location?: string | {
       lat: number;
       lng: number;
+      link?: string;
     };
     distanceMeters?: number;
+    distanceFormatted?: string;
   };
 };
 
@@ -153,28 +156,69 @@ export function StoreSearch({ storesCount }: StoreSearchProps) {
                 <p className="text-sm text-gray-600">{item.product.description}</p>
               )}
             </div>
-            <div className="space-y-2">
-              {item.offers.map((offer) => (
-                <div key={offer.offerId} className="border border-gray-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">{offer.store.name}</p>
-                      <p className="text-xs text-gray-500">{offer.store.address}</p>
+            <div className="space-y-3">
+              {item.offers.map((offer) => {
+                const distance = offer.store.distanceFormatted ?? 
+                  (offer.store.distanceMeters !== undefined 
+                    ? offer.store.distanceMeters < 1000 
+                      ? `${Math.round(offer.store.distanceMeters)} м`
+                      : `${(offer.store.distanceMeters / 1000).toFixed(1)} км`
+                    : null);
+                
+                const locationLink = typeof offer.store.location === 'string'
+                  ? offer.store.location
+                  : offer.store.location?.link ?? null;
+                
+                return (
+                  <div key={offer.offerId} className="border border-gray-200 rounded-lg p-4 bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Store className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                            {offer.store.name}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-1">
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span className="truncate">{offer.store.address}</span>
+                          </div>
+                          {distance && (
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>{distance}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-lg font-bold text-gray-900 mb-1">
+                          {offer.price} {offer.currency}
+                        </p>
+                        <span className={`inline-block text-xs px-2 py-1 rounded ${
+                          offer.isAvailable === false
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {offer.isAvailable === false ? 'Нет в наличии' : 'В наличии'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-base font-bold">
-                        {offer.price} {offer.currency}
-                      </p>
-                      {offer.store.distanceMeters !== undefined && (
-                        <p className="text-xs text-gray-500">{offer.store.distanceMeters} м</p>
-                      )}
-                    </div>
+                    {locationLink && (
+                      <a
+                        href={locationLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-center gap-2 w-full text-xs px-3 py-2 rounded-md border border-gray-300 hover:bg-white hover:border-blue-500 transition-colors text-gray-700"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Открыть в 2ГИС
+                      </a>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {offer.isAvailable === false ? 'Нет в наличии' : 'Доступно'}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}

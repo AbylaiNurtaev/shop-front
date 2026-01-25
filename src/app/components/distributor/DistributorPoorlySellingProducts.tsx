@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingDown, Package, Store, Loader2, RefreshCw, AlertCircle, Eye } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
-import { ProductSalesModal } from './ProductSalesModal';
+import { ProductSalesModal } from '../salesRep/ProductSalesModal';
 
 interface PoorlySellingProduct {
   offerId: string;
@@ -26,7 +26,7 @@ interface PoorlySellingProductsResponse {
   total: number;
 }
 
-export function SalesRepPoorlySellingProducts() {
+export function DistributorPoorlySellingProducts() {
   const [products, setProducts] = useState<PoorlySellingProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [minQuantity, setMinQuantity] = useState<string>('10');
@@ -66,7 +66,7 @@ export function SalesRepPoorlySellingProducts() {
         }
       }
       
-      const response = await api.get<PoorlySellingProductsResponse>('/sales-reps/poorly-selling-products', { params });
+      const response = await api.get<PoorlySellingProductsResponse>('/distributors/me/poorly-selling-products', { params });
       setProducts(response.data?.items || []);
       setTotal(response.data?.total || 0);
     } catch (error: any) {
@@ -352,6 +352,7 @@ export function SalesRepPoorlySellingProducts() {
           isOpen={isSalesModalOpen}
           onClose={handleCloseSalesModal}
           productId={selectedProductId}
+          useDistributorEndpoint={true}
         />
       )}
     </div>
