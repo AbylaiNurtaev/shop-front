@@ -340,10 +340,6 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
             <Plus className="w-4 h-4" />
             Создать план
           </Button>
-          <Button variant="outline" onClick={onClose}>
-            <X className="w-4 h-4 mr-2" />
-            Закрыть
-          </Button>
         </div>
       </div>
 
@@ -433,7 +429,7 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
 
       {/* Диалог создания плана */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Создать план</DialogTitle>
             <DialogDescription>
@@ -563,18 +559,8 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsCreateDialogOpen(false);
-                resetForm();
-              }}
-              disabled={isSubmitting}
-            >
-              Отмена
-            </Button>
-            <Button onClick={handleCreatePlan} disabled={isSubmitting}>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button onClick={handleCreatePlan} disabled={isSubmitting} className="w-full">
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -584,13 +570,24 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
                 'Создать'
               )}
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateDialogOpen(false);
+                resetForm();
+              }}
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              Отмена
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Диалог редактирования плана */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Редактировать план</DialogTitle>
             <DialogDescription>
@@ -720,19 +717,8 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsEditDialogOpen(false);
-                setSelectedPlan(null);
-                resetForm();
-              }}
-              disabled={isSubmitting}
-            >
-              Отмена
-            </Button>
-            <Button onClick={handleUpdatePlan} disabled={isSubmitting}>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button onClick={handleUpdatePlan} disabled={isSubmitting} className="w-full">
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -741,6 +727,18 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
               ) : (
                 'Сохранить'
               )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setSelectedPlan(null);
+                resetForm();
+              }}
+              disabled={isSubmitting}
+              className="w-full"
+            >
+              Отмена
             </Button>
           </DialogFooter>
         </DialogContent>

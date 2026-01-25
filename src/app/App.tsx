@@ -1117,7 +1117,7 @@ export default function App() {
   const uiRole = user.role === 'admin' ? 'admin' : user.role === 'distributor' ? 'distributor' : user.role === 'brand' ? 'brand' : user.role === 'salesRep' ? 'salesRep' : user.role === 'storeSeller' ? 'store' : 'store';
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex min-h-screen md:h-screen bg-background md:overflow-hidden">
       {/* Desktop Sidebar - Hidden on Mobile */}
       {user.role !== 'admin' && (
         <div className="hidden md:block">
@@ -1131,10 +1131,10 @@ export default function App() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col overflow-hidden w-full">
+      <div className="flex-1 flex flex-col md:overflow-hidden w-full">
         <TopBar userEmail={user.email} role={uiRole} onLogout={handleLogout} />
 
-        <main className="flex-1 overflow-y-auto md:p-6 pb-20 md:pb-6">
+        <main className="flex-1 md:overflow-y-auto overflow-x-hidden md:p-6 pb-24 md:pb-6">
           <Routes>
             {user.role === 'admin' ? (
               <>

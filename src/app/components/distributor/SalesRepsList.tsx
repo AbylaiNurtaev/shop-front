@@ -835,7 +835,7 @@ export function SalesRepsList() {
               className="bg-card border border-border rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6">
+              <div className="p-4 md:p-6">
                 <PlanManagement
                   salesRepresentativeId={selectedSalesRep.id}
                   salesRepName={`${selectedSalesRep.firstName} ${selectedSalesRep.lastName}`}

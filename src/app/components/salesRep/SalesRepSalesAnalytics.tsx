@@ -246,22 +246,22 @@ export function SalesRepSalesAnalytics() {
 
       {/* Фильтры дат */}
       <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-        <div className="flex-1">
-          <label className="text-xs text-muted-foreground mb-1 block">Дата начала</label>
+        <div className="w-full sm:w-1/2">
+          <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Дата начала</label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full px-3 md:px-4 py-2 bg-input-background border border-foreground/30 rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-colors text-sm shadow-sm hover:border-primary/50"
           />
         </div>
-        <div className="flex-1">
-          <label className="text-xs text-muted-foreground mb-1 block">Дата окончания</label>
+        <div className="w-full sm:w-1/2">
+          <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Дата окончания</label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full px-3 md:px-4 py-2 bg-input-background border border-foreground/30 rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-colors text-sm shadow-sm hover:border-primary/50"
           />
         </div>
       </div>
@@ -424,7 +424,7 @@ export function SalesRepSalesAnalytics() {
             <Store className="w-5 h-5" />
             Продажи по магазинам
           </h2>
-          <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[600px]">
               <thead className="bg-muted/50 border-b border-foreground/30">
                 <tr>
@@ -460,7 +460,7 @@ export function SalesRepSalesAnalytics() {
             <Package className="w-5 h-5" />
             Топ товаров
           </h2>
-          <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[600px]">
               <thead className="bg-muted/50 border-b border-foreground/30">
                 <tr>

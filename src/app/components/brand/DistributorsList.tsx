@@ -295,46 +295,46 @@ export function DistributorsList() {
     return (
       <div
         key={distributor.id}
-        className={`bg-card border rounded-lg p-4 hover:shadow-md transition-shadow ${isAttached ? 'border-green-500/50' : 'border-border'}`}
+        className={`bg-card border rounded-lg p-3 md:p-4 hover:shadow-md transition-shadow ${isAttached ? 'border-green-500/50' : 'border-border'}`}
       >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-lg">{distributor.name}</h3>
+        <div className="flex items-start justify-between mb-2 md:mb-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Building2 className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
+            <h3 className="font-semibold text-base md:text-lg break-words">{distributor.name}</h3>
           </div>
         </div>
 
-        <div className="space-y-2 mb-4">
+        <div className="space-y-2 mb-3 md:mb-4">
           {distributor.email && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Mail className="w-4 h-4" />
-              <span>{distributor.email}</span>
+            <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+              <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+              <span className="break-all">{distributor.email}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4" />
-            <span>
+          <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+            <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+            <span className="break-words">
               {distributor.city}, {distributor.country}
             </span>
           </div>
 
           {distributor.activeStoresCount !== undefined && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Store className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+              <Store className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
               <span>Активных магазинов: {distributor.activeStoresCount}</span>
             </div>
           )}
 
           {distributor.categories && distributor.categories.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Package className="w-4 h-4" />
-              <span>Категории: {distributor.categories.join(', ')}</span>
+            <div className="flex items-start gap-2 text-xs md:text-sm text-muted-foreground">
+              <Package className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 mt-0.5" />
+              <span className="break-words">Категории: {distributor.categories.join(', ')}</span>
             </div>
           )}
 
           {distributor.description && (
-            <p className="text-sm text-muted-foreground mt-2">{distributor.description}</p>
+            <p className="text-xs md:text-sm text-muted-foreground mt-2 line-clamp-2">{distributor.description}</p>
           )}
         </div>
 
@@ -384,18 +384,18 @@ export function DistributorsList() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Дистрибьюторы</h1>
+    <div className="space-y-4 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="text-xl md:text-2xl font-semibold">Дистрибьюторы</h1>
       </div>
 
       {/* Фильтры */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div className="bg-card border border-border rounded-lg p-3 md:p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-5 h-5 text-muted-foreground" />
-          <h3 className="font-semibold">Фильтры</h3>
+          <Filter className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground flex-shrink-0" />
+          <h3 className="font-semibold text-base md:text-lg">Фильтры</h3>
         </div>
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           <div>
             <label className="block text-xs sm:text-sm mb-1.5">Страна</label>
             <select
@@ -470,11 +470,11 @@ export function DistributorsList() {
           {/* Прикрепленные дистрибьюторы */}
           {attachedDistributors.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                Прикрепленные к бренду ({attachedDistributors.length})
+              <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></span>
+                <span>Прикрепленные к бренду ({attachedDistributors.length})</span>
               </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {attachedDistributors.map((distributor) => {
                   return renderDistributorCard(distributor, true);
                 })}
@@ -485,11 +485,11 @@ export function DistributorsList() {
           {/* Свободные дистрибьюторы */}
           {notAttachedDistributors.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                Свободные ({notAttachedDistributors.length})
+              <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
+                <span>Свободные ({notAttachedDistributors.length})</span>
               </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {notAttachedDistributors.map((distributor) => {
                   return renderDistributorCard(distributor, false);
                 })}
