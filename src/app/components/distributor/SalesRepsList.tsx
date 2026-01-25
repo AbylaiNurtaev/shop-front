@@ -471,20 +471,21 @@ export function SalesRepsList() {
   // Если открыт детальный вид, показываем его
   if (isDetailView && selectedSalesRep) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="space-y-4 p-4 md:p-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2 md:gap-4">
             <Button
               variant="outline"
               onClick={closeDetailView}
               className="flex items-center gap-2"
+              size="sm"
             >
               <ArrowLeft className="w-4 h-4" />
-              Назад
+              <span className="hidden sm:inline">Назад</span>
             </Button>
             <div>
-              <h1 className="text-2xl font-semibold">Управление</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl md:text-2xl font-semibold">Управление</h1>
+              <p className="text-xs md:text-sm text-muted-foreground">
                 Торговый представитель: {selectedSalesRep.firstName} {selectedSalesRep.lastName}
               </p>
             </div>
@@ -881,12 +882,13 @@ export function SalesRepsList() {
 
   // Иначе показываем список торговых представителей
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Торговые представители</h1>
+    <div className="space-y-4 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="text-xl md:text-2xl font-semibold">Торговые представители</h1>
         <Button
           onClick={() => setIsAddDialogOpen(true)}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 self-start sm:self-auto"
+          size="sm"
         >
           <Plus className="w-4 h-4" />
           Добавить ТП

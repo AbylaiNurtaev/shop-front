@@ -35,7 +35,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
-  // Для дистрибьютора: 3 основных раздела + остальное в меню
+  // Для дистрибьютора: 4 элемента в нижней навигации (3 основных + бургер-меню)
   const distributorMainItems = [
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
@@ -51,7 +51,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
-  // Для торгового представителя: 3 основных раздела + остальное в меню
+  // Для торгового представителя: 4 элемента в нижней навигации (3 основных + бургер-меню)
   const salesRepMainItems = [
     { id: 'analytics', label: 'Аналитика', icon: Brain },
     { id: 'stores', label: 'Магазины', icon: Store },
@@ -88,7 +88,12 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     setIsMenuOpen(false);
   }, [currentView]);
 
-  const totalItems = mainItems.length + (burgerMenuItems.length > 0 ? 1 : 0) + 1; // +1 для бургер-меню, +1 для выхода
+  // Для дистрибьютора и торгового представителя - только 4 элемента (3 основных + бургер-меню)
+  // Для остальных ролей - как было (с кнопкой выхода)
+  const shouldShowLogoutInNav = role !== 'distributor' && role !== 'salesRep';
+  const totalItems = shouldShowLogoutInNav 
+    ? mainItems.length + (burgerMenuItems.length > 0 ? 1 : 0) + 1 // +1 для бургер-меню, +1 для выхода
+    : mainItems.length + (burgerMenuItems.length > 0 ? 1 : 0); // +1 для бургер-меню
   const gridColsClass =
     totalItems === 3
       ? 'grid-cols-3'
@@ -103,13 +108,13 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   return (
     <>
       {/* Бургер-меню (overlay) */}
-      {isMenuOpen && burgerMenuItems.length > 0 && (
+      {isMenuOpen && (burgerMenuItems.length > 0 || !shouldShowLogoutInNav) && (
         <>
           <div
             className="md:hidden fixed inset-0 bg-black/50 z-40"
             onClick={() => setIsMenuOpen(false)}
           />
-          <div className="md:hidden fixed bottom-20 left-0 right-0 bg-white border-t-2 border-gray-200 z-50 shadow-2xl max-h-[60vh] overflow-y-auto">
+          <div className="md:hidden fixed bottom-20 left-0 right-0 bg-white border-t-2 border-gray-200 z-50 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Меню</h3>
@@ -141,6 +146,22 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                     </button>
                   );
                 })}
+                {/* Кнопка выхода в бургер-меню для дистрибьютора и торгового представителя */}
+                {!shouldShowLogoutInNav && (
+                  <>
+                    <div className="border-t border-gray-200 my-2" />
+                    <button
+                      onClick={() => {
+                        onLogout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-red-600 hover:bg-red-50"
+                    >
+                      <LogOut className="w-5 h-5" strokeWidth={2} />
+                      <span className="font-medium">Выход</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -170,8 +191,8 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
             );
           })}
 
-          {/* Кнопка бургер-меню (если есть дополнительные элементы) */}
-          {burgerMenuItems.length > 0 && (
+          {/* Кнопка бургер-меню (если есть дополнительные элементы или нужно скрыть выход) */}
+          {(burgerMenuItems.length > 0 || !shouldShowLogoutInNav) && (
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${isMenuOpen
@@ -186,14 +207,16 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
             </button>
           )}
 
-          {/* Кнопка выхода */}
-          <button
-            onClick={onLogout}
-            className="flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-gray-600 active:bg-gray-100 transition-all"
-          >
-            <LogOut className="w-6 h-6" strokeWidth={2} />
-            <span className="text-xs font-medium leading-tight">Выход</span>
-          </button>
+          {/* Кнопка выхода (только для ролей, где она должна быть в навигации) */}
+          {shouldShowLogoutInNav && (
+            <button
+              onClick={onLogout}
+              className="flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-gray-600 active:bg-gray-100 transition-all"
+            >
+              <LogOut className="w-6 h-6" strokeWidth={2} />
+              <span className="text-xs font-medium leading-tight">Выход</span>
+            </button>
+          )}
         </div>
       </nav>
     </>

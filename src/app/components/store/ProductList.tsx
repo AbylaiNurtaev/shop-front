@@ -15,35 +15,43 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Состояние для редактирования цен
-  const [editingPrices, setEditingPrices] = useState<Record<string, { price: string; currency: string }>>({});
+  // Состояние для редактирования наценок
+  const [editingMarkups, setEditingMarkups] = useState<Record<string, { markup: string; currency: string }>>({});
 
   // Оригинальные значения для отслеживания изменений
-  const [originalPrices, setOriginalPrices] = useState<Record<string, { price?: number; currency?: string }>>({});
+  const [originalMarkups, setOriginalMarkups] = useState<Record<string, { markup?: number; currency?: string }>>({});
 
   useEffect(() => {
     // Инициализируем значения при загрузке продуктов
-    const initialPrices: Record<string, { price: string; currency: string }> = {};
-    const initialOriginal: Record<string, { price?: number; currency?: string }> = {};
+    const initialMarkups: Record<string, { markup: string; currency: string }> = {};
+    const initialOriginal: Record<string, { markup?: number; currency?: string }> = {};
 
     products.forEach((product) => {
       // Инициализируем для всех товаров, у которых есть offerId или storePrice
       // Если есть storePrice, значит должен быть и offerId
       if (product.offerId || (product.storePrice !== undefined && product.storePrice !== null)) {
         const offerId = product.offerId || `temp-${product.id}`;
-        initialPrices[offerId] = {
-          price: product.storePrice?.toString() || '',
+
+        // Вычисляем наценку из цены и себестоимости
+        let markup: number | null = null;
+        if (product.storePrice !== undefined && product.storePrice !== null &&
+          product.costPrice !== undefined && product.costPrice !== null) {
+          markup = product.storePrice - product.costPrice;
+        }
+
+        initialMarkups[offerId] = {
+          markup: markup !== null && markup >= 0 ? markup.toString() : '',
           currency: product.storeCurrency || 'KZT',
         };
         initialOriginal[offerId] = {
-          price: product.storePrice,
+          markup: markup !== null && markup >= 0 ? markup : undefined,
           currency: product.storeCurrency,
         };
       }
     });
 
-    setEditingPrices(initialPrices);
-    setOriginalPrices(initialOriginal);
+    setEditingMarkups(initialMarkups);
+    setOriginalMarkups(initialOriginal);
   }, [products]);
 
   const getCategoryName = (categoryId: string) => {
@@ -57,18 +65,18 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
     return { label: 'В наличии', color: 'bg-green-100 text-green-800', icon: '✓' };
   };
 
-  const handlePriceChange = (offerId: string, value: string) => {
-    setEditingPrices((prev) => ({
+  const handleMarkupChange = (offerId: string, value: string) => {
+    setEditingMarkups((prev) => ({
       ...prev,
       [offerId]: {
         ...prev[offerId],
-        price: value,
+        markup: value,
       },
     }));
   };
 
   const handleCurrencyChange = (offerId: string, value: string) => {
-    setEditingPrices((prev) => ({
+    setEditingMarkups((prev) => ({
       ...prev,
       [offerId]: {
         ...prev[offerId],
@@ -78,19 +86,19 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
   };
 
   const hasChanges = () => {
-    return Object.keys(editingPrices).some((offerId) => {
-      const edited = editingPrices[offerId];
-      const original = originalPrices[offerId];
+    return Object.keys(editingMarkups).some((offerId) => {
+      const edited = editingMarkups[offerId];
+      const original = originalMarkups[offerId];
 
       if (!edited) return false;
 
-      const editedPrice = edited.price.trim() === '' ? null : parseFloat(edited.price);
-      const originalPrice = original?.price ?? null;
+      const editedMarkup = edited.markup.trim() === '' ? null : parseFloat(edited.markup);
+      const originalMarkup = original?.markup ?? null;
 
       const editedCurrency = edited.currency || 'KZT';
       const originalCurrency = original?.currency || 'KZT';
 
-      return editedPrice !== originalPrice || editedCurrency !== originalCurrency;
+      return editedMarkup !== originalMarkup || editedCurrency !== originalCurrency;
     });
   };
 
@@ -100,40 +108,104 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
     setIsSaving(true);
     const savePromises: Promise<void>[] = [];
 
-    Object.keys(editingPrices).forEach((offerId) => {
-      const edited = editingPrices[offerId];
-      const original = originalPrices[offerId];
+    // Получаем storeId из localStorage
+    const storeId = localStorage.getItem('storeId');
+    if (!storeId) {
+      toast.error('Не удалось определить магазин');
+      setIsSaving(false);
+      return;
+    }
+
+    Object.keys(editingMarkups).forEach((offerId) => {
+      const edited = editingMarkups[offerId];
+      const original = originalMarkups[offerId];
 
       if (!edited) return;
 
-      // Пропускаем временные ID (temp-*), так как для них нет offerId
-      if (offerId.startsWith('temp-')) {
-        console.warn(`Пропущен товар с временным ID: ${offerId}. Нужен offerId для сохранения.`);
-        return;
-      }
-
-      const editedPrice = edited.price.trim() === '' ? null : parseFloat(edited.price);
-      const originalPrice = original?.price ?? null;
+      const editedMarkup = edited.markup.trim() === '' ? null : parseFloat(edited.markup);
+      const originalMarkup = original?.markup ?? null;
 
       const editedCurrency = edited.currency || 'KZT';
       const originalCurrency = original?.currency || 'KZT';
 
       // Проверяем, есть ли изменения
-      if (editedPrice !== originalPrice || editedCurrency !== originalCurrency) {
-        if (editedPrice === null || isNaN(editedPrice) || editedPrice < 0) {
-          toast.error(`Некорректная цена для товара`);
+      if (editedMarkup !== originalMarkup || editedCurrency !== originalCurrency) {
+        if (editedMarkup === null || isNaN(editedMarkup) || editedMarkup < 0) {
+          toast.error(`Некорректная наценка для товара`);
           return;
         }
 
-        savePromises.push(
-          api.put(`/offers/${offerId}`, {
-            price: editedPrice,
+        // Находим продукт
+        let product: Product | undefined;
+        if (offerId.startsWith('temp-')) {
+          // Для временных ID извлекаем product.id
+          const productId = offerId.replace('temp-', '');
+          product = products.find((p) => p.id === productId);
+        } else {
+          // Для реальных offerId ищем продукт по offerId
+          product = products.find((p) => p.offerId === offerId);
+        }
+
+        if (!product) {
+          console.error(`Продукт не найден для offerId: ${offerId}`);
+          toast.error(`Продукт не найден`);
+          return;
+        }
+
+        if (product.costPrice === undefined || product.costPrice === null) {
+          console.error(`Себестоимость не найдена для продукта: ${product.name} (ID: ${product.id})`);
+          toast.error(`Не найдена себестоимость для товара "${product.name}"`);
+          return;
+        }
+
+        // Вычисляем цену: цена = себестоимость + наценка
+        const calculatedPrice = product.costPrice + editedMarkup;
+
+        if (offerId.startsWith('temp-')) {
+          // Создаем новый Offer
+          console.log(`Создание нового Offer для продукта ${product.id}:`, {
+            productId: product.id,
+            storeId: storeId,
+            price: calculatedPrice,
             currency: editedCurrency,
-          }).then(() => { }).catch((error) => {
-            console.error(`Ошибка сохранения цены для ${offerId}`, error);
-            throw error;
-          })
-        );
+            costPrice: product.costPrice,
+            markup: editedMarkup,
+          });
+          savePromises.push(
+            api.post('/offers', {
+              productId: product.id,
+              storeId: storeId,
+              price: calculatedPrice,
+              currency: editedCurrency,
+            }).then((response) => {
+              console.log(`Offer создан успешно:`, response.data);
+            }).catch((error) => {
+              console.error(`Ошибка создания оффера для продукта ${product.id}`, error);
+              console.error('Детали ошибки:', error.response?.data);
+              throw error;
+            })
+          );
+        } else {
+          // Обновляем существующий Offer
+          console.log(`Обновление Offer ${offerId}:`, {
+            price: calculatedPrice,
+            currency: editedCurrency,
+            costPrice: product.costPrice,
+            markup: editedMarkup,
+          });
+          savePromises.push(
+            api.put(`/offers/${offerId}`, {
+              price: calculatedPrice,
+              currency: editedCurrency,
+            }).then((response) => {
+              console.log(`Offer обновлен успешно:`, response.data);
+            }).catch((error) => {
+              console.error(`Ошибка сохранения цены для ${offerId}`, error);
+              console.error('Детали ошибки:', error.response?.data);
+              throw error;
+            })
+          );
+        }
       }
     });
 
@@ -141,12 +213,12 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
       await Promise.all(savePromises);
       toast.success('Цены сохранены');
       // Обновляем оригинальные значения
-      setOriginalPrices((prev) => {
+      setOriginalMarkups((prev) => {
         const updated = { ...prev };
-        Object.keys(editingPrices).forEach((offerId) => {
-          const edited = editingPrices[offerId];
+        Object.keys(editingMarkups).forEach((offerId) => {
+          const edited = editingMarkups[offerId];
           updated[offerId] = {
-            price: edited.price.trim() === '' ? undefined : parseFloat(edited.price),
+            markup: edited.markup.trim() === '' ? undefined : parseFloat(edited.markup),
             currency: edited.currency,
           };
         });
@@ -280,31 +352,43 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                           </span>
                         </div>
                       )}
-                      {(product.offerId || product.storePrice !== undefined) && (
-                        <div className="flex items-center justify-between py-2">
-                          <span className="text-sm font-medium text-gray-500">Цена</span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={editingPrices[product.offerId || `temp-${product.id}`]?.price || ''}
-                              onChange={(e) => handlePriceChange(product.offerId || `temp-${product.id}`, e.target.value)}
-                              placeholder="0.00"
-                              className="w-24 px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            />
-                            <select
-                              value={editingPrices[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
-                              onChange={(e) => handleCurrencyChange(product.offerId || `temp-${product.id}`, e.target.value)}
-                              className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            >
-                              <option value="KZT">KZT (₸)</option>
-                              <option value="RUB">RUB (₽)</option>
-                              <option value="USD">USD ($)</option>
-                              <option value="EUR">EUR (€)</option>
-                            </select>
+                      {(product.offerId || product.storePrice !== undefined) && product.costPrice !== undefined && product.costPrice !== null && (
+                        <>
+                          <div className="flex items-center justify-between py-2">
+                            <span className="text-sm font-medium text-gray-500">Наценка</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={editingMarkups[product.offerId || `temp-${product.id}`]?.markup || ''}
+                                onChange={(e) => handleMarkupChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                                placeholder="0.00"
+                                className="w-24 px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                              <select
+                                value={editingMarkups[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
+                                onChange={(e) => handleCurrencyChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                                className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              >
+                                <option value="KZT">KZT (₸)</option>
+                                <option value="RUB">RUB (₽)</option>
+                                <option value="USD">USD ($)</option>
+                                <option value="EUR">EUR (€)</option>
+                              </select>
+                            </div>
                           </div>
-                        </div>
+                          <div className="flex items-center justify-between py-2">
+                            <span className="text-sm font-medium text-gray-500">Цена</span>
+                            <span className="text-sm font-bold text-gray-900">
+                              {(() => {
+                                const markup = parseFloat(editingMarkups[product.offerId || `temp-${product.id}`]?.markup || '0') || 0;
+                                const calculatedPrice = product.costPrice + markup;
+                                return calculatedPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                              })()} {editingMarkups[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
+                            </span>
+                          </div>
+                        </>
                       )}
                     </div>
 
@@ -414,31 +498,43 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                           </p>
                         </div>
                       )}
-                      {(product.offerId || product.storePrice !== undefined) && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Цена</p>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={editingPrices[product.offerId || `temp-${product.id}`]?.price || ''}
-                              onChange={(e) => handlePriceChange(product.offerId || `temp-${product.id}`, e.target.value)}
-                              placeholder="0.00"
-                              className="flex-1 px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            />
-                            <select
-                              value={editingPrices[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
-                              onChange={(e) => handleCurrencyChange(product.offerId || `temp-${product.id}`, e.target.value)}
-                              className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            >
-                              <option value="KZT">KZT</option>
-                              <option value="RUB">RUB</option>
-                              <option value="USD">USD</option>
-                              <option value="EUR">EUR</option>
-                            </select>
+                      {(product.offerId || product.storePrice !== undefined) && product.costPrice !== undefined && product.costPrice !== null && (
+                        <>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Наценка</p>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={editingMarkups[product.offerId || `temp-${product.id}`]?.markup || ''}
+                                onChange={(e) => handleMarkupChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                                placeholder="0.00"
+                                className="flex-1 px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                              <select
+                                value={editingMarkups[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
+                                onChange={(e) => handleCurrencyChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                                className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              >
+                                <option value="KZT">KZT</option>
+                                <option value="RUB">RUB</option>
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                              </select>
+                            </div>
                           </div>
-                        </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Цена</p>
+                            <p className="text-sm font-medium">
+                              {(() => {
+                                const markup = parseFloat(editingMarkups[product.offerId || `temp-${product.id}`]?.markup || '0') || 0;
+                                const calculatedPrice = product.costPrice + markup;
+                                return `${calculatedPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${editingMarkups[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}`;
+                              })()}
+                            </p>
+                          </div>
+                        </>
                       )}
                     </div>
 
@@ -468,6 +564,7 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                       <th className="text-left px-4 py-3 text-sm font-medium">Остаток</th>
                       <th className="text-left px-4 py-3 text-sm font-medium">Упаковка</th>
                       <th className="text-left px-4 py-3 text-sm font-medium">Себестоимость</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium">Наценка</th>
                       <th className="text-left px-4 py-3 text-sm font-medium">Цена</th>
                       <th className="text-left px-4 py-3 text-sm font-medium">Источник</th>
                     </tr>
@@ -502,19 +599,19 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            {(product.offerId || product.storePrice !== undefined) ? (
+                            {(product.offerId || product.storePrice !== undefined) && product.costPrice !== undefined && product.costPrice !== null ? (
                               <div className="flex items-center gap-2">
                                 <input
                                   type="number"
                                   step="0.01"
                                   min="0"
-                                  value={editingPrices[product.offerId || `temp-${product.id}`]?.price || ''}
-                                  onChange={(e) => handlePriceChange(product.offerId || `temp-${product.id}`, e.target.value)}
+                                  value={editingMarkups[product.offerId || `temp-${product.id}`]?.markup || ''}
+                                  onChange={(e) => handleMarkupChange(product.offerId || `temp-${product.id}`, e.target.value)}
                                   placeholder="0.00"
                                   className="w-28 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                 />
                                 <select
-                                  value={editingPrices[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
+                                  value={editingMarkups[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}
                                   onChange={(e) => handleCurrencyChange(product.offerId || `temp-${product.id}`, e.target.value)}
                                   className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                 >
@@ -526,6 +623,19 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                               </div>
                             ) : (
                               <span className="text-gray-400 text-sm">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {(product.offerId || product.storePrice !== undefined) && product.costPrice !== undefined && product.costPrice !== null ? (
+                              <span className="text-gray-700">
+                                {(() => {
+                                  const markup = parseFloat(editingMarkups[product.offerId || `temp-${product.id}`]?.markup || '0') || 0;
+                                  const calculatedPrice = product.costPrice + markup;
+                                  return `${calculatedPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${editingMarkups[product.offerId || `temp-${product.id}`]?.currency || 'KZT'}`;
+                                })()}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3">

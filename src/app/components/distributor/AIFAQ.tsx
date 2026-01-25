@@ -22,10 +22,10 @@ export function AIFAQ() {
   };
 
   return (
-    <div className="space-y-4 h-full flex flex-col">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">AI-FAQ и обучение</h1>
-        <button className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium flex items-center gap-2">
+    <div className="space-y-4 h-full flex flex-col p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="text-xl md:text-2xl font-semibold">AI-FAQ и обучение</h1>
+        <button className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium flex items-center gap-2 self-start sm:self-auto">
           <BookOpen className="w-4 h-4" />
           База знаний
         </button>

@@ -283,34 +283,34 @@ export function SalesRepInventory() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[800px]">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Товар</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">SKU</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Категория</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Магазин</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Остаток</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Мин/Макс</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Статус</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Срок годности</th>
+                  <th className="text-left px-4 py-3 text-xs md:text-sm font-medium">Товар</th>
+                  <th className="text-left px-4 py-3 text-xs md:text-sm font-medium">SKU</th>
+                  <th className="text-left px-4 py-3 text-xs md:text-sm font-medium">Категория</th>
+                  <th className="text-left px-4 py-3 text-xs md:text-sm font-medium">Магазин</th>
+                  <th className="text-left px-4 py-3 text-xs md:text-sm font-medium">Остаток</th>
+                  <th className="text-left px-4 py-3 text-xs md:text-sm font-medium">Мин/Макс</th>
+                  <th className="text-left px-4 py-3 text-xs md:text-sm font-medium">Статус</th>
+                  <th className="text-left px-4 py-3 text-xs md:text-sm font-medium">Срок годности</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredInventory.map((item) => (
                   <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-sm md:text-base font-medium">{item.productName}</td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground font-mono">{item.sku}</td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{item.categoryName || '—'}</td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">{item.storeName}</td>
-                    <td className="px-3 md:px-4 py-2 md:py-3">
+                    <td className="px-4 py-3 text-xs md:text-sm lg:text-base font-medium break-words">{item.productName}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">{item.sku}</td>
+                    <td className="px-4 py-3 text-xs md:text-sm text-muted-foreground break-words">{item.categoryName || '—'}</td>
+                    <td className="px-4 py-3 text-xs md:text-sm break-words">{item.storeName}</td>
+                    <td className="px-4 py-3">
                       <span className="font-medium text-sm md:text-base">{item.currentStock}</span>
                     </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">
+                    <td className="px-4 py-3 text-xs md:text-sm text-muted-foreground whitespace-nowrap">
                       {item.minStock} / {item.maxStock}
                     </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3">
+                    <td className="px-4 py-3">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${item.status === 'low'
                           ? 'bg-red-100 text-red-700'
@@ -323,11 +323,11 @@ export function SalesRepInventory() {
                         {item.status === 'low' ? 'Дефицит' : item.status === 'high' ? 'Избыток' : 'Норма'}
                       </span>
                     </td>
-                    <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm">
+                    <td className="px-4 py-3 text-xs md:text-sm">
                       {item.expiryDate ? (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           {item.daysUntilExpiry !== undefined && item.daysUntilExpiry < 7 && (
-                            <Clock className="w-4 h-4 text-orange-600" />
+                            <Clock className="w-3 h-3 md:w-4 md:h-4 text-orange-600 flex-shrink-0" />
                           )}
                           <span
                             className={

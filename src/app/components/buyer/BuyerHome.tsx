@@ -319,6 +319,10 @@ export function BuyerHome() {
         const product = entry?.product ?? {};
         const offers = Array.isArray(entry?.offers) ? entry.offers : [];
         offers.forEach((offer: any) => {
+          // Пропускаем товары, которых нет в наличии
+          if (offer.isAvailable !== true) {
+            return;
+          }
           const store = offer?.store ?? {};
           const storeId = store.id ?? store.name ?? `store-${Math.random()}`;
           const existing = storesMap.get(storeId);
@@ -355,6 +359,10 @@ export function BuyerHome() {
         const offers = Array.isArray(candidate?.offers) ? candidate.offers : [];
 
         offers.forEach((offer: any) => {
+          // Пропускаем товары, которых нет в наличии
+          if (offer.isAvailable !== true) {
+            return;
+          }
           const store = offer?.store ?? {};
           const storeId = store.id ?? store.name ?? `store-${Math.random()}`;
           const existing = storesMap.get(storeId);
@@ -395,7 +403,10 @@ export function BuyerHome() {
       });
     }
 
-    return Array.from(storesMap.values());
+    // Фильтруем магазины, у которых нет товаров в наличии
+    return Array.from(storesMap.values()).filter(store =>
+      store.items.some(item => item.availability === 'в наличии')
+    );
   };
 
   const sendMessage = async (text: string) => {
@@ -795,62 +806,99 @@ export function BuyerHome() {
 
                 {message.candidates && message.candidates.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    {message.candidates.map((candidate, idx) => {
-                      const hasOffers = candidate.totalOffers && candidate.totalOffers > 0;
+                    {message.candidates
+                      .filter((candidate) => {
+                        // Фильтруем кандидатов: показываем только те, у которых есть доступные предложения
+                        const offers = Array.isArray(candidate?.offers) ? candidate.offers : [];
+                        return offers.some((offer: any) => offer.isAvailable === true);
+                      })
+                      .map((candidate, idx) => {
+                        const offers = Array.isArray(candidate?.offers) ? candidate.offers : [];
+                        const availableOffers = offers.filter((offer: any) => offer.isAvailable === true);
+                        const hasOffers = availableOffers.length > 0;
 
-                      return (
-                        <button
-                          key={candidate.id || idx}
-                          type="button"
-                          onClick={() => {
-                            // Добавляем новое сообщение с информацией о ближайшем магазине
-                            const nearestStore = candidate.nearestStore;
-                            if (!nearestStore) {
-                              toast.info('Информация о магазине недоступна');
-                              return;
-                            }
+                        return (
+                          <button
+                            key={candidate.id || idx}
+                            type="button"
+                            onClick={() => {
+                              // Находим доступные предложения (только те, что в наличии)
+                              const availableOffers = offers.filter((offer: any) => offer.isAvailable === true);
 
-                            const storeMessage: Message = {
-                              id: `store-${candidate.id}-${Date.now()}`,
-                              role: 'assistant',
-                              text: `Ближайший магазин для "${candidate.name}":`,
-                              selectedProduct: {
-                                id: candidate.id,
-                                name: candidate.name,
-                                brandName: candidate.brandName,
-                                packageInfo: candidate.packageInfo,
-                              },
-                              results: nearestStore ? [{
-                                storeName: nearestStore.name,
-                                distance: nearestStore.distance || '—',
-                                address: nearestStore.address,
-                                updatedAgo: '',
-                                deeplink: nearestStore.location || 'https://2gis.kz',
-                                items: [],
-                              }] : undefined,
-                            };
+                              if (availableOffers.length === 0) {
+                                toast.info('Товар не найден в наличии');
+                                return;
+                              }
 
-                            setMessages((prev) => [...prev, storeMessage]);
-                          }}
-                          className="w-full text-left border border-border rounded-lg p-3 bg-background/50 hover:bg-background/70 transition-colors"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm">{candidate.name}</div>
-                              {hasOffers && (
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Доступно в {candidate.totalOffers} магазин(ах)
-                                </div>
-                              )}
-                              {!hasOffers && (
-                                <div className="text-xs text-muted-foreground mt-1">Нет в наличии</div>
-                              )}
+                              // Сортируем по расстоянию (ближайшие первыми) и берем только ближайший
+                              const sortedOffers = [...availableOffers].sort((a: any, b: any) => {
+                                const distA = a.store?.distanceMeters ?? Infinity;
+                                const distB = b.store?.distanceMeters ?? Infinity;
+                                return distA - distB;
+                              });
+
+                              // Берем только ближайший магазин (первый в отсортированном списке)
+                              const nearestOffer = sortedOffers[0];
+                              const nearestStore = nearestOffer?.store;
+
+                              if (!nearestStore) {
+                                toast.info('Информация о магазине недоступна');
+                                return;
+                              }
+
+                              // Формируем результат для ближайшего магазина
+                              const distance = nearestStore.distanceFormatted ?? (nearestStore.distanceMeters != null
+                                ? formatDistance(nearestStore.distanceMeters)
+                                : '—');
+
+                              const locationLink = typeof nearestStore.location === 'string'
+                                ? nearestStore.location
+                                : (nearestStore.location?.link ?? 'https://2gis.kz');
+
+                              const storeResult: StoreResult = {
+                                storeName: nearestStore.name ?? 'Магазин',
+                                distance,
+                                address: nearestStore.address ?? '—',
+                                updatedAgo: formatUpdated(nearestOffer.updatedAt),
+                                deeplink: locationLink,
+                                items: [{
+                                  name: candidate.name,
+                                  price: nearestOffer.price != null ? `${nearestOffer.price} ${nearestOffer.currency ?? '₸'}`.trim() : undefined,
+                                  availability: 'в наличии',
+                                }],
+                              };
+
+                              const storeMessage: Message = {
+                                id: `store-${candidate.id}-${Date.now()}`,
+                                role: 'assistant',
+                                text: `Ближайший магазин для "${candidate.name}":`,
+                                selectedProduct: {
+                                  id: candidate.id,
+                                  name: candidate.name,
+                                  brandName: candidate.brandName,
+                                  packageInfo: candidate.packageInfo,
+                                },
+                                results: [storeResult],
+                              };
+
+                              setMessages((prev) => [...prev, storeMessage]);
+                            }}
+                            className="w-full text-left border border-border rounded-lg p-3 bg-background/50 hover:bg-background/70 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-sm">{candidate.name}</div>
+                                {hasOffers && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Доступно в {availableOffers.length} магазин(ах)
+                                  </div>
+                                )}
+                              </div>
+                              <Navigation className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                             </div>
-                            <Navigation className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                          </div>
-                        </button>
-                      );
-                    })}
+                          </button>
+                        );
+                      })}
                   </div>
                 )}
 
@@ -896,35 +944,40 @@ export function BuyerHome() {
 
                 {message.results && message.results.length > 0 && (
                   <div className="mt-3">
-                    {message.results.map((store, idx) => (
-                      <div key={`${store.storeName}-${idx}`} className="border border-border rounded-lg p-4 bg-background/80">
-                        <div className="space-y-3">
-                          <div>
-                            <h4 className="text-sm font-semibold mb-1">{store.storeName}</h4>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-                              <MapPin className="w-3.5 h-3.5" />
-                              <span>{store.address}</span>
-                            </div>
-                            {store.distance && store.distance !== '—' && (
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <Navigation className="w-3.5 h-3.5" />
-                                <span>{store.distance}</span>
+                    {message.results
+                      .filter((store) => {
+                        // Фильтруем магазины: показываем только те, у которых есть товары в наличии
+                        return store.items && store.items.some(item => item.availability === 'в наличии');
+                      })
+                      .map((store, idx) => (
+                        <div key={`${store.storeName}-${idx}`} className="border border-border rounded-lg p-4 bg-background/80">
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="text-sm font-semibold mb-1">{store.storeName}</h4>
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                                <MapPin className="w-3.5 h-3.5" />
+                                <span>{store.address}</span>
                               </div>
-                            )}
-                          </div>
+                              {store.distance && store.distance !== '—' && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <Navigation className="w-3.5 h-3.5" />
+                                  <span>{store.distance}</span>
+                                </div>
+                              )}
+                            </div>
 
-                          <a
-                            href={store.deeplink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center justify-center gap-2 w-full text-xs px-3 py-2 rounded-md border border-primary/30 hover:bg-primary/10 transition-colors text-primary font-medium"
-                          >
-                            <MapPin className="w-3.5 h-3.5" />
-                            Открыть в 2ГИС
-                          </a>
+                            <a
+                              href={store.deeplink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center justify-center gap-2 w-full text-xs px-3 py-2 rounded-md border border-primary/30 hover:bg-primary/10 transition-colors text-primary font-medium"
+                            >
+                              <MapPin className="w-3.5 h-3.5" />
+                              Открыть в 2ГИС
+                            </a>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </div>

@@ -2,6 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Package, Target, Loader2, FolderTree } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
 
 interface PlanItem {
   id: string;
@@ -45,6 +60,8 @@ export function SalesRepPlan() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCategoryPlansLoading, setIsCategoryPlansLoading] = useState(true);
+  const [selectedPlan, setSelectedPlan] = useState<PlanItem | null>(null);
+  const [selectedCategoryPlan, setSelectedCategoryPlan] = useState<CategoryPlanItem | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -180,60 +197,37 @@ export function SalesRepPlan() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-            {plans.map((plan) => (
-              <div
-                key={plan.id}
-                className="bg-card border border-border rounded-lg p-4 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="font-semibold text-lg">{formatPeriod(plan.period)}</span>
-                    </div>
-                    {plan.description && (
-                      <p className="text-sm text-muted-foreground mb-2">{plan.description}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-primary" />
-                      <span className="text-sm text-muted-foreground">План по сумме:</span>
-                    </div>
-                    <span className="font-semibold">{formatCurrency(plan.targetAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-primary" />
-                      <span className="text-sm text-muted-foreground">План по количеству:</span>
-                    </div>
-                    <span className="font-semibold">{plan.targetQuantity} шт.</span>
-                  </div>
-                </div>
-
-                {(plan.startDate || plan.endDate) && (
-                  <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                    {plan.startDate && (
-                      <div>Начало: {new Date(plan.startDate).toLocaleDateString('ru-RU')}</div>
-                    )}
-                    {plan.endDate && (
-                      <div>Окончание: {new Date(plan.endDate).toLocaleDateString('ru-RU')}</div>
-                    )}
-                  </div>
-                )}
-
-                <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                  <div>Создан: {new Date(plan.createdAt).toLocaleDateString('ru-RU')}</div>
-                  {plan.updatedAt !== plan.createdAt && (
-                    <div>Обновлен: {new Date(plan.updatedAt).toLocaleDateString('ru-RU')}</div>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Период</TableHead>
+                  <TableHead>План по сумме</TableHead>
+                  <TableHead>План по количеству</TableHead>
+                  <TableHead>Дата начала</TableHead>
+                  <TableHead>Дата окончания</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {plans.map((plan) => (
+                  <TableRow
+                    key={plan.id}
+                    className="cursor-pointer hover:bg-accent"
+                    onClick={() => setSelectedPlan(plan)}
+                  >
+                    <TableCell className="font-medium">{formatPeriod(plan.period)}</TableCell>
+                    <TableCell>{formatCurrency(plan.targetAmount)}</TableCell>
+                    <TableCell>{plan.targetQuantity} шт.</TableCell>
+                    <TableCell>
+                      {plan.startDate ? new Date(plan.startDate).toLocaleDateString('ru-RU') : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {plan.endDate ? new Date(plan.endDate).toLocaleDateString('ru-RU') : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
@@ -253,67 +247,241 @@ export function SalesRepPlan() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-            {categoryPlans.map((plan) => (
-              <div
-                key={plan.id}
-                className="bg-card border border-border rounded-lg p-4 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FolderTree className="w-4 h-4 text-primary" />
-                      <span className="font-semibold text-lg">{plan.categoryName || '—'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{formatPeriod(plan.period)}</span>
-                    </div>
-                    {plan.description && (
-                      <p className="text-sm text-muted-foreground mb-2">{plan.description}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-primary" />
-                      <span className="text-sm text-muted-foreground">План по сумме:</span>
-                    </div>
-                    <span className="font-semibold">{formatCurrency(plan.targetAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-primary" />
-                      <span className="text-sm text-muted-foreground">План по количеству:</span>
-                    </div>
-                    <span className="font-semibold">{plan.targetQuantity} шт.</span>
-                  </div>
-                </div>
-
-                {(plan.startDate || plan.endDate) && (
-                  <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                    {plan.startDate && (
-                      <div>Начало: {new Date(plan.startDate).toLocaleDateString('ru-RU')}</div>
-                    )}
-                    {plan.endDate && (
-                      <div>Окончание: {new Date(plan.endDate).toLocaleDateString('ru-RU')}</div>
-                    )}
-                  </div>
-                )}
-
-                <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-                  <div>Создан: {new Date(plan.createdAt).toLocaleDateString('ru-RU')}</div>
-                  {plan.updatedAt !== plan.createdAt && (
-                    <div>Обновлен: {new Date(plan.updatedAt).toLocaleDateString('ru-RU')}</div>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Категория</TableHead>
+                  <TableHead>Период</TableHead>
+                  <TableHead>План по сумме</TableHead>
+                  <TableHead>План по количеству</TableHead>
+                  <TableHead>Дата начала</TableHead>
+                  <TableHead>Дата окончания</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {categoryPlans.map((plan) => (
+                  <TableRow
+                    key={plan.id}
+                    className="cursor-pointer hover:bg-accent"
+                    onClick={() => setSelectedCategoryPlan(plan)}
+                  >
+                    <TableCell className="font-medium">{plan.categoryName || '—'}</TableCell>
+                    <TableCell>{formatPeriod(plan.period)}</TableCell>
+                    <TableCell>{formatCurrency(plan.targetAmount)}</TableCell>
+                    <TableCell>{plan.targetQuantity} шт.</TableCell>
+                    <TableCell>
+                      {plan.startDate ? new Date(plan.startDate).toLocaleDateString('ru-RU') : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {plan.endDate ? new Date(plan.endDate).toLocaleDateString('ru-RU') : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
+
+      {/* Попап для общего плана */}
+      <Dialog open={!!selectedPlan} onOpenChange={(open) => !open && setSelectedPlan(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <Target className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+              <span>Общий план</span>
+            </DialogTitle>
+            <DialogDescription className="text-sm">Детальная информация о плане</DialogDescription>
+          </DialogHeader>
+          {selectedPlan && (
+            <div className="space-y-3 md:space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <span className="font-semibold">Период:</span>
+                  <span>{formatPeriod(selectedPlan.period)}</span>
+                </div>
+                {selectedPlan.description && (
+                  <div className="pt-2">
+                    <span className="font-semibold">Описание:</span>
+                    <p className="text-sm text-muted-foreground mt-1">{selectedPlan.description}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">План по сумме:</span>
+                  </div>
+                  <span className="font-semibold">{formatCurrency(selectedPlan.targetAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">План по количеству:</span>
+                  </div>
+                  <span className="font-semibold">{selectedPlan.targetQuantity} шт.</span>
+                </div>
+              </div>
+
+              {(selectedPlan.startDate || selectedPlan.endDate) && (
+                <div className="text-sm pt-2 border-t border-border space-y-1">
+                  {selectedPlan.startDate && (
+                    <div>
+                      <span className="font-semibold">Дата начала:</span>{' '}
+                      {new Date(selectedPlan.startDate).toLocaleDateString('ru-RU', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </div>
+                  )}
+                  {selectedPlan.endDate && (
+                    <div>
+                      <span className="font-semibold">Дата окончания:</span>{' '}
+                      {new Date(selectedPlan.endDate).toLocaleDateString('ru-RU', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground pt-2 border-t border-border space-y-1">
+                <div>
+                  <span className="font-semibold">Создан:</span>{' '}
+                  {new Date(selectedPlan.createdAt).toLocaleDateString('ru-RU', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </div>
+                {selectedPlan.updatedAt !== selectedPlan.createdAt && (
+                  <div>
+                    <span className="font-semibold">Обновлен:</span>{' '}
+                    {new Date(selectedPlan.updatedAt).toLocaleDateString('ru-RU', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Попап для плана по категории */}
+      <Dialog open={!!selectedCategoryPlan} onOpenChange={(open) => !open && setSelectedCategoryPlan(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg md:text-xl">
+              <FolderTree className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+              <span>План по категории</span>
+            </DialogTitle>
+            <DialogDescription className="text-sm">Детальная информация о плане по категории</DialogDescription>
+          </DialogHeader>
+          {selectedCategoryPlan && (
+            <div className="space-y-3 md:space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <FolderTree className="w-4 h-4 text-primary" />
+                  <span className="font-semibold">Категория:</span>
+                  <span>{selectedCategoryPlan.categoryName || '—'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <span className="font-semibold">Период:</span>
+                  <span>{formatPeriod(selectedCategoryPlan.period)}</span>
+                </div>
+                {selectedCategoryPlan.description && (
+                  <div className="pt-2">
+                    <span className="font-semibold">Описание:</span>
+                    <p className="text-sm text-muted-foreground mt-1">{selectedCategoryPlan.description}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">План по сумме:</span>
+                  </div>
+                  <span className="font-semibold">{formatCurrency(selectedCategoryPlan.targetAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">План по количеству:</span>
+                  </div>
+                  <span className="font-semibold">{selectedCategoryPlan.targetQuantity} шт.</span>
+                </div>
+              </div>
+
+              {(selectedCategoryPlan.startDate || selectedCategoryPlan.endDate) && (
+                <div className="text-sm pt-2 border-t border-border space-y-1">
+                  {selectedCategoryPlan.startDate && (
+                    <div>
+                      <span className="font-semibold">Дата начала:</span>{' '}
+                      {new Date(selectedCategoryPlan.startDate).toLocaleDateString('ru-RU', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </div>
+                  )}
+                  {selectedCategoryPlan.endDate && (
+                    <div>
+                      <span className="font-semibold">Дата окончания:</span>{' '}
+                      {new Date(selectedCategoryPlan.endDate).toLocaleDateString('ru-RU', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground pt-2 border-t border-border space-y-1">
+                <div>
+                  <span className="font-semibold">Создан:</span>{' '}
+                  {new Date(selectedCategoryPlan.createdAt).toLocaleDateString('ru-RU', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </div>
+                {selectedCategoryPlan.updatedAt !== selectedCategoryPlan.createdAt && (
+                  <div>
+                    <span className="font-semibold">Обновлен:</span>{' '}
+                    {new Date(selectedCategoryPlan.updatedAt).toLocaleDateString('ru-RU', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -125,12 +125,12 @@ export function BrandRequests() {
   const rejectedRequests = requests.filter(r => r.status === 'rejected');
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Запросы от брендов</h1>
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="text-xl md:text-2xl font-semibold">Запросы от брендов</h1>
         <button
           onClick={loadRequests}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
+          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
         >
           Обновить
         </button>
@@ -145,15 +145,15 @@ export function BrandRequests() {
           {/* Ожидающие запросы */}
           {pendingRequests.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-yellow-600" />
-                Ожидающие решения ({pendingRequests.length})
+              <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+                <Clock className="w-4 h-4 md:w-5 md:h-5 text-yellow-600 flex-shrink-0" />
+                <span>Ожидающие решения ({pendingRequests.length})</span>
               </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {pendingRequests.map((request) => (
                   <div
                     key={request.id}
-                    className="bg-card border-2 border-yellow-500/20 rounded-lg p-4"
+                    className="bg-card border-2 border-yellow-500/20 rounded-lg p-3 md:p-4"
                   >
                     <div className="flex items-start gap-3 mb-3">
                       {request.brandLogoUrl ? (
@@ -271,15 +271,15 @@ export function BrandRequests() {
           {/* Принятые запросы */}
           {acceptedRequests.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                Принятые ({acceptedRequests.length})
+              <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-green-600 flex-shrink-0" />
+                <span>Принятые ({acceptedRequests.length})</span>
               </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {acceptedRequests.map((request) => (
                   <div
                     key={request.id}
-                    className="bg-card border border-green-500/20 rounded-lg p-4"
+                    className="bg-card border border-green-500/20 rounded-lg p-3 md:p-4"
                   >
                     <div className="flex items-center gap-3 mb-2">
                       {request.brandLogoUrl ? (
@@ -330,15 +330,15 @@ export function BrandRequests() {
           {/* Отклоненные запросы */}
           {rejectedRequests.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <XCircle className="w-5 h-5 text-destructive" />
-                Отклоненные ({rejectedRequests.length})
+              <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+                <XCircle className="w-4 h-4 md:w-5 md:h-5 text-destructive flex-shrink-0" />
+                <span>Отклоненные ({rejectedRequests.length})</span>
               </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {rejectedRequests.map((request) => (
                   <div
                     key={request.id}
-                    className="bg-card border border-destructive/20 rounded-lg p-4"
+                    className="bg-card border border-destructive/20 rounded-lg p-3 md:p-4"
                   >
                     <div className="flex items-center gap-3 mb-2">
                       {request.brandLogoUrl ? (
@@ -395,9 +395,9 @@ export function BrandRequests() {
           )}
 
           {requests.length === 0 && (
-            <div className="bg-card border border-border rounded-lg p-8 text-center">
-              <Building2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Запросы от брендов отсутствуют</p>
+            <div className="bg-card border border-border rounded-lg p-6 md:p-8 text-center">
+              <Building2 className="w-10 h-10 md:w-12 md:h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-sm md:text-base text-muted-foreground">Запросы от брендов отсутствуют</p>
             </div>
           )}
         </>

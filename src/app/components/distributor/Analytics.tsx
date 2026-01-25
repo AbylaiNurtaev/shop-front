@@ -310,98 +310,98 @@ export function Analytics() {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Аналитика</h1>
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
+      <h1 className="text-xl md:text-2xl font-semibold">Аналитика</h1>
 
       {/* Основные метрики */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <Store className="w-6 h-6 text-primary" />
-            <h3 className="font-semibold">Количество магазинов</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+        <div className="bg-card border border-border rounded-lg p-4 md:p-4">
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <Store className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
+            <h3 className="font-semibold text-sm md:text-base">Количество магазинов</h3>
           </div>
           {isLoadingSummary ? (
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <Loader2 className="w-6 h-6 md:w-8 md:h-8 animate-spin text-muted-foreground" />
           ) : (
-            <p className="text-3xl font-bold">{summaryStats?.storesCount ?? 0}</p>
+            <p className="text-2xl md:text-3xl font-bold">{summaryStats?.storesCount ?? 0}</p>
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <Users className="w-6 h-6 text-primary" />
-            <h3 className="font-semibold">Торговые представители</h3>
+        <div className="bg-card border border-border rounded-lg p-4 md:p-4">
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <Users className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
+            <h3 className="font-semibold text-sm md:text-base">Торговые представители</h3>
           </div>
           {isLoadingSummary ? (
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <Loader2 className="w-6 h-6 md:w-8 md:h-8 animate-spin text-muted-foreground" />
           ) : (
-            <p className="text-3xl font-bold">{summaryStats?.salesRepresentativesCount ?? 0}</p>
+            <p className="text-2xl md:text-3xl font-bold">{summaryStats?.salesRepresentativesCount ?? 0}</p>
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <Package className="w-6 h-6 text-primary" />
-            <h3 className="font-semibold">Всего товаров</h3>
+        <div className="bg-card border border-border rounded-lg p-4 md:p-4 sm:col-span-2 md:col-span-1">
+          <div className="flex items-center gap-2 md:gap-3 mb-2">
+            <Package className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
+            <h3 className="font-semibold text-sm md:text-base">Всего товаров</h3>
           </div>
           {isLoadingSummary ? (
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <Loader2 className="w-6 h-6 md:w-8 md:h-8 animate-spin text-muted-foreground" />
           ) : (
-            <p className="text-3xl font-bold">{summaryStats?.totalProducts ?? 0}</p>
+            <p className="text-2xl md:text-3xl font-bold">{summaryStats?.totalProducts ?? 0}</p>
           )}
         </div>
       </div>
 
       {/* Остатки по торговым представителям */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5" />
-          Остатки по торговым представителям
+      <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+        <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+          <span>Остатки по торговым представителям</span>
         </h3>
         {isLoadingStock ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : stockBySalesRep.length === 0 ? (
-          <p className="text-center text-muted-foreground py-12">Нет данных об остатках</p>
+          <p className="text-center text-muted-foreground py-8 md:py-12 text-sm md:text-base">Нет данных об остатках</p>
         ) : (
-          <Accordion type="single" collapsible className="space-y-4">
+          <Accordion type="single" collapsible className="space-y-3 md:space-y-4">
             {stockBySalesRep.map((salesRep) => (
-              <AccordionItem key={salesRep.salesRepId} value={salesRep.salesRepId} className="border rounded-lg px-4">
-                <AccordionTrigger className="hover:no-underline">
-                  <div className="flex items-center justify-between w-full pr-4">
-                    <div className="flex items-center gap-3">
-                      <Users className="w-5 h-5 text-primary" />
-                      <div className="text-left">
-                        <h4 className="font-semibold text-lg">{salesRep.salesRepName}</h4>
-                        <p className="text-sm text-muted-foreground">{salesRep.salesRepEmail}</p>
+              <AccordionItem key={salesRep.salesRepId} value={salesRep.salesRepId} className="border rounded-lg px-3 md:px-4">
+                <AccordionTrigger className="hover:no-underline py-3 md:py-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full pr-2 md:pr-4 gap-2 sm:gap-0">
+                    <div className="flex items-start sm:items-center gap-2 md:gap-3 flex-1 min-w-0">
+                      <Users className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0 mt-0.5 sm:mt-0" />
+                      <div className="text-left min-w-0 flex-1">
+                        <h4 className="font-semibold text-base md:text-lg truncate">{salesRep.salesRepName}</h4>
+                        <p className="text-xs md:text-sm text-muted-foreground truncate">{salesRep.salesRepEmail}</p>
                         <p className="text-xs text-muted-foreground mt-1">Магазинов: {salesRep.stores.length}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Позиций: {salesRep.totalItems}</p>
-                      <p className="text-sm text-muted-foreground">Всего товаров: {salesRep.totalQuantity}</p>
-                      <p className="text-lg font-semibold">Стоимость: {formatCurrency(salesRep.totalValue)}</p>
+                    <div className="text-left sm:text-right flex-shrink-0">
+                      <p className="text-xs md:text-sm text-muted-foreground">Позиций: {salesRep.totalItems}</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">Всего товаров: {salesRep.totalQuantity}</p>
+                      <p className="text-base md:text-lg font-semibold mt-1">Стоимость: {formatCurrency(salesRep.totalValue)}</p>
                     </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="space-y-6 pt-4">
+                  <div className="space-y-4 md:space-y-6 pt-3 md:pt-4">
                     {salesRep.stores.map((store) => (
-                      <div key={store.storeId} className="border rounded-lg p-4 bg-muted/30">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h5 className="font-semibold text-base">{store.storeName}</h5>
-                            <p className="text-sm text-muted-foreground">{store.storeAddress}</p>
+                      <div key={store.storeId} className="border rounded-lg p-3 md:p-4 bg-muted/30">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-0 mb-3 md:mb-4">
+                          <div className="flex-1 min-w-0">
+                            <h5 className="font-semibold text-sm md:text-base mb-1">{store.storeName}</h5>
+                            <p className="text-xs md:text-sm text-muted-foreground break-words">{store.storeAddress}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm text-muted-foreground">Позиций: {store.totalItems}</p>
-                            <p className="text-sm text-muted-foreground">Всего товаров: {store.totalQuantity}</p>
-                            <p className="text-base font-semibold">Стоимость: {formatCurrency(store.totalValue)}</p>
+                          <div className="text-left sm:text-right flex-shrink-0">
+                            <p className="text-xs md:text-sm text-muted-foreground">Позиций: {store.totalItems}</p>
+                            <p className="text-xs md:text-sm text-muted-foreground">Всего товаров: {store.totalQuantity}</p>
+                            <p className="text-sm md:text-base font-semibold mt-1">Стоимость: {formatCurrency(store.totalValue)}</p>
                           </div>
                         </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
+                        <div className="overflow-x-auto -mx-3 md:mx-0">
+                          <table className="w-full text-xs md:text-sm min-w-[600px]">
                             <thead>
                               <tr className="border-b">
                                 <th className="text-left p-2">Товар</th>
@@ -416,17 +416,17 @@ export function Analytics() {
                               {store.items && Array.isArray(store.items) ? (
                                 store.items.map((item) => (
                                   <tr key={item.offerId} className="border-b">
-                                    <td className="p-2">{item.productName}</td>
+                                    <td className="p-2 break-words">{item.productName}</td>
                                     <td className="p-2">{item.brandName}</td>
-                                    <td className="p-2">{item.sku}</td>
+                                    <td className="p-2 font-mono text-xs">{item.sku}</td>
                                     <td className="text-right p-2">{item.quantity}</td>
-                                    <td className="text-right p-2">{formatCurrency(item.price, item.currency)}</td>
-                                    <td className="text-right p-2 font-semibold">{formatCurrency(item.value, item.currency)}</td>
+                                    <td className="text-right p-2 whitespace-nowrap">{formatCurrency(item.price, item.currency)}</td>
+                                    <td className="text-right p-2 font-semibold whitespace-nowrap">{formatCurrency(item.value, item.currency)}</td>
                                   </tr>
                                 ))
                               ) : (
                                 <tr>
-                                  <td colSpan={6} className="p-2 text-center text-muted-foreground">Нет товаров</td>
+                                  <td colSpan={6} className="p-2 text-center text-muted-foreground text-xs md:text-sm">Нет товаров</td>
                                 </tr>
                               )}
                             </tbody>
@@ -443,10 +443,10 @@ export function Analytics() {
       </div>
 
       {/* Оборот */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5" />
-          Оборот
+      <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+        <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+          <span>Оборот</span>
         </h3>
         <div className="mb-4 space-y-4">
           <div className="grid md:grid-cols-4 gap-4">

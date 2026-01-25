@@ -147,11 +147,11 @@ export function SalesRepPoorlySellingProducts() {
 
       {/* Фильтры */}
       <div className="bg-card border border-border rounded-lg p-4 md:p-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5" />
-          Параметры фильтрации
+        <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+          <span>Параметры фильтрации</span>
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">
               Минимальный остаток
@@ -226,50 +226,50 @@ export function SalesRepPoorlySellingProducts() {
               return (
                 <div
                   key={product.offerId}
-                  className="bg-card border border-border rounded-lg p-4 md:p-6 hover:shadow-md transition-shadow"
+                  className="bg-card border border-border rounded-lg p-3 md:p-4 lg:p-6 hover:shadow-md transition-shadow"
                 >
-                  <div className="flex flex-col md:flex-row md:items-start gap-4">
+                  <div className="flex flex-col md:flex-row md:items-start gap-3 md:gap-4">
                     {/* Левая часть - информация о товаре */}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1 flex items-center gap-2">
-                            <Package className="w-5 h-5 text-primary" />
-                            {product.productName}
+                    <div className="flex-1 space-y-2 md:space-y-3 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-base md:text-lg mb-1 flex items-center gap-2">
+                            <Package className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0" />
+                            <span className="break-words">{product.productName}</span>
                           </h3>
-                          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                            <span className="font-mono">{product.sku}</span>
+                          <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm text-muted-foreground">
+                            <span className="font-mono break-all">{product.sku}</span>
                             <span>•</span>
-                            <span>{product.brandName}</span>
+                            <span className="break-words">{product.brandName}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className="px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-sm font-medium whitespace-nowrap">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-shrink-0">
+                          <div className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 text-xs md:text-sm font-medium whitespace-nowrap text-center">
                             {product.salesCount === 0 ? 'Нет продаж' : `${product.salesCount} продаж`}
                           </div>
                           <button
                             onClick={() => handleViewSales(product.productId)}
-                            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-sm font-medium flex items-center gap-2"
+                            className="px-2 md:px-3 py-1 md:py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity text-xs md:text-sm font-medium flex items-center justify-center gap-1 md:gap-2"
                             title="Посмотреть продажи"
                           >
-                            <Eye className="w-4 h-4" />
-                            Продажи
+                            <Eye className="w-3 h-3 md:w-4 md:h-4" />
+                            <span className="hidden sm:inline">Продажи</span>
                           </button>
                         </div>
                       </div>
 
                       {/* Информация о магазине */}
                       <div className="flex items-start gap-2 pt-2 border-t border-border">
-                        <Store className="w-4 h-4 text-muted-foreground mt-0.5" />
-                        <div>
-                          <p className="font-medium text-sm">{product.storeName}</p>
-                          <p className="text-xs text-muted-foreground">{product.storeAddress}</p>
+                        <Store className="w-3.5 h-3.5 md:w-4 md:h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-xs md:text-sm break-words">{product.storeName}</p>
+                          <p className="text-xs text-muted-foreground break-words">{product.storeAddress}</p>
                         </div>
                       </div>
 
                       {/* Информация о последней продаже */}
                       {product.lastSaleDate && daysSinceLastSale !== null && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t border-border">
+                        <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm text-muted-foreground pt-2 border-t border-border">
                           <span>Последняя продажа: {formatDate(product.lastSaleDate)}</span>
                           <span className="text-orange-600 font-medium">
                             ({daysSinceLastSale} дн. назад)
@@ -279,26 +279,26 @@ export function SalesRepPoorlySellingProducts() {
                     </div>
 
                     {/* Правая часть - метрики */}
-                    <div className="flex flex-col md:items-end gap-3 md:min-w-[200px]">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between md:justify-end gap-4">
-                          <span className="text-sm text-muted-foreground md:hidden">Остаток:</span>
+                    <div className="flex flex-row sm:flex-col md:items-end gap-3 md:min-w-[180px] lg:min-w-[200px] border-t md:border-t-0 md:border-l border-border pt-3 md:pt-0 md:pl-4">
+                      <div className="space-y-2 flex-1 sm:flex-none">
+                        <div className="flex items-center justify-between sm:justify-end gap-4">
+                          <span className="text-xs md:text-sm text-muted-foreground md:hidden">Остаток:</span>
                           <div className="text-right">
-                            <div className="text-2xl font-bold text-orange-600">{product.quantity}</div>
+                            <div className="text-xl md:text-2xl font-bold text-orange-600">{product.quantity}</div>
                             <div className="text-xs text-muted-foreground">шт. на складе</div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between md:justify-end gap-4">
-                          <span className="text-sm text-muted-foreground md:hidden">Цена:</span>
+                        <div className="flex items-center justify-between sm:justify-end gap-4">
+                          <span className="text-xs md:text-sm text-muted-foreground md:hidden">Цена:</span>
                           <div className="text-right">
-                            <div className="text-lg font-semibold">{formatCurrency(product.price, product.currency)}</div>
+                            <div className="text-base md:text-lg font-semibold">{formatCurrency(product.price, product.currency)}</div>
                             <div className="text-xs text-muted-foreground">за единицу</div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between md:justify-end gap-4 pt-2 border-t border-border">
-                          <span className="text-sm text-muted-foreground md:hidden">Общая стоимость:</span>
+                        <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 border-t border-border">
+                          <span className="text-xs md:text-sm text-muted-foreground md:hidden">Общая стоимость:</span>
                           <div className="text-right">
-                            <div className="text-xl font-bold text-red-600">
+                            <div className="text-lg md:text-xl font-bold text-red-600">
                               {formatCurrency(product.price * product.quantity, product.currency)}
                             </div>
                             <div className="text-xs text-muted-foreground">заморожено в остатках</div>

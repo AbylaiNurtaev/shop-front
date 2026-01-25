@@ -4,6 +4,7 @@ import api from '../../api/axios';
 import { toast } from 'sonner';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '../ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
+import { Separator } from '../ui/separator';
 
 interface SalesAnalyticsData {
   period: {
@@ -189,7 +190,7 @@ export function SalesRepSalesAnalytics() {
 
   if (!analytics) {
     return (
-      <div className="bg-card border border-border rounded-lg p-8 text-center">
+      <div className="bg-card border border-foreground/30 rounded-lg p-8 text-center">
         <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
         <p className="text-muted-foreground">Нет данных для отображения</p>
       </div>
@@ -237,7 +238,7 @@ export function SalesRepSalesAnalytics() {
         </div>
         <button
           onClick={loadAnalytics}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
+          className="px-4 py-2 border border-foreground/30 rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
         >
           Обновить
         </button>
@@ -251,7 +252,7 @@ export function SalesRepSalesAnalytics() {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            className="w-full px-3 md:px-4 py-2 bg-input-background border border-foreground/30 rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
           />
         </div>
         <div className="flex-1">
@@ -260,14 +261,16 @@ export function SalesRepSalesAnalytics() {
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            className="w-full px-3 md:px-4 py-2 bg-input-background border border-foreground/30 rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
           />
         </div>
       </div>
 
+      <Separator className="my-4 md:my-6 bg-foreground/60" />
+
       {/* Основные метрики */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="bg-card border border-foreground/30 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <ShoppingCart className="w-5 h-5 text-primary" />
             <span className="text-xs text-muted-foreground">Продаж</span>
@@ -275,7 +278,7 @@ export function SalesRepSalesAnalytics() {
           <div className="text-2xl font-semibold">{analytics.summary.totalSales}</div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="bg-card border border-foreground/30 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <DollarSign className="w-5 h-5 text-green-600" />
             <span className="text-xs text-muted-foreground">Выручка</span>
@@ -283,7 +286,7 @@ export function SalesRepSalesAnalytics() {
           <div className="text-xl font-semibold">{formatCurrency(analytics.summary.totalRevenue)}</div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="bg-card border border-foreground/30 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <Package className="w-5 h-5 text-blue-600" />
             <span className="text-xs text-muted-foreground">Товаров</span>
@@ -291,7 +294,7 @@ export function SalesRepSalesAnalytics() {
           <div className="text-2xl font-semibold">{analytics.summary.totalQuantity}</div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4">
+        <div className="bg-card border border-foreground/30 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <TrendingUp className="w-5 h-5 text-purple-600" />
             <span className="text-xs text-muted-foreground">Средний чек</span>
@@ -300,8 +303,10 @@ export function SalesRepSalesAnalytics() {
         </div>
       </div>
 
+      <Separator className="my-4 md:my-6 bg-foreground/60" />
+
       {/* График продаж по периодам */}
-      <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+      <div className="bg-card border border-foreground/30 rounded-lg p-4 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
@@ -348,16 +353,18 @@ export function SalesRepSalesAnalytics() {
         </ChartContainer>
       </div>
 
+      <Separator className="my-4 md:my-6 bg-foreground/60" />
+
       {/* Планы с прогрессом */}
       {analytics.plans && analytics.plans.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+        <div className="bg-card border border-foreground/30 rounded-lg p-4 md:p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Target className="w-5 h-5" />
             Планы продаж
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {analytics.plans.map((plan) => (
-              <div key={plan.id} className="border border-border rounded-lg p-4 space-y-3">
+              <div key={plan.id} className="border border-foreground/30 rounded-lg p-4 space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">{plan.description || `План ${plan.period}`}</h3>
@@ -408,16 +415,18 @@ export function SalesRepSalesAnalytics() {
         </div>
       )}
 
+      {analytics.plans && analytics.plans.length > 0 && <Separator className="my-4 md:my-6 bg-foreground/60" />}
+
       {/* Продажи по магазинам */}
       {analytics.byStore && analytics.byStore.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+        <div className="bg-card border border-foreground/30 rounded-lg p-4 md:p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Store className="w-5 h-5" />
             Продажи по магазинам
           </h2>
           <div className="overflow-x-auto -mx-4 md:mx-0">
             <table className="w-full min-w-[600px]">
-              <thead className="bg-muted/50 border-b border-border">
+              <thead className="bg-muted/50 border-b border-foreground/30">
                 <tr>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Магазин</th>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Адрес</th>
@@ -426,7 +435,7 @@ export function SalesRepSalesAnalytics() {
                   <th className="text-right px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Товаров</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-foreground/30">
                 {analytics.byStore.map((store) => (
                   <tr key={store.storeId} className="hover:bg-muted/30 transition-colors">
                     <td className="px-3 md:px-4 py-2 md:py-3 font-medium text-sm md:text-base">{store.storeName}</td>
@@ -442,16 +451,18 @@ export function SalesRepSalesAnalytics() {
         </div>
       )}
 
+      {analytics.byStore && analytics.byStore.length > 0 && <Separator className="my-4 md:my-6 bg-foreground/60" />}
+
       {/* Топ товаров */}
       {analytics.byProduct && analytics.byProduct.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+        <div className="bg-card border border-foreground/30 rounded-lg p-4 md:p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Package className="w-5 h-5" />
             Топ товаров
           </h2>
           <div className="overflow-x-auto -mx-4 md:mx-0">
             <table className="w-full min-w-[600px]">
-              <thead className="bg-muted/50 border-b border-border">
+              <thead className="bg-muted/50 border-b border-foreground/30">
                 <tr>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Товар</th>
                   <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">SKU</th>
@@ -462,7 +473,7 @@ export function SalesRepSalesAnalytics() {
                   <th className="text-right px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Продаж</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-foreground/30">
                 {analytics.byProduct.map((product, index) => (
                   <tr key={product.productId} className="hover:bg-muted/30 transition-colors">
                     <td className="px-3 md:px-4 py-2 md:py-3">
@@ -496,16 +507,18 @@ export function SalesRepSalesAnalytics() {
         </div>
       )}
 
+      {analytics.byProduct && analytics.byProduct.length > 0 && <Separator className="my-4 md:my-6 bg-foreground/60" />}
+
       {/* Продажи по брендам */}
       {analytics.byBrand && analytics.byBrand.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+        <div className="bg-card border border-foreground/30 rounded-lg p-4 md:p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Package className="w-5 h-5" />
             Продажи по брендам
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {analytics.byBrand.map((brand) => (
-              <div key={brand.brandId} className="border border-border rounded-lg p-4 space-y-2">
+              <div key={brand.brandId} className="border border-foreground/30 rounded-lg p-4 space-y-2">
                 <h3 className="font-semibold text-lg">{brand.brandName}</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
@@ -520,7 +533,7 @@ export function SalesRepSalesAnalytics() {
                     <span className="text-muted-foreground">Количество:</span>
                     <span className="font-medium">{brand.totalQuantity} шт.</span>
                   </div>
-                  <div className="flex justify-between pt-2 border-t border-border">
+                  <div className="flex justify-between pt-2 border-t border-foreground/30">
                     <span className="text-muted-foreground">Выручка:</span>
                     <span className="font-semibold text-primary">{formatCurrency(brand.totalRevenue)}</span>
                   </div>

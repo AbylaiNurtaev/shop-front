@@ -318,15 +318,15 @@ export function DistributorProducts() {
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[800px]">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Товар</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">SKU</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Бренд</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Категория</th>
-                  <th className="text-left px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium">Себестоимость</th>
+                  <th className="text-left px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm font-medium">Товар</th>
+                  <th className="text-left px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm font-medium">SKU</th>
+                  <th className="text-left px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm font-medium">Бренд</th>
+                  <th className="text-left px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm font-medium">Категория</th>
+                  <th className="text-left px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm font-medium">Себестоимость</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -338,12 +338,12 @@ export function DistributorProducts() {
 
                   return (
                     <tr key={product.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-sm md:text-base font-medium">{product.productName}</td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground font-mono">{product.sku || '—'}</td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{product.brandName || '—'}</td>
-                      <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{product.categoryName || '—'}</td>
-                      <td className="px-3 md:px-4 py-2 md:py-3">
-                        <div className="flex items-center gap-2">
+                      <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm lg:text-base font-medium break-words">{product.productName}</td>
+                      <td className="px-4 md:px-4 py-3 md:py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">{product.sku || '—'}</td>
+                      <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm text-muted-foreground break-words">{product.brandName || '—'}</td>
+                      <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm text-muted-foreground break-words">{product.categoryName || '—'}</td>
+                      <td className="px-4 md:px-4 py-3 md:py-3">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                           <input
                             type="number"
                             step="0.01"
@@ -351,12 +351,12 @@ export function DistributorProducts() {
                             value={editingValue.costPrice}
                             onChange={(e) => handlePriceChange(product.productId, e.target.value)}
                             placeholder="0.00"
-                            className="w-32 px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                            className="w-full sm:w-28 md:w-32 px-2 md:px-3 py-1.5 md:py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-xs md:text-sm"
                           />
                           <select
                             value={editingValue.costCurrency}
                             onChange={(e) => handleCurrencyChange(product.productId, e.target.value)}
-                            className="px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                            className="w-full sm:w-auto px-2 md:px-3 py-1.5 md:py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-xs md:text-sm"
                           >
                             <option value="RUB">RUB (₽)</option>
                             <option value="USD">USD ($)</option>

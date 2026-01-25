@@ -180,12 +180,13 @@ export function StoresList() {
   const assignedCount = useMemo(() => assignedSalesRepIds.size, [assignedSalesRepIds]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Магазины</h1>
+    <div className="space-y-4 p-4 md:p-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h1 className="text-xl md:text-2xl font-semibold">Магазины</h1>
         <Button
           onClick={() => setIsAddDialogOpen(true)}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 self-start sm:self-auto"
+          size="sm"
         >
           <Plus className="w-4 h-4" />
           Добавить магазин
@@ -193,18 +194,18 @@ export function StoresList() {
       </div>
 
       {isLoading ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center">
-          <Loader2 className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-spin" />
-          <p className="text-muted-foreground">Загрузка магазинов...</p>
+        <div className="bg-card border border-border rounded-lg p-6 md:p-8 text-center">
+          <Loader2 className="w-10 h-10 md:w-12 md:h-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+          <p className="text-sm md:text-base text-muted-foreground">Загрузка магазинов...</p>
         </div>
       ) : stores.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center">
-          <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Магазины не найдены</p>
-          <p className="text-sm text-muted-foreground mt-2">Добавьте первый магазин для начала работы</p>
+        <div className="bg-card border border-border rounded-lg p-6 md:p-8 text-center">
+          <Store className="w-10 h-10 md:w-12 md:h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-sm md:text-base text-muted-foreground">Магазины не найдены</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-2">Добавьте первый магазин для начала работы</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {stores.map((store) => (
             <div
               key={store.id}
@@ -217,7 +218,7 @@ export function StoresList() {
                   openAssignments(store);
                 }
               }}
-              className="bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow relative cursor-pointer"
+              className="bg-card border border-border rounded-lg p-3 md:p-4 hover:shadow-md transition-shadow relative cursor-pointer"
             >
               <button
                 onClick={(event) => {
@@ -225,39 +226,39 @@ export function StoresList() {
                   handleDeleteStore(store.id);
                 }}
                 disabled={isDeleting === store.id}
-                className="absolute top-4 right-4 p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="absolute top-3 right-3 md:top-4 md:right-4 p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
                 title="Удалить магазин"
               >
                 {isDeleting === store.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" />
                 ) : (
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 )}
               </button>
-              <h3 className="font-semibold text-lg mb-2 pr-8">{store.name}</h3>
+              <h3 className="font-semibold text-base md:text-lg mb-2 pr-8 break-words">{store.name}</h3>
               {store.address && (
-                <div className="flex items-start gap-2 text-sm text-muted-foreground mb-2">
-                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{store.address}</span>
+                <div className="flex items-start gap-2 text-xs md:text-sm text-muted-foreground mb-2">
+                  <MapPin className="w-3.5 h-3.5 md:w-4 md:h-4 mt-0.5 flex-shrink-0" />
+                  <span className="break-words">{store.address}</span>
                 </div>
               )}
               {store.phone && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <Phone className="w-4 h-4" />
-                  <span>{store.phone}</span>
+                <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground mb-2">
+                  <Phone className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                  <span className="break-all">{store.phone}</span>
                 </div>
               )}
               {store.email && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <Mail className="w-4 h-4" />
-                  <span>{store.email}</span>
+                <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground mb-2">
+                  <Mail className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                  <span className="break-all">{store.email}</span>
                 </div>
               )}
               {store.description && (
-                <p className="text-sm text-muted-foreground mt-2">{store.description}</p>
+                <p className="text-xs md:text-sm text-muted-foreground mt-2 line-clamp-2">{store.description}</p>
               )}
               <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
-                <Users className="w-4 h-4" />
+                <Users className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
                 <span>Торговые представители</span>
               </div>
             </div>
