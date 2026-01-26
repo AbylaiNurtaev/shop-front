@@ -836,10 +836,10 @@ export function BuyerHome() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-2 sm:p-4">
-      <div className="w-full max-w-xl bg-card border border-border rounded-lg shadow-sm flex flex-col h-[90vh] max-h-[800px]">
+    <div className="fixed inset-0 bg-muted/30 flex items-center justify-center p-0 sm:p-4">
+      <div className="w-full h-full sm:h-[90vh] sm:max-h-[800px] sm:max-w-xl sm:rounded-lg bg-card sm:border sm:border-border shadow-sm flex flex-col">
         {/* Закрепленная верхняя часть */}
-        <div className="sticky top-0 z-10 bg-card border-b border-border p-3 sm:p-4 space-y-3 sm:space-y-4">
+        <div className="flex-shrink-0 bg-card border-b border-border p-3 sm:p-4 space-y-3 sm:space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center">
               <Search className="w-5 h-5 text-primary" />
@@ -887,7 +887,7 @@ export function BuyerHome() {
               value={locationLink}
               onChange={(e) => handleLocationChange(e.target.value)}
               placeholder="Ссылка 2ГИС"
-              className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-input-background border border-border rounded-md text-xs sm:text-sm"
+              className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-input-background border border-border rounded-md text-base sm:text-sm"
               pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
               title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
             />
@@ -895,7 +895,7 @@ export function BuyerHome() {
         </div>
 
         {/* Прокручиваемая область чата */}
-        <div className="flex-1 overflow-y-auto space-y-3 p-3 sm:p-4 pr-1">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3 p-3 sm:p-4 pr-1">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -1145,7 +1145,7 @@ export function BuyerHome() {
         </div>
 
         {/* Закрепленная нижняя часть */}
-        <div className="sticky bottom-0 z-10 bg-card border-t border-border p-3 sm:p-4">
+        <div className="flex-shrink-0 bg-card border-t border-border p-3 sm:p-4">
           <input
             ref={fileInputRef}
             type="file"
@@ -1168,7 +1168,7 @@ export function BuyerHome() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Напишите, что ищете..."
-              className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-input-background border border-border rounded-md text-xs sm:text-sm"
+              className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-input-background border border-border rounded-md text-base sm:text-sm"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
