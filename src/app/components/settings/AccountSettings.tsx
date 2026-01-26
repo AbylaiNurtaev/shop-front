@@ -73,6 +73,20 @@ type ApiStore = {
   photos?: string[];
 };
 
+type ApiBrand = {
+  id: string;
+  name: string;
+  country?: string;
+  categoryId?: string;
+  logoUrl?: string;
+  contactName?: string;
+};
+
+type ApiCategory = {
+  id: string;
+  name: string;
+};
+
 interface AccountSettingsProps {
   userId: string;
   storeId?: string | null;
@@ -92,8 +106,11 @@ export function AccountSettings({
 }: AccountSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [isPhotosUploading, setIsPhotosUploading] = useState(false);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isSavingStore, setIsSavingStore] = useState(false);
+  const [isSavingBrand, setIsSavingBrand] = useState(false);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [initialUserForm, setInitialUserForm] = useState<{
     isActive?: boolean;
     email?: string;
@@ -121,6 +138,20 @@ export function AccountSettings({
     id?: string;
   }>({
     isActive: true,
+  });
+  const [initialBrandForm, setInitialBrandForm] = useState({
+    name: '',
+    country: '',
+    categoryId: '',
+    logoUrl: '',
+    contactName: '',
+  });
+  const [brandForm, setBrandForm] = useState({
+    name: '',
+    country: '',
+    categoryId: '',
+    logoUrl: '',
+    contactName: '',
   });
   const [storeForm, setStoreForm] = useState({
     name: '',
@@ -168,6 +199,40 @@ export function AccountSettings({
           };
           setInitialUserForm(initialData);
           setUserForm(initialData);
+          setLoading(false);
+          return;
+        }
+
+        // Для бренда используем специальный API
+        if (role === 'brand') {
+          // Получаем данные пользователя для получения email
+          const userResponse = await api.get<ApiUser>(`/users/${userId}`);
+          if (!isActive) return;
+
+          // Загружаем категории и данные бренда параллельно
+          const [categoriesResponse, brandResponse] = await Promise.all([
+            api.get<{ items: ApiCategory[] }>('/categories'),
+            api.get<ApiBrand>('/brands/me'),
+          ]);
+          if (!isActive) return;
+
+          setCategories(categoriesResponse.data.items || []);
+
+          const initialBrandData = {
+            name: brandResponse.data.name || '',
+            country: brandResponse.data.country || '',
+            categoryId: brandResponse.data.categoryId || '',
+            logoUrl: brandResponse.data.logoUrl || '',
+            contactName: brandResponse.data.contactName || '',
+          };
+          setInitialBrandForm(initialBrandData);
+          setBrandForm(initialBrandData);
+
+          const initialUserData = {
+            email: userResponse.data.email,
+          };
+          setInitialUserForm(initialUserData);
+          setUserForm(initialUserData);
           setLoading(false);
           return;
         }
@@ -324,6 +389,12 @@ export function AccountSettings({
         return;
       }
 
+      // Для бренда используем специальный API
+      if (role === 'brand') {
+        await handleUpdateBrand();
+        return;
+      }
+
       await api.put(`/users/${userId}`, {
         isActive: userForm.isActive,
       });
@@ -341,10 +412,6 @@ export function AccountSettings({
       if (role === 'store' && updatedUser.data.storeId) {
         updatedUserData.storeId = updatedUser.data.storeId;
       }
-      if (role === 'brand' && (updatedUser.data as any).brandId) {
-        updatedUserData.brandId = (updatedUser.data as any).brandId;
-        updatedUserData.brandName = (updatedUser.data as any).brandName;
-      }
 
       // Обновляем начальные значения
       setInitialUserForm({
@@ -358,6 +425,73 @@ export function AccountSettings({
       toast.error('Не удалось обновить пользователя.');
     } finally {
       setIsSavingUser(false);
+    }
+  };
+
+  const handleUpdateBrand = async () => {
+    setIsSavingBrand(true);
+    try {
+      const updateData: {
+        name?: string;
+        country?: string;
+        categoryId?: string;
+        logoUrl?: string;
+        contactName?: string;
+      } = {};
+
+      if (brandForm.name !== undefined) {
+        updateData.name = brandForm.name;
+      }
+      if (brandForm.country !== undefined) {
+        updateData.country = brandForm.country;
+      }
+      if (brandForm.categoryId !== undefined) {
+        updateData.categoryId = brandForm.categoryId;
+      }
+      if (brandForm.logoUrl !== undefined) {
+        updateData.logoUrl = brandForm.logoUrl;
+      }
+      if (brandForm.contactName !== undefined) {
+        updateData.contactName = brandForm.contactName;
+      }
+
+      await api.put('/brands/me/settings', updateData);
+
+      // Получаем обновленные данные бренда
+      const brandResponse = await api.get<ApiBrand>('/brands/me');
+
+      // Получаем обновленные данные пользователя для email
+      const userResponse = await api.get<ApiUser>(`/users/${userId}`);
+
+      // Обновляем начальные значения
+      const updatedBrandData = {
+        name: brandResponse.data.name || '',
+        country: brandResponse.data.country || '',
+        categoryId: brandResponse.data.categoryId || '',
+        logoUrl: brandResponse.data.logoUrl || '',
+        contactName: brandResponse.data.contactName || '',
+      };
+      setInitialBrandForm(updatedBrandData);
+
+      // Обновляем данные пользователя в App.tsx
+      const updatedUserData: User = {
+        id: userId,
+        email: userResponse.data.email,
+        role,
+        profileComplete: true,
+        firstName: userResponse.data.firstName,
+        lastName: userResponse.data.lastName,
+        brandId: brandResponse.data.id,
+        brandName: brandResponse.data.name,
+      };
+
+      onUserUpdated(updatedUserData);
+      toast.success('Данные бренда успешно обновлены');
+    } catch (error) {
+      console.error('Ошибка обновления бренда', error);
+      toast.error('Не удалось обновить данные бренда.');
+    } finally {
+      setIsSavingBrand(false);
     }
   };
 
@@ -480,6 +614,18 @@ export function AccountSettings({
     return userForm.isActive !== initialUserForm.isActive;
   }, [userForm, initialUserForm, role]);
 
+  // Проверяем, изменились ли данные бренда
+  const isBrandFormChanged = useMemo(() => {
+    if (role !== 'brand') return false;
+    return (
+      brandForm.name !== initialBrandForm.name ||
+      brandForm.country !== initialBrandForm.country ||
+      brandForm.categoryId !== initialBrandForm.categoryId ||
+      brandForm.logoUrl !== initialBrandForm.logoUrl ||
+      brandForm.contactName !== initialBrandForm.contactName
+    );
+  }, [brandForm, initialBrandForm]);
+
   // Проверяем, изменились ли данные магазина
   const isStoreFormChanged = useMemo(() => {
     if (!storeId) return false;
@@ -589,6 +735,136 @@ export function AccountSettings({
                 }`}
             >
               {isSavingUser ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Сохранение...
+                </span>
+              ) : (
+                'Сохранить'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {role === 'brand' && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+          <div>
+            <h3 className="text-xl font-semibold">Данные бренда</h3>
+            <p className="text-sm text-gray-500">Обновите информацию о бренде</p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Email</label>
+              <input
+                type="email"
+                value={userForm.email || ''}
+                disabled
+                className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-500 mt-1">Email нельзя изменить</p>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Название бренда</label>
+              <input
+                type="text"
+                value={brandForm.name}
+                onChange={(e) => setBrandForm((prev) => ({ ...prev, name: e.target.value }))}
+                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                placeholder="Введите название бренда"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Страна</label>
+              <select
+                value={brandForm.country}
+                onChange={(e) => setBrandForm((prev) => ({ ...prev, country: e.target.value }))}
+                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+              >
+                <option value="">Выберите страну</option>
+                {COUNTRIES.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Категория</label>
+              <select
+                value={brandForm.categoryId}
+                onChange={(e) => setBrandForm((prev) => ({ ...prev, categoryId: e.target.value }))}
+                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+              >
+                <option value="">Выберите категорию</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Контактное лицо</label>
+              <input
+                type="text"
+                value={brandForm.contactName}
+                onChange={(e) => setBrandForm((prev) => ({ ...prev, contactName: e.target.value }))}
+                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                placeholder="Введите имя контактного лица"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Логотип</label>
+              {brandForm.logoUrl && (
+                <div className="mb-2">
+                  <img
+                    src={brandForm.logoUrl}
+                    alt="Логотип бренда"
+                    className="w-32 h-32 object-contain border border-gray-200 rounded-lg"
+                  />
+                </div>
+              )}
+              <label className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm ${isLogoUploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'
+                }`}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    setIsLogoUploading(true);
+                    try {
+                      const uploadedUrl = await uploadPhoto(file);
+                      if (uploadedUrl) {
+                        setBrandForm((prev) => ({ ...prev, logoUrl: uploadedUrl }));
+                      }
+                    } catch (error) {
+                      console.error('Ошибка загрузки логотипа', error);
+                      toast.error('Не удалось загрузить логотип.');
+                    } finally {
+                      setIsLogoUploading(false);
+                      event.target.value = '';
+                    }
+                  }}
+                  disabled={isLogoUploading}
+                />
+                {isLogoUploading ? 'Загрузка...' : brandForm.logoUrl ? 'Изменить логотип' : 'Загрузить логотип'}
+              </label>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleUpdateBrand}
+              disabled={!isBrandFormChanged || isSavingBrand}
+              className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isBrandFormChanged && !isSavingBrand
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+            >
+              {isSavingBrand ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Сохранение...

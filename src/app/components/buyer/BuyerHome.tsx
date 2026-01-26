@@ -238,6 +238,11 @@ export function BuyerHome() {
     }
   };
 
+  // Автоматический запрос геолокации при загрузке страницы
+  useEffect(() => {
+    requestGeo();
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       const initData = await ensureSessionAndConversation();
@@ -442,33 +447,139 @@ export function BuyerHome() {
 
       const responseData = response.data;
       const state = responseData?.state;
+      const requestId = responseData?.requestId;
+
+      console.log('POST response data:', responseData);
+      console.log('RequestId from response:', requestId);
+
+      // Определяем, есть ли вопросы или уточнения (значит поиск еще не завершен)
+      const hasQuestions = Array.isArray(responseData?.questions) && responseData.questions.length > 0;
+      // Поиск в процессе, если есть вопросы ИЛИ нет requestId (новый поиск начат)
+      const isSearchInProgress = hasQuestions || !requestId;
+      // Поиск завершен только если есть requestId (результаты готовы)
+      const isSearchCompleted = !!requestId;
 
       // Добавляем ответ системы
       const assistantMessage: Message = {
         id: responseData?.messageId ?? `assistant-${Date.now()}`,
         role: 'assistant',
-        text: Array.isArray(responseData?.questions) && responseData.questions.length > 0
+        text: hasQuestions
           ? responseData.questions.join('\n')
           : responseData?.text || 'Обрабатываю ваш запрос...',
         quickReplies: responseData?.quickReplies,
         remainingProducts: responseData?.remainingProducts,
-        selectedProduct: responseData?.selectedProduct,
+        // Показываем selectedProduct только если поиск завершен (есть requestId)
+        // и это не новый поиск с вопросами
+        selectedProduct: (isSearchCompleted && !hasQuestions) ? responseData?.selectedProduct : undefined,
+        candidates: responseData?.candidates,
       };
 
-      // Если найден товар и есть результаты поиска
-      if (state === 'DONE' && responseData?.items) {
-        const results = normalizeResults(responseData);
-        assistantMessage.results = results;
-        assistantMessage.text = results.length > 0
-          ? `Найдено ${results.length} магазин(ов) с товаром "${responseData?.selectedProduct?.name || 'товар'}"`
-          : 'Товар не найден в ближайших магазинах';
+      // Если есть requestId, запрашиваем полные результаты поиска
+      if (requestId) {
+        console.log(`Fetching search results for requestId: ${requestId}`);
+        console.log(`Full URL will be: /customers/search/${requestId}`);
+        try {
+          const searchUrl = `/customers/search/${requestId}`;
+          console.log(`Making GET request to: ${searchUrl}`);
+          const searchResponse = await api.get(searchUrl);
+          console.log('Search response status:', searchResponse.status);
+          const searchData = searchResponse.data;
+          console.log('Search results data:', searchData);
+
+          // Нормализуем результаты из полного ответа
+          const results = normalizeResults(searchData);
+          console.log('Normalized results:', results);
+
+          // Получаем информацию о товаре из результатов
+          const productName = searchData?.items?.[0]?.product?.name || responseData?.selectedProduct?.name || 'товар';
+          const productInfo = searchData?.items?.[0]?.product;
+
+          // Обновляем selectedProduct только если поиск завершен (есть requestId)
+          // и есть информация о товаре в результатах
+          if (productInfo) {
+            assistantMessage.selectedProduct = {
+              id: productInfo.id,
+              name: productInfo.name,
+              brandName: productInfo.brandName,
+              packageInfo: productInfo.packageInfo,
+            };
+          } else if (responseData?.selectedProduct && results.length === 0 && isSearchCompleted) {
+            // Если товар найден, но магазинов нет, показываем информацию о товаре
+            // только если поиск завершен (есть requestId)
+            assistantMessage.selectedProduct = responseData.selectedProduct;
+          } else {
+            // Если это новый поиск или поиск в процессе, не показываем selectedProduct
+            assistantMessage.selectedProduct = undefined;
+          }
+
+          if (results.length > 0) {
+            assistantMessage.results = results;
+            assistantMessage.text = `Найдено ${results.length} магазин(ов) с товаром "${productName}"`;
+          } else if (productInfo || responseData?.selectedProduct) {
+            // Товар найден, но магазинов нет в радиусе
+            assistantMessage.text = `Товар "${productName}" найден, но не доступен в ближайших магазинах в радиусе ${radiusKm} км. Попробуйте увеличить радиус поиска.`;
+          } else {
+            // Товар не найден вообще
+            assistantMessage.text = 'Товар не найден в ближайших магазинах';
+            assistantMessage.selectedProduct = undefined;
+          }
+        } catch (searchError: any) {
+          console.error('Ошибка получения результатов поиска', searchError);
+          console.error('Error details:', searchError?.response?.data);
+          // Если не удалось получить результаты, используем данные из первоначального ответа
+          const hasItems = Array.isArray(responseData?.items) && responseData.items.length > 0;
+          const hasCandidates = Array.isArray(responseData?.candidates) && responseData.candidates.length > 0;
+
+          if (hasItems || hasCandidates) {
+            const results = normalizeResults(responseData);
+            if (results.length > 0) {
+              assistantMessage.results = results;
+              assistantMessage.text = `Найдено ${results.length} магазин(ов) с товаром "${responseData?.selectedProduct?.name || 'товар'}"`;
+            } else {
+              assistantMessage.text = 'Товар не найден в ближайших магазинах';
+            }
+          } else if (state === 'DONE') {
+            assistantMessage.text = 'Товар не найден в ближайших магазинах';
+          }
+        }
+      } else {
+        console.log('No requestId in response, using initial response data');
+        // Если нет requestId, используем данные из первоначального ответа
+        const hasItems = Array.isArray(responseData?.items) && responseData.items.length > 0;
+        const hasCandidates = Array.isArray(responseData?.candidates) && responseData.candidates.length > 0;
+        const hasResults = hasItems || hasCandidates;
+
+        if (hasResults) {
+          const results = normalizeResults(responseData);
+          if (results.length > 0) {
+            assistantMessage.results = results;
+            // Показываем selectedProduct только если поиск завершен (state === 'DONE')
+            if (state === 'DONE' && responseData?.selectedProduct) {
+              assistantMessage.selectedProduct = responseData.selectedProduct;
+            } else {
+              assistantMessage.selectedProduct = undefined;
+            }
+            assistantMessage.text = `Найдено ${results.length} магазин(ов) с товаром "${responseData?.selectedProduct?.name || 'товар'}"`;
+          } else {
+            assistantMessage.text = 'Товар не найден в ближайших магазинах';
+            // Не показываем selectedProduct, если результатов нет
+            assistantMessage.selectedProduct = undefined;
+          }
+        } else if (state === 'DONE') {
+          assistantMessage.text = 'Товар не найден в ближайших магазинах';
+          assistantMessage.selectedProduct = undefined;
+        } else {
+          // Если поиск в процессе (есть вопросы или нет requestId), не показываем selectedProduct
+          assistantMessage.selectedProduct = undefined;
+        }
       }
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Если нужно уточнение и есть selectedProduct, показываем его
-      if (responseData?.selectedProduct && state !== 'DONE') {
-        toast.info(`Найден товар: ${responseData.selectedProduct.name}`);
+      // Если нужно уточнение и есть selectedProduct, показываем его только если поиск завершен
+      // и это не новый поиск с вопросами
+      if (responseData?.selectedProduct && isSearchCompleted && !hasQuestions && assistantMessage.selectedProduct) {
+        // Не показываем toast, так как информация уже в сообщении
       }
     } catch (error: any) {
       console.error('Ошибка отправки сообщения', error);
@@ -725,61 +836,66 @@ export function BuyerHome() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
-      <div className="w-full max-w-xl bg-card border border-border rounded-lg shadow-sm p-4 flex flex-col gap-4 min-h-[80vh]">
-        <div className="flex items-center gap-3 border-b border-border pb-3">
-          <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Search className="w-5 h-5 text-primary" />
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-2 sm:p-4">
+      <div className="w-full max-w-xl bg-card border border-border rounded-lg shadow-sm flex flex-col h-[90vh] max-h-[800px]">
+        {/* Закрепленная верхняя часть */}
+        <div className="sticky top-0 z-10 bg-card border-b border-border p-3 sm:p-4 space-y-3 sm:space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center">
+              <Search className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold">Покупатель</h1>
+              <p className="text-xs text-muted-foreground">
+                Чат‑поиск продуктов рядом
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold">Покупатель</h1>
-            <p className="text-xs text-muted-foreground">
-              Чат‑поиск продуктов рядом
-            </p>
+
+          <div className="space-y-3">
+            <label className="text-xs font-medium text-muted-foreground">Радиус поиска</label>
+            <div className="flex gap-2 flex-wrap">
+              {[0.5, 1, 2, 3].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setRadiusKm(value)}
+                  className={`px-2 sm:px-3 py-1.5 rounded-full border text-xs whitespace-nowrap flex-shrink-0 ${radiusKm === value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border hover:bg-accent'
+                    }`}
+                >
+                  {value} км
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={requestGeo}
+              className="flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity text-sm min-w-[44px]"
+              disabled={geoState.status === 'requesting'}
+              title={geoState.status === 'requesting' ? 'Запрашиваем…' : 'Геолокация'}
+            >
+              <Navigation className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">{geoState.status === 'requesting' ? 'Запрашиваем…' : 'Геолокация'}</span>
+            </button>
+            <input
+              type="text"
+              value={locationLink}
+              onChange={(e) => handleLocationChange(e.target.value)}
+              placeholder="Ссылка 2ГИС"
+              className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-input-background border border-border rounded-md text-xs sm:text-sm"
+              pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
+              title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
+            />
           </div>
         </div>
 
-        <div className="space-y-3">
-          <label className="text-xs font-medium text-muted-foreground">Радиус поиска</label>
-          <div className="flex gap-2">
-            {[0.5, 1, 2, 3].map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setRadiusKm(value)}
-                className={`px-3 py-1.5 rounded-full border text-xs ${radiusKm === value
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border hover:bg-accent'
-                  }`}
-              >
-                {value} км
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={requestGeo}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity text-sm"
-            disabled={geoState.status === 'requesting'}
-          >
-            <Navigation className="w-4 h-4" />
-            {geoState.status === 'requesting' ? 'Запрашиваем…' : 'Геолокация'}
-          </button>
-          <input
-            type="text"
-            value={locationLink}
-            onChange={(e) => handleLocationChange(e.target.value)}
-            placeholder="Ссылка 2ГИС"
-            className="flex-1 px-3 py-2 bg-input-background border border-border rounded-md text-sm"
-            pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
-            title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
-          />
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+        {/* Прокручиваемая область чата */}
+        <div className="flex-1 overflow-y-auto space-y-3 p-3 sm:p-4 pr-1">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -1028,7 +1144,8 @@ export function BuyerHome() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="border-t border-border pt-3">
+        {/* Закрепленная нижняя часть */}
+        <div className="sticky bottom-0 z-10 bg-card border-t border-border p-3 sm:p-4">
           <input
             ref={fileInputRef}
             type="file"
@@ -1036,12 +1153,12 @@ export function BuyerHome() {
             onChange={handleFileSelect}
             className="hidden"
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={handleAttachClick}
               disabled={sending || uploadingImage || isRecording}
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
               title="Прикрепить изображение"
             >
               <Paperclip className="w-4 h-4" />
@@ -1051,7 +1168,7 @@ export function BuyerHome() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Напишите, что ищете..."
-              className="flex-1 px-3 py-2 bg-input-background border border-border rounded-md text-sm"
+              className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-input-background border border-border rounded-md text-xs sm:text-sm"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -1064,7 +1181,7 @@ export function BuyerHome() {
               type="button"
               onClick={isRecording ? stopVoiceRecognition : startVoiceRecognition}
               disabled={sending || uploadingImage}
-              className={`w-10 h-10 flex items-center justify-center rounded-full border transition-colors ${isRecording
+              className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full border transition-colors flex-shrink-0 ${isRecording
                 ? 'bg-red-500 text-white border-red-500 hover:bg-red-600'
                 : 'border-border hover:bg-muted'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -1076,7 +1193,7 @@ export function BuyerHome() {
               type="button"
               onClick={handleSend}
               disabled={!input.trim() || sending || uploadingImage || isRecording}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               <Search className="w-4 h-4" />
             </button>

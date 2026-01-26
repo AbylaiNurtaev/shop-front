@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Store, MapPin, Phone, Mail, Package, Loader2 } from 'lucide-react';
+import { Store, MapPin, Phone, Mail, Package, Loader2, Search } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 
@@ -17,6 +17,7 @@ export function SalesRepStores() {
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadStores();
@@ -36,6 +37,19 @@ export function SalesRepStores() {
     }
   };
 
+  // Фильтрация магазинов по поисковому запросу
+  const filteredStores = stores.filter((store) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      store.name.toLowerCase().includes(query) ||
+      store.address?.toLowerCase().includes(query) ||
+      store.city?.toLowerCase().includes(query) ||
+      store.phone?.toLowerCase().includes(query) ||
+      store.email?.toLowerCase().includes(query)
+    );
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -53,7 +67,7 @@ export function SalesRepStores() {
             Магазины
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Всего магазинов: {stores.length}
+            Всего магазинов: {filteredStores.length} {searchQuery && `из ${stores.length}`}
           </p>
         </div>
         <button
@@ -64,14 +78,28 @@ export function SalesRepStores() {
         </button>
       </div>
 
-      {stores.length === 0 ? (
+      {/* Поисковое окно */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Поиск по названию, адресу, городу, телефону или email..."
+          className="w-full pl-10 pr-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+        />
+      </div>
+
+      {filteredStores.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Нет закрепленных магазинов</p>
+          <p className="text-muted-foreground">
+            {searchQuery ? 'Магазины не найдены' : 'Нет закрепленных магазинов'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-          {stores.map((store) => (
+          {filteredStores.map((store) => (
             <div
               key={store.id}
               className="bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"

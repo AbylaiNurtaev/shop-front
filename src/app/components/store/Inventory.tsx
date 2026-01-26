@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, React } from 'react';
 import { Search, Minus, Plus, Upload, FileText, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Product, Category } from '../../types';
 import api from '../../api/axios';
@@ -216,10 +216,10 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
         <div className="p-4 pb-24 space-y-4">
           {filteredProducts.map((product) => {
             const isEditing = editingId === product.id;
-            const statusColor = 
-              product.quantity === 0 ? 'border-red-300 bg-red-50' : 
-              product.quantity < 20 ? 'border-orange-300 bg-orange-50' : 
-              'border-green-300 bg-green-50';
+            const statusColor =
+              product.quantity === 0 ? 'border-red-300 bg-red-50' :
+                product.quantity < 20 ? 'border-orange-300 bg-orange-50' :
+                  'border-green-300 bg-green-50';
 
             return (
               <div
@@ -250,8 +250,9 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                           type="number"
                           value={editValue}
                           onChange={(e) => setEditValue(Math.max(0, parseInt(e.target.value) || 0))}
-                          className="flex-1 h-14 text-center text-3xl font-black bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="flex-1 h-14 text-center text-3xl font-black bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-w-[120px]"
                           min="0"
+                          style={{ maxWidth: '120px' }}
                         />
                         <button
                           type="button"
@@ -426,14 +427,15 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                       <td className="px-4 py-3 font-medium">{product.name}</td>
                       <td className="px-4 py-3 text-sm text-gray-500 font-mono">{product.sku}</td>
                       <td className="px-4 py-3 text-sm">{getCategoryName(product.categoryId)}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 w-32">
                         {isEditing ? (
                           <input
                             type="number"
                             value={editValue}
                             onChange={(e) => setEditValue(parseInt(e.target.value) || 0)}
-                            className="w-24 px-2 py-1 bg-gray-50 border border-gray-300 rounded"
+                            className="w-24 max-w-24 px-2 py-1 bg-gray-50 border border-gray-300 rounded"
                             min="0"
+                            style={{ maxWidth: '96px', boxSizing: 'border-box' }}
                           />
                         ) : (
                           <span className="font-medium">{product.quantity}</span>

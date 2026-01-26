@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart3, Store, Package, TrendingUp, Users, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
@@ -123,6 +124,7 @@ interface KPIData {
 }
 
 export function Analytics() {
+  const navigate = useNavigate();
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
 
@@ -315,7 +317,10 @@ export function Analytics() {
 
       {/* Основные метрики */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-        <div className="bg-card border border-border rounded-lg p-4 md:p-4">
+        <div
+          className="bg-card border border-border rounded-lg p-4 md:p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => navigate('/distributor/stores')}
+        >
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <Store className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
             <h3 className="font-semibold text-sm md:text-base">Количество магазинов</h3>
@@ -327,7 +332,10 @@ export function Analytics() {
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4 md:p-4">
+        <div
+          className="bg-card border border-border rounded-lg p-4 md:p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => navigate('/distributor/salesReps')}
+        >
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <Users className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
             <h3 className="font-semibold text-sm md:text-base">Торговые представители</h3>
@@ -339,7 +347,10 @@ export function Analytics() {
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-4 md:p-4 sm:col-span-2 md:col-span-1">
+        <div
+          className="bg-card border border-border rounded-lg p-4 md:p-4 sm:col-span-2 md:col-span-1 cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => navigate('/distributor/products')}
+        >
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <Package className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
             <h3 className="font-semibold text-sm md:text-base">Всего товаров</h3>

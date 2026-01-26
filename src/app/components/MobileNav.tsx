@@ -1,5 +1,5 @@
-import { Package, BarChart3, FolderTree, LogOut, Settings, Store, Users, Building2, MessageCircle, Brain, Network, History, Calendar, QrCode, ShoppingCart, AlertTriangle, TrendingDown, Menu, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Package, BarChart3, FolderTree, LogOut, Settings, Store, Users, Building2, MessageCircle, Brain, Network, History, Calendar, QrCode, ShoppingCart, AlertTriangle, TrendingDown, Menu, X, Search } from 'lucide-react';
+import { useState, useEffect, React } from 'react';
 
 interface MobileNavProps {
   role: 'store' | 'brand' | 'admin' | 'distributor' | 'salesRep';
@@ -16,22 +16,41 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     { id: 'brands', label: 'Бренды', icon: Building2 },
     { id: 'categories', label: 'Категории', icon: FolderTree },
   ];
-  const storeOwnerMenuItems = [
+  // Для владельца магазина: 3 основных элемента (включая настройки)
+  const storeOwnerMainItems = [
     { id: 'products', label: 'Товары', icon: Package },
     { id: 'inventory', label: 'Склад', icon: BarChart3 },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
-  const storeSellerMenuItems = [
+
+  // Для владельца магазина: элементы в бургер-меню (настройки и выход)
+  const storeOwnerMenuItems = [
+    { id: 'settings', label: 'Настройки', icon: Settings },
+  ];
+
+  // Для продавца: основные элементы в нижней навигации
+  const storeSellerMainItems = [
     { id: 'pos', label: 'Касса', icon: ShoppingCart },
     { id: 'products', label: 'Товары', icon: Package },
     { id: 'qr-scanner', label: 'Приход', icon: QrCode },
+  ];
+
+  // Для продавца: элементы в бургер-меню (настройки)
+  const storeSellerBurgerMenuItems = [
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
-  const storeMenuItems = userRole === 'storeSeller' ? storeSellerMenuItems : storeOwnerMenuItems;
+
+  // Для владельца магазина используем основные элементы без настроек
+  const storeMainItems = userRole === 'storeSeller' ? storeSellerMainItems : storeOwnerMainItems;
+  const storeMenuItems = userRole === 'storeSeller' ? storeSellerBurgerMenuItems : storeOwnerMenuItems;
+
+  const brandMainItems = [
+    { id: 'catalog', label: 'Каталог', icon: Package },
+    { id: 'distributors', label: 'Партнеры', icon: Network },
+    { id: 'searchStatistics', label: 'Поиск', icon: Search },
+  ];
 
   const brandMenuItems = [
-    { id: 'catalog', label: 'Каталог', icon: Package },
-    { id: 'distributors', label: 'Дистрибьюторы', icon: Network },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
@@ -71,29 +90,35 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   // Определяем основные элементы для отображения (3 раздела)
   const mainItems =
     role === 'admin' ? adminMenuItems :
-      role === 'store' ? storeMenuItems :
-        role === 'brand' ? brandMenuItems :
+      role === 'store' ? storeMainItems :
+        role === 'brand' ? brandMainItems :
           role === 'distributor' ? distributorMainItems :
             role === 'salesRep' ? salesRepMainItems :
               [];
 
   // Определяем элементы для бургер-меню
   const burgerMenuItems =
-    role === 'distributor' ? distributorMenuItems :
-      role === 'salesRep' ? salesRepMenuItems :
-        [];
+    role === 'store' ? storeMenuItems :
+      role === 'brand' ? brandMenuItems :
+        role === 'distributor' ? distributorMenuItems :
+          role === 'salesRep' ? salesRepMenuItems :
+            [];
 
   // Закрываем меню при изменении вида
   useEffect(() => {
     setIsMenuOpen(false);
   }, [currentView]);
 
-  // Для дистрибьютора и торгового представителя - только 4 элемента (3 основных + бургер-меню)
+  // Для дистрибьютора, торгового представителя, владельца магазина и бренда - только 4 элемента (3 основных + бургер-меню)
   // Для остальных ролей - как было (с кнопкой выхода)
-  const shouldShowLogoutInNav = role !== 'distributor' && role !== 'salesRep';
-  const totalItems = shouldShowLogoutInNav 
-    ? mainItems.length + (burgerMenuItems.length > 0 ? 1 : 0) + 1 // +1 для бургер-меню, +1 для выхода
-    : mainItems.length + (burgerMenuItems.length > 0 ? 1 : 0); // +1 для бургер-меню
+  const shouldShowLogoutInNav = role !== 'distributor' && role !== 'salesRep' && role !== 'store' && role !== 'brand';
+
+  // Для роли store всегда показываем бургер-меню (даже если burgerMenuItems пустой)
+  const shouldShowBurgerMenu = burgerMenuItems.length > 0 || !shouldShowLogoutInNav;
+
+  const totalItems = shouldShowLogoutInNav
+    ? mainItems.length + (shouldShowBurgerMenu ? 1 : 0) + 1 // +1 для бургер-меню (если есть), +1 для выхода
+    : mainItems.length + 1; // +1 для бургер-меню (всегда для store/distributor/salesRep)
   const gridColsClass =
     totalItems === 3
       ? 'grid-cols-3'
@@ -108,7 +133,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   return (
     <>
       {/* Бургер-меню (overlay) */}
-      {isMenuOpen && (burgerMenuItems.length > 0 || !shouldShowLogoutInNav) && (
+      {isMenuOpen && shouldShowBurgerMenu && (
         <>
           <div
             className="md:hidden fixed inset-0 bg-black/50 z-40"
@@ -137,8 +162,8 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                         setIsMenuOpen(false);
                       }}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
                         }`}
                     >
                       <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
@@ -146,7 +171,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                     </button>
                   );
                 })}
-                {/* Кнопка выхода в бургер-меню для дистрибьютора и торгового представителя */}
+                {/* Кнопка выхода в бургер-меню для дистрибьютора, торгового представителя, владельца магазина и бренда */}
                 {!shouldShowLogoutInNav && (
                   <>
                     <div className="border-t border-gray-200 my-2" />
@@ -179,8 +204,8 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${isActive
-                    ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-gray-600 active:bg-gray-100'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-gray-600 active:bg-gray-100'
                   }`}
               >
                 <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
@@ -192,12 +217,12 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
           })}
 
           {/* Кнопка бургер-меню (если есть дополнительные элементы или нужно скрыть выход) */}
-          {(burgerMenuItems.length > 0 || !shouldShowLogoutInNav) && (
+          {shouldShowBurgerMenu && (
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${isMenuOpen
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-gray-600 active:bg-gray-100'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-gray-600 active:bg-gray-100'
                 }`}
             >
               <Menu className="w-6 h-6" strokeWidth={isMenuOpen ? 2.5 : 2} />

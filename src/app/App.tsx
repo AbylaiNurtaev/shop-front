@@ -43,6 +43,7 @@ import { DistributorHistory } from './components/distributor/DistributorHistory'
 import { DistributorPoorlySellingProducts } from './components/distributor/DistributorPoorlySellingProducts';
 import { DistributorsList } from './components/brand/DistributorsList';
 import { CategoryRequest } from './components/brand/CategoryRequest';
+import { BrandSearchStatistics } from './components/brand/BrandSearchStatistics';
 import { User, UserRole, StoreProfile, BrandProfile, DistributorProfile, Product, Category } from './types';
 import api from './api/axios';
 import axios from 'axios';
@@ -449,8 +450,7 @@ export default function App() {
         logoUrl = await uploadPhoto(profile.logoFile);
       }
 
-      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-      await axios.post(`${baseURL}/brands`, {
+      await api.post('/brands', {
         name: profile.name,
         country: profile.country,
         categoryId: profile.categoryId,
@@ -950,6 +950,7 @@ export default function App() {
     if (path.startsWith('/store/settings')) return 'settings';
     if (path.startsWith('/brand/catalog')) return 'catalog';
     if (path.startsWith('/brand/distributors')) return 'distributors';
+    if (path.startsWith('/brand/searchStatistics')) return 'searchStatistics';
     if (path.startsWith('/brand/settings')) return 'settings';
     if (path.startsWith('/distributor/stores')) return 'stores';
     if (path.startsWith('/distributor/salesReps')) return 'salesReps';
@@ -1003,6 +1004,7 @@ export default function App() {
     if (user.role === 'brand') {
       if (view === 'catalog') navigate('/brand/catalog');
       if (view === 'distributors') navigate('/brand/distributors');
+      if (view === 'searchStatistics') navigate('/brand/searchStatistics');
       if (view === 'settings') navigate('/brand/settings');
       return;
     }
@@ -1263,6 +1265,7 @@ export default function App() {
                   }
                 />
                 <Route path="/brand/distributors" element={<DistributorsList />} />
+                <Route path="/brand/searchStatistics" element={<BrandSearchStatistics />} />
                 {/* Если бренд случайно попал на store-маршруты (например, по старой ссылке) — перенаправляем в каталог бренда */}
                 <Route path="/store/*" element={<Navigate to="/brand/catalog" replace />} />
                 <Route

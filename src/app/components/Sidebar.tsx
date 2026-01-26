@@ -1,4 +1,4 @@
-import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut } from 'lucide-react';
+import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut, Search } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface SidebarProps {
@@ -32,7 +32,8 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
 
   const brandMenuItems = [
     { id: 'catalog', label: 'Каталог товаров', icon: Package },
-    { id: 'distributors', label: 'Дистрибьюторы', icon: Network },
+    { id: 'distributors', label: 'Партнеры', icon: Network },
+    { id: 'searchStatistics', label: 'Статистика поиска', icon: Search },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Store, MapPin, Phone, Mail, Loader2, Trash2, Plus, Users } from 'lucide-react';
+import { Store, MapPin, Phone, Mail, Loader2, Trash2, Plus, Users, User } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 import {
@@ -15,6 +15,12 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
 
+interface StoreOwner {
+  firstName: string;
+  email: string;
+  phoneNumber?: string | null;
+}
+
 interface Store {
   id: string;
   name: string;
@@ -23,6 +29,7 @@ interface Store {
   phone?: string;
   email?: string;
   description?: string;
+  owner?: StoreOwner;
 }
 
 interface SalesRep {
@@ -317,54 +324,127 @@ export function StoresList() {
 
       {/* Диалог привязки торговых представителей к магазину */}
       <Dialog open={isAssignmentsOpen} onOpenChange={setIsAssignmentsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Привязка торговых представителей</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
+          <DialogHeader className="pb-3">
+            <DialogTitle className="text-lg sm:text-xl">Привязка торговых представителей</DialogTitle>
+            <DialogDescription className="text-sm">
               {selectedStore ? `Магазин: ${selectedStore.name}` : 'Выберите магазин'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {isAssignmentsLoading ? (
-              <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Загрузка торговых представителей...</span>
-              </div>
-            ) : salesReps.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                Торговые представители не найдены
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {salesReps.map((rep) => {
-                  const isAssigned = assignedSalesRepIds.has(rep.id);
-                  return (
-                    <label
-                      key={rep.id}
-                      className="flex items-center justify-between gap-3 border border-border rounded-md px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium truncate">
-                          {rep.firstName} {rep.lastName}
-                        </div>
-                        {rep.email && (
-                          <div className="text-xs text-muted-foreground truncate">{rep.email}</div>
-                        )}
+          <div className="space-y-4 py-2 sm:py-4">
+            {/* Информация о магазине */}
+            {selectedStore && (
+              <div className="border border-border rounded-md p-3 sm:p-4 bg-muted/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Store className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0" />
+                  <h3 className="text-sm sm:text-base font-semibold">Информация о магазине</h3>
+                </div>
+                <div className="space-y-2.5 sm:space-y-3">
+                  {selectedStore.address && (
+                    <div className="flex items-start gap-2 text-xs sm:text-sm">
+                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-muted-foreground block mb-0.5">Адрес: </span>
+                        <span className="break-words">{selectedStore.address}</span>
                       </div>
-                      <Checkbox
-                        checked={isAssigned}
-                        disabled={isAssigning === rep.id}
-                        onCheckedChange={() => handleToggleAssignment(rep.id, isAssigned)}
-                      />
-                    </label>
-                  );
-                })}
+                    </div>
+                  )}
+                  {selectedStore.phone && (
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-muted-foreground">Телефон: </span>
+                        <span className="break-all font-medium">{selectedStore.phone}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
+
+            {/* Информация о владельце магазина */}
+            {selectedStore?.owner && (
+              <div className="border border-border rounded-md p-3 sm:p-4 bg-muted/30">
+                <div className="flex items-center gap-2 mb-3">
+                  <User className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0" />
+                  <h3 className="text-sm sm:text-base font-semibold">Владелец магазина</h3>
+                </div>
+                <div className="space-y-2.5 sm:space-y-3">
+                  {selectedStore.owner.firstName && (
+                    <div className="text-xs sm:text-sm">
+                      <span className="text-muted-foreground">Имя: </span>
+                      <span className="font-medium">{selectedStore.owner.firstName}</span>
+                    </div>
+                  )}
+                  {selectedStore.owner.email && (
+                    <div className="flex items-start gap-2 text-xs sm:text-sm">
+                      <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-muted-foreground">Email: </span>
+                        <span className="break-all">{selectedStore.owner.email}</span>
+                      </div>
+                    </div>
+                  )}
+                  {selectedStore.owner.phoneNumber && (
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-muted-foreground">Телефон: </span>
+                        <span className="break-all font-medium">{selectedStore.owner.phoneNumber}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-border">
+              <h4 className="text-sm sm:text-base font-semibold mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                Торговые представители
+              </h4>
+              {isAssignmentsLoading ? (
+                <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-xs sm:text-sm">Загрузка торговых представителей...</span>
+                </div>
+              ) : salesReps.length === 0 ? (
+                <div className="text-xs sm:text-sm text-muted-foreground py-4 text-center">
+                  Торговые представители не найдены
+                </div>
+              ) : (
+                <div className="space-y-2 sm:space-y-3 max-h-[300px] overflow-y-auto">
+                  {salesReps.map((rep) => {
+                    const isAssigned = assignedSalesRepIds.has(rep.id);
+                    return (
+                      <label
+                        key={rep.id}
+                        className="flex items-center justify-between gap-2 sm:gap-3 border border-border rounded-md px-2.5 sm:px-3 py-2 sm:py-2.5 hover:bg-accent/50 transition-colors cursor-pointer"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs sm:text-sm font-medium truncate">
+                            {rep.firstName} {rep.lastName}
+                          </div>
+                          {rep.email && (
+                            <div className="text-xs text-muted-foreground truncate mt-0.5">{rep.email}</div>
+                          )}
+                        </div>
+                        <Checkbox
+                          checked={isAssigned}
+                          disabled={isAssigning === rep.id}
+                          onCheckedChange={() => handleToggleAssignment(rep.id, isAssigned)}
+                          className="flex-shrink-0"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-          <DialogFooter className="flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
-              Привязано: {assignedCount}
+          <DialogFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0 pt-3 sm:pt-0 border-t border-border sm:border-t-0">
+            <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
+              Привязано: <span className="font-medium">{assignedCount}</span>
             </div>
             <Button
               variant="outline"
@@ -374,6 +454,7 @@ export function StoresList() {
                 setAssignedSalesRepIds(new Set());
                 setSalesReps([]);
               }}
+              className="w-full sm:w-auto order-1 sm:order-2"
             >
               Закрыть
             </Button>

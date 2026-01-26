@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '../ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { Separator } from '../ui/separator';
+import { useIsMobile } from '../ui/use-mobile';
 
 interface SalesAnalyticsData {
   period: {
@@ -116,38 +117,43 @@ export function SalesRepSalesAnalytics() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [periodView, setPeriodView] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const isMobile = useIsMobile();
 
+  // Загружаем данные один раз при монтировании компонента (для большого периода)
   useEffect(() => {
-    // Устанавливаем значения по умолчанию: 30 дней назад и сегодня
     const end = new Date();
+    end.setDate(end.getDate() + 1); // Завтра
     const start = new Date();
-    start.setDate(start.getDate() - 30);
+    start.setDate(start.getDate() - 90); // Загружаем данные за последние 90 дней (покрывает все виды графиков)
 
-    setEndDate(end.toISOString().split('T')[0]);
-    setStartDate(start.toISOString().split('T')[0]);
-  }, []);
+    const newStartDate = start.toISOString().split('T')[0];
+    const newEndDate = end.toISOString().split('T')[0];
 
-  useEffect(() => {
-    if (startDate && endDate) {
-      loadAnalytics();
-    }
-  }, [startDate, endDate]);
+    setEndDate(newEndDate);
+    setStartDate(newStartDate);
 
-  const loadAnalytics = async () => {
+    // Загружаем данные один раз
+    loadAnalytics(newStartDate, newEndDate);
+  }, []); // Загружаем только при монтировании
+
+  const loadAnalytics = async (start?: string, end?: string) => {
     setIsLoading(true);
     try {
       const params: Record<string, string> = {};
-      if (startDate) {
+      const startDateParam = start || startDate;
+      const endDateParam = end || endDate;
+
+      if (startDateParam) {
         // Устанавливаем начало дня (00:00:00.000Z)
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        params.startDate = start.toISOString();
+        const startDateObj = new Date(startDateParam);
+        startDateObj.setHours(0, 0, 0, 0);
+        params.startDate = startDateObj.toISOString();
       }
-      if (endDate) {
+      if (endDateParam) {
         // Устанавливаем конец дня (23:59:59.999Z), чтобы включить все продажи за этот день
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        params.endDate = end.toISOString();
+        const endDateObj = new Date(endDateParam);
+        endDateObj.setHours(23, 59, 59, 999);
+        params.endDate = endDateObj.toISOString();
       }
       const response = await api.get<SalesAnalyticsData>('/sales-reps/sales-analytics', { params });
       setAnalytics(response.data);
@@ -174,9 +180,17 @@ export function SalesRepSalesAnalytics() {
     return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  const formatDateShort = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+  };
+
   const formatMonth = (monthString: string) => {
     const [year, month] = monthString.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    if (isMobile) {
+      return date.toLocaleDateString('ru-RU', { month: 'short' });
+    }
     return date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
   };
 
@@ -197,31 +211,155 @@ export function SalesRepSalesAnalytics() {
     );
   }
 
-  const periodData = analytics.byPeriod[periodView];
-  const chartData = periodData.map((item) => {
-    if (periodView === 'daily') {
-      return {
-        name: formatDate(item.date),
-        revenue: item.totalRevenue,
-        sales: item.totalSales,
-        quantity: item.totalQuantity,
-      };
-    } else if (periodView === 'weekly') {
-      return {
-        name: `Неделя ${formatDate(item.weekStart)}`,
-        revenue: item.totalRevenue,
-        sales: item.totalSales,
-        quantity: item.totalQuantity,
-      };
-    } else {
-      return {
-        name: formatMonth(item.month),
-        revenue: item.totalRevenue,
-        sales: item.totalSales,
-        quantity: item.totalQuantity,
-      };
+  const periodData = analytics.byPeriod?.[periodView] || [];
+
+  // Обработка данных для графика
+  let chartData: Array<{ name: string; revenue: number; sales: number; quantity: number }> = [];
+
+  if (periodView === 'daily') {
+    // Для дневного графика заполняем все дни в периоде
+    const start = new Date(analytics.period.startDate);
+    const end = new Date(analytics.period.endDate);
+    const dataMap = new Map<string, typeof periodData[0]>();
+
+    // Создаем карту данных по датам
+    periodData.forEach((item) => {
+      const dateKey = item.date ? item.date.split('T')[0] : ''; // Берем только дату без времени
+      if (dateKey) {
+        dataMap.set(dateKey, item);
+      }
+    });
+
+    // Заполняем все дни в периоде
+    const currentDate = new Date(start);
+    currentDate.setHours(0, 0, 0, 0); // Устанавливаем начало дня
+    const endDate = new Date(end);
+    endDate.setHours(23, 59, 59, 999); // Устанавливаем конец дня
+
+    while (currentDate <= endDate) {
+      const dateKey = currentDate.toISOString().split('T')[0];
+      const existingData = dataMap.get(dateKey);
+
+      chartData.push({
+        name: formatDateShort(dateKey + 'T00:00:00'), // Без года для всех устройств
+        revenue: existingData?.totalRevenue || 0,
+        sales: existingData?.totalSales || 0,
+        quantity: existingData?.totalQuantity || 0,
+      });
+
+      currentDate.setDate(currentDate.getDate() + 1);
     }
-  });
+
+    // Показываем последние 7 дней на мобильных, 14 дней на десктопах
+    const daysToShow = isMobile ? 7 : 14;
+    if (chartData.length > daysToShow) {
+      chartData = chartData.slice(-daysToShow);
+    }
+  } else if (periodView === 'weekly') {
+    const weeksToShow = isMobile ? 5 : 10;
+
+    // Создаем карту данных по неделям (используем дату начала недели как ключ)
+    const weekDataMap = new Map<string, typeof periodData[0]>();
+    periodData.forEach((item) => {
+      if (item.weekStart) {
+        // Нормализуем дату - берем только дату без времени
+        let weekKey: string;
+        try {
+          const weekStartDate = new Date(item.weekStart);
+          weekStartDate.setHours(0, 0, 0, 0);
+          weekKey = weekStartDate.toISOString().split('T')[0];
+        } catch {
+          weekKey = item.weekStart.split('T')[0];
+        }
+        weekDataMap.set(weekKey, item);
+      }
+    });
+
+    // Логирование для отладки
+    console.log('Weekly period data from API:', periodData);
+    console.log('Week data map keys:', Array.from(weekDataMap.keys()));
+
+    // Генерируем последние N недель (от старых к новым)
+    chartData = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Находим понедельник текущей недели
+    const currentMonday = new Date(today);
+    const dayOfWeek = today.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Понедельник = 1
+    currentMonday.setDate(today.getDate() + diff);
+    currentMonday.setHours(0, 0, 0, 0);
+
+    for (let i = weeksToShow - 1; i >= 0; i--) {
+      const weekStart = new Date(currentMonday);
+      weekStart.setDate(currentMonday.getDate() - (i * 7));
+      weekStart.setHours(0, 0, 0, 0);
+
+      const weekKey = weekStart.toISOString().split('T')[0];
+      let existingData = weekDataMap.get(weekKey);
+
+      // Если не нашли по точному ключу, пробуем найти ближайшую неделю (в пределах 3 дней)
+      if (!existingData) {
+        for (const [key, data] of weekDataMap.entries()) {
+          try {
+            const keyDate = new Date(key);
+            keyDate.setHours(0, 0, 0, 0);
+            const diffDays = Math.abs((weekStart.getTime() - keyDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 3) {
+              existingData = data;
+              console.log(`Matched week ${weekKey} with API data ${key} (diff: ${diffDays} days)`);
+              break;
+            }
+          } catch (e) {
+            // Игнорируем ошибки парсинга
+          }
+        }
+      } else {
+        console.log(`Found exact match for week ${weekKey}`);
+      }
+
+      const weekStartDate = isMobile
+        ? formatDateShort(weekStart.toISOString())
+        : formatDate(weekStart.toISOString());
+
+      chartData.push({
+        name: isMobile ? weekStartDate : `Неделя ${weekStartDate}`,
+        revenue: existingData?.totalRevenue ?? 0,
+        sales: existingData?.totalSales ?? 0,
+        quantity: existingData?.totalQuantity ?? 0,
+      });
+    }
+
+    console.log('Weekly chart data:', chartData);
+  } else {
+    const monthsToShow = isMobile ? 3 : 7;
+
+    // Создаем карту данных по месяцам
+    const monthDataMap = new Map<string, typeof periodData[0]>();
+    periodData.forEach((item) => {
+      if (item.month) {
+        monthDataMap.set(item.month, item);
+      }
+    });
+
+    // Генерируем последние N месяцев
+    chartData = [];
+    const today = new Date();
+
+    for (let i = monthsToShow - 1; i >= 0; i--) {
+      const monthDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+      const existingData = monthDataMap.get(monthKey);
+
+      chartData.push({
+        name: formatMonth(monthKey),
+        revenue: existingData?.totalRevenue || 0,
+        sales: existingData?.totalSales || 0,
+        quantity: existingData?.totalQuantity || 0,
+      });
+    }
+  }
 
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-0">
@@ -237,7 +375,7 @@ export function SalesRepSalesAnalytics() {
           </p>
         </div>
         <button
-          onClick={loadAnalytics}
+          onClick={() => loadAnalytics()}
           className="px-4 py-2 border border-foreground/30 rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
         >
           Обновить
@@ -306,7 +444,7 @@ export function SalesRepSalesAnalytics() {
       <Separator className="my-4 md:my-6 bg-foreground/60" />
 
       {/* График продаж по периодам */}
-      <div className="bg-card border border-foreground/30 rounded-lg p-4 md:p-6">
+      <div className="bg-card border border-foreground/30 rounded-lg p-3 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
@@ -342,15 +480,45 @@ export function SalesRepSalesAnalytics() {
             </button>
           </div>
         </div>
-        <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="revenue" fill="var(--color-revenue)" name="Выручка" />
-          </BarChart>
-        </ChartContainer>
+        {chartData && chartData.length > 0 ? (
+          <div className={`${isMobile ? 'w-[90%] mx-auto' : 'w-full'}`}>
+            <ChartContainer config={chartConfig} className={`${isMobile ? 'h-[320px]' : 'h-[380px]'} w-full [&>div]:!aspect-auto`}>
+              <BarChart
+                data={chartData}
+                margin={{
+                  top: 10,
+                  right: isMobile ? 10 : 30,
+                  left: isMobile ? 0 : 20,
+                  bottom: periodView === 'daily' ? (isMobile ? 20 : 30) : (isMobile ? 30 : 20)
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="name"
+                  angle={0}
+                  textAnchor="middle"
+                  height={periodView === 'daily' ? (isMobile ? 30 : 40) : (isMobile ? 40 : 25)}
+                  interval={periodView === 'daily' && chartData.length > 14 && !isMobile ? Math.floor(chartData.length / 14) : 0}
+                  tick={{ fontSize: isMobile ? 9 : 12 }}
+                  minTickGap={isMobile ? 3 : 10}
+                />
+                <YAxis tick={{ fontSize: isMobile ? 9 : 12 }} width={isMobile ? 40 : 60} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="revenue"
+                  fill="var(--color-revenue)"
+                  name="Выручка"
+                  radius={[4, 4, 0, 0]}
+                  minPointSize={2}
+                />
+              </BarChart>
+            </ChartContainer>
+          </div>
+        ) : (
+          <div className={`${isMobile ? 'h-[320px]' : 'h-[380px]'} flex items-center justify-center text-muted-foreground`}>
+            Нет данных за выбранный период
+          </div>
+        )}
       </div>
 
       <Separator className="my-4 md:my-6 bg-foreground/60" />
