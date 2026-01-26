@@ -1,5 +1,5 @@
 import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut, Search } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, React } from 'react';
 
 interface SidebarProps {
   role: 'store' | 'brand' | 'admin' | 'distributor' | 'salesRep';
@@ -23,7 +23,6 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
   // Меню для продавца магазина (ограниченный доступ)
   const storeSellerMenuItems = [
     { id: 'pos', label: 'Касса', icon: ShoppingCart },
-    { id: 'products', label: 'Товары', icon: Package },
     { id: 'qr-scanner', label: 'Приход товара', icon: QrCode },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
@@ -39,26 +38,25 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
 
   const distributorMenuItems = [
     { id: 'stores', label: 'Магазины', icon: Store },
-    { id: 'salesReps', label: 'Торговые представители', icon: Users },
+    { id: 'salesReps', label: 'ТП', icon: Users },
     { id: 'products', label: 'Товары и себестоимость', icon: Package },
     { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
     { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
     { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
     { id: 'forecast', label: 'Прогноз спроса (AI)', icon: Brain },
-    { id: 'poorlySelling', label: 'Плохо продается', icon: TrendingDown },
+    { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
     { id: 'history', label: 'История', icon: History },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   const salesRepMenuItems = [
     { id: 'analytics', label: 'AI-аналитика', icon: Brain },
-    { id: 'home', label: 'Главная', icon: Store },
     { id: 'history', label: 'История', icon: History },
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'productGroups', label: 'Группы товаров', icon: FolderTreeIcon },
     { id: 'inventory', label: 'Контроль остатков', icon: BarChart3 },
     { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
-    { id: 'poorlySelling', label: 'Плохо продается', icon: TrendingDown },
+    { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
     { id: 'plan', label: 'План', icon: Calendar },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
@@ -130,8 +128,8 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
                   <button
                     onClick={() => onNavigate(item.id)}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-md transition-colors min-h-[44px] ${isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                       }`}
                     title={isCollapsed ? item.label : undefined}
                   >

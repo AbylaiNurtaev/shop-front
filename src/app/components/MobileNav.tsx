@@ -31,8 +31,8 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   // Для продавца: основные элементы в нижней навигации
   const storeSellerMainItems = [
     { id: 'pos', label: 'Касса', icon: ShoppingCart },
-    { id: 'products', label: 'Товары', icon: Package },
     { id: 'qr-scanner', label: 'Приход', icon: QrCode },
+    { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   // Для продавца: элементы в бургер-меню (настройки)
@@ -54,7 +54,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
-  // Для дистрибьютора: 4 элемента в нижней навигации (3 основных + бургер-меню)
+  // Для Дс: 4 элемента в нижней навигации (3 основных + бургер-меню)
   const distributorMainItems = [
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
@@ -62,7 +62,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   ];
 
   const distributorMenuItems = [
-    { id: 'salesReps', label: 'Торговые представители', icon: Users },
+    { id: 'salesReps', label: 'ТП', icon: Users },
     { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
     { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
     { id: 'forecast', label: 'Прогноз спроса (AI)', icon: Brain },
@@ -70,7 +70,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
-  // Для торгового представителя: 4 элемента в нижней навигации (3 основных + бургер-меню)
+  // Для ТП: 4 элемента в нижней навигации (3 основных + бургер-меню)
   const salesRepMainItems = [
     { id: 'analytics', label: 'Аналитика', icon: Brain },
     { id: 'stores', label: 'Магазины', icon: Store },
@@ -78,11 +78,10 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   ];
 
   const salesRepMenuItems = [
-    { id: 'home', label: 'Главная', icon: Store },
     { id: 'history', label: 'История', icon: History },
     { id: 'productGroups', label: 'Группы товаров', icon: FolderTree },
     { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
-    { id: 'poorlySelling', label: 'Плохо продается', icon: TrendingDown },
+    { id: 'poorlySelling', label: 'низкие продажи', icon: TrendingDown },
     { id: 'plan', label: 'План', icon: Calendar },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
@@ -109,7 +108,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     setIsMenuOpen(false);
   }, [currentView]);
 
-  // Для дистрибьютора, торгового представителя, владельца магазина и бренда - только 4 элемента (3 основных + бургер-меню)
+  // Для Дс, ТП, владельца магазина и бренда - только 4 элемента (3 основных + бургер-меню)
   // Для остальных ролей - как было (с кнопкой выхода)
   const shouldShowLogoutInNav = role !== 'distributor' && role !== 'salesRep' && role !== 'store' && role !== 'brand';
 
@@ -171,7 +170,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                     </button>
                   );
                 })}
-                {/* Кнопка выхода в бургер-меню для дистрибьютора, торгового представителя, владельца магазина и бренда */}
+                {/* Кнопка выхода в бургер-меню для Дс, ТП, владельца магазина и бренда */}
                 {!shouldShowLogoutInNav && (
                   <>
                     <div className="border-t border-gray-200 my-2" />
@@ -220,13 +219,13 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
           {shouldShowBurgerMenu && (
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${burgerMenuItems.some(item => item.id === currentView)
+              className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${burgerMenuItems.some(item => item.id === currentView && !mainItems.some(mainItem => mainItem.id === currentView))
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'text-gray-600 active:bg-gray-100'
                 }`}
             >
-              <Menu className="w-6 h-6" strokeWidth={burgerMenuItems.some(item => item.id === currentView) ? 2.5 : 2} />
-              <span className={`text-xs leading-tight ${burgerMenuItems.some(item => item.id === currentView) ? 'font-bold' : 'font-medium'}`}>
+              <Menu className="w-6 h-6" strokeWidth={burgerMenuItems.some(item => item.id === currentView && !mainItems.some(mainItem => mainItem.id === currentView)) ? 2.5 : 2} />
+              <span className={`text-xs leading-tight ${burgerMenuItems.some(item => item.id === currentView && !mainItems.some(mainItem => mainItem.id === currentView)) ? 'font-bold' : 'font-medium'}`}>
                 Ещё
               </span>
             </button>

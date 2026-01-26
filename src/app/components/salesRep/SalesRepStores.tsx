@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Store, MapPin, Phone, Mail, Package, Loader2, Search } from 'lucide-react';
+import { Store, MapPin, Phone, Mail, Package, Loader2, Search, ExternalLink, User, X } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+
+interface StoreOwner {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+}
 
 interface Store {
   id: string;
@@ -11,6 +18,11 @@ interface Store {
   phone?: string;
   email?: string;
   productCount?: number;
+  owner?: StoreOwner;
+  location?: string | {
+    link?: string;
+  };
+  locationLink?: string;
 }
 
 export function SalesRepStores() {
@@ -35,6 +47,20 @@ export function SalesRepStores() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Получаем ссылку на 2ГИС из разных форматов
+  const getLocationLink = (store: Store): string | null => {
+    if (typeof store.location === 'string') {
+      return store.location;
+    }
+    if (store.location && typeof store.location === 'object' && store.location.link) {
+      return store.location.link;
+    }
+    if (store.locationLink) {
+      return store.locationLink;
+    }
+    return null;
   };
 
   // Фильтрация магазинов по поисковому запросу
@@ -91,108 +117,275 @@ export function SalesRepStores() {
       </div>
 
       {filteredStores.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center">
-          <Store className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">
+        <div className="bg-card border border-border rounded-xl p-8 md:p-12 text-center">
+          <Store className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+          <p className="text-muted-foreground text-base">
             {searchQuery ? 'Магазины не найдены' : 'Нет закрепленных магазинов'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-          {filteredStores.map((store) => (
-            <div
-              key={store.id}
-              className="bg-card border border-border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedStore(store)}
-            >
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Store className="w-6 h-6 text-primary" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {filteredStores.map((store) => {
+            const locationLink = getLocationLink(store);
+            const ownerName = store.owner 
+              ? [store.owner.firstName, store.owner.lastName].filter(Boolean).join(' ') 
+              : null;
+            
+            return (
+              <div
+                key={store.id}
+                className="bg-card border border-border rounded-xl p-5 md:p-6 hover:shadow-lg hover:border-primary/20 transition-all duration-200 cursor-pointer group"
+                onClick={() => setSelectedStore(store)}
+              >
+                {/* Заголовок карточки */}
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                    <Store className="w-7 h-7 md:w-8 md:h-8 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-lg md:text-xl mb-2 text-foreground group-hover:text-primary transition-colors">
+                      {store.name}
+                    </h3>
+                    {store.address && (
+                      <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span className="line-clamp-2">{store.address}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-lg mb-1">{store.name}</h3>
-                  {store.address && (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
-                      <MapPin className="w-3 h-3" />
-                      <span className="truncate">{store.address}</span>
+
+                {/* Информация о владельце */}
+                {ownerName && (
+                  <div className="mb-4 pb-4 border-b border-border">
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground mb-0.5">Владелец</p>
+                        <p className="font-semibold text-foreground truncate">{ownerName}</p>
+                      </div>
+                    </div>
+                    {store.owner?.phoneNumber && (
+                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <Phone className="w-3.5 h-3.5" />
+                        <a 
+                          href={`tel:${store.owner.phoneNumber}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:text-primary transition-colors"
+                        >
+                          {store.owner.phoneNumber}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Кнопка 2ГИС */}
+                {locationLink && (
+                  <div className="mb-4">
+                    <a
+                      href={locationLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg font-medium text-sm transition-all duration-200 hover:scale-105 active:scale-95 w-full justify-center"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      <span>Открыть в 2ГИС</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
+
+                {/* Дополнительная информация */}
+                <div className="space-y-2 pt-3 border-t border-border">
+                  {store.phone && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Phone className="w-4 h-4 flex-shrink-0" />
+                      <a 
+                        href={`tel:${store.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:text-primary transition-colors truncate"
+                      >
+                        {store.phone}
+                      </a>
                     </div>
                   )}
-                  {store.city && (
-                    <p className="text-xs text-muted-foreground">{store.city}</p>
+                  {store.email && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="w-4 h-4 flex-shrink-0" />
+                      <a 
+                        href={`mailto:${store.email}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:text-primary transition-colors truncate"
+                      >
+                        {store.email}
+                      </a>
+                    </div>
+                  )}
+                  {store.productCount !== undefined && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Package className="w-4 h-4 flex-shrink-0" />
+                      <span>Товаров: <span className="font-semibold">{store.productCount}</span></span>
+                    </div>
                   )}
                 </div>
               </div>
-
-              <div className="space-y-2 pt-3 border-t border-border">
-                {store.phone && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="w-4 h-4" />
-                    <span>{store.phone}</span>
-                  </div>
-                )}
-                {store.email && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="w-4 h-4" />
-                    <span className="truncate">{store.email}</span>
-                  </div>
-                )}
-                {store.productCount !== undefined && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Package className="w-4 h-4" />
-                    <span>Товаров: {store.productCount}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Модальное окно с деталями магазина */}
       {selectedStore && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 md:p-6">
-          <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-border flex items-center justify-between">
-              <h2 className="text-xl font-semibold">{selectedStore.name}</h2>
-              <button
-                onClick={() => setSelectedStore(null)}
-                className="p-2 hover:bg-accent rounded-lg transition-colors"
-              >
-                ×
-              </button>
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 md:p-6 animate-in fade-in duration-200"
+          onClick={() => setSelectedStore(null)}
+        >
+          <div 
+            className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Заголовок модального окна */}
+            <div className="p-5 md:p-6 border-b border-border bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Store className="w-8 h-8 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl md:text-2xl font-bold mb-1 text-foreground">{selectedStore.name}</h2>
+                  {selectedStore.address && (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{selectedStore.address}</span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedStore(null)}
+                  className="p-2 hover:bg-accent rounded-lg transition-colors flex-shrink-0"
+                  aria-label="Закрыть"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
-            <div className="p-6 space-y-4">
-              {selectedStore.address && (
+
+            {/* Содержимое модального окна */}
+            <div className="p-5 md:p-6 space-y-5 overflow-y-auto flex-1">
+              {/* Кнопка 2ГИС */}
+              {getLocationLink(selectedStore) && (
                 <div>
-                  <div className="text-sm font-medium mb-1 flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Адрес
-                  </div>
-                  <p className="text-sm text-muted-foreground">{selectedStore.address}</p>
+                  <a
+                    href={getLocationLink(selectedStore)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-3 px-5 py-3 bg-primary text-primary-foreground rounded-xl font-semibold text-sm md:text-base transition-all duration-200 hover:bg-primary/90 hover:scale-105 active:scale-95 w-full justify-center shadow-lg"
+                  >
+                    <MapPin className="w-5 h-5" />
+                    <span>Открыть в 2ГИС</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
                 </div>
               )}
-              {selectedStore.city && (
-                <div>
-                  <div className="text-sm font-medium mb-1">Город</div>
-                  <p className="text-sm text-muted-foreground">{selectedStore.city}</p>
+
+              {/* Информация о владельце */}
+              {selectedStore.owner && (
+                <div className="border border-border rounded-xl p-4 md:p-5 bg-gradient-to-br from-muted/50 to-muted/20">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                    <h3 className="text-base md:text-lg font-semibold">Владелец магазина</h3>
+                  </div>
+                  <div className="space-y-3 pl-2">
+                    {(selectedStore.owner.firstName || selectedStore.owner.lastName) && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Имя</p>
+                        <p className="text-base md:text-lg font-semibold text-foreground">
+                          {[selectedStore.owner.firstName, selectedStore.owner.lastName].filter(Boolean).join(' ') || '—'}
+                        </p>
+                      </div>
+                    )}
+                    {selectedStore.owner.phoneNumber && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Телефон</p>
+                        <a 
+                          href={`tel:${selectedStore.owner.phoneNumber}`}
+                          className="flex items-center gap-2 text-base md:text-lg font-semibold text-primary hover:underline"
+                        >
+                          <Phone className="w-4 h-4" />
+                          {selectedStore.owner.phoneNumber}
+                        </a>
+                      </div>
+                    )}
+                    {selectedStore.owner.email && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Email</p>
+                        <a 
+                          href={`mailto:${selectedStore.owner.email}`}
+                          className="flex items-center gap-2 text-sm md:text-base text-primary hover:underline break-all"
+                        >
+                          <Mail className="w-4 h-4 flex-shrink-0" />
+                          {selectedStore.owner.email}
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-              {selectedStore.phone && (
-                <div>
-                  <div className="text-sm font-medium mb-1 flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    Телефон
-                  </div>
-                  <p className="text-sm text-muted-foreground">{selectedStore.phone}</p>
+
+              {/* Контакты магазина */}
+              {(selectedStore.phone || selectedStore.email) && (
+                <div className="space-y-3 pt-3 border-t border-border">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Контакты магазина</h3>
+                  {selectedStore.phone && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Phone className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground mb-0.5">Телефон</p>
+                        <a 
+                          href={`tel:${selectedStore.phone}`}
+                          className="text-base font-semibold text-foreground hover:text-primary transition-colors"
+                        >
+                          {selectedStore.phone}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {selectedStore.email && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Mail className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground mb-0.5">Email</p>
+                        <a 
+                          href={`mailto:${selectedStore.email}`}
+                          className="text-sm md:text-base text-foreground hover:text-primary transition-colors break-all"
+                        >
+                          {selectedStore.email}
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-              {selectedStore.email && (
-                <div>
-                  <div className="text-sm font-medium mb-1 flex items-center gap-2">
-                    <Mail className="w-4 h-4" />
-                    Email
+
+              {/* Дополнительная информация */}
+              {selectedStore.productCount !== undefined && (
+                <div className="flex items-center gap-3 pt-3 border-t border-border">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Package className="w-5 h-5 text-primary" />
                   </div>
-                  <p className="text-sm text-muted-foreground">{selectedStore.email}</p>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Товаров в магазине</p>
+                    <p className="text-base md:text-lg font-semibold text-foreground">{selectedStore.productCount}</p>
+                  </div>
                 </div>
               )}
             </div>

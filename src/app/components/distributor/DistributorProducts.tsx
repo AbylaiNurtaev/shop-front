@@ -283,7 +283,7 @@ export function DistributorProducts() {
         <div>
           <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
             <Package className="w-5 h-5 md:w-6 md:h-6" />
-            Товары и себестоимость
+            Товары
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Всего товаров: {filteredProducts.length}

@@ -4,7 +4,7 @@ export type UserRole =
   | 'buyer'        // Покупатель (если останется)
   | 'admin'        // Администратор
   | 'distributor'  // Дистрибьютор
-  | 'salesRep'     // Торговый представитель
+  | 'salesRep'     // ТП
   | 'storeSeller'; // Продавец магазина
 
 export interface User {
@@ -50,7 +50,7 @@ export interface BrandProfile {
 }
 
 export interface DistributorProfile {
-  // Регистрация дистрибьютора
+  // Регистрация Дс
   companyName: string;
   country: string;
   city: string;
@@ -106,7 +106,7 @@ export interface Product {
   isPayed?: boolean;
   paymentDate?: string; // ISO-строка
   paymentExpiresAt?: string; // ISO-строка
-  // Себестоимость от дистрибьютора
+  // Себестоимость от Дс
   costPrice?: number;
   costCurrency?: string;
   // Цена магазина

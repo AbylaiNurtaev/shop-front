@@ -109,7 +109,7 @@ export function DistributorRegistration({ onComplete, onBack }: DistributorRegis
         verificationCode,
       });
     } catch (error) {
-      console.error('Ошибка при регистрации дистрибьютора', error);
+      console.error('Ошибка при регистрации Дс', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -213,7 +213,7 @@ export function DistributorRegistration({ onComplete, onBack }: DistributorRegis
               </div>
             </div>
             <div className="text-center">
-              <h3 className="text-base sm:text-lg font-semibold mb-1">Регистрация дистрибьютора</h3>
+              <h3 className="text-base sm:text-lg font-semibold mb-1">Регистрация Дс</h3>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Отправка данных...
               </p>
@@ -245,7 +245,7 @@ export function DistributorRegistration({ onComplete, onBack }: DistributorRegis
               <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-semibold">Регистрация дистрибьютора</h1>
+              <h1 className="text-lg sm:text-xl font-semibold">Регистрация Дс</h1>
               <p className="text-xs sm:text-sm text-muted-foreground">Укажите основные данные дистрибьюторской компании</p>
             </div>
           </div>

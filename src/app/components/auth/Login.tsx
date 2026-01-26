@@ -20,7 +20,7 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
   const quickLoginAccounts = [
     { email: 'krutyev7@gmail.com', password: '12345678', label: 'Бренд', icon: Building2, color: 'bg-blue-500 hover:bg-blue-600' },
     { email: 'krutyev6@gmail.com', password: '12345678', label: 'Дистрибьютор', icon: Network, color: 'bg-purple-500 hover:bg-purple-600' },
-    { email: 'krutyev5@gmail.com', password: '12345678', label: 'Торговый представитель', icon: Users, color: 'bg-green-500 hover:bg-green-600' },
+    { email: 'krutyev5@gmail.com', password: '12345678', label: 'ТП', icon: Users, color: 'bg-green-500 hover:bg-green-600' },
     { email: 'abylaynurtayev01@gmail.com', password: '12345678', label: 'Магазин', icon: Store, color: 'bg-orange-500 hover:bg-orange-600' },
     { email: 'abylay.nurtayev.dev@gmail.com', password: '12345678', label: 'Продавец магазина', icon: ShoppingBag, color: 'bg-cyan-500 hover:bg-cyan-600' },
   ];

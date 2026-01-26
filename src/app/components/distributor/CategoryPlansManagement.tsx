@@ -386,7 +386,7 @@ export function CategoryPlansManagement({ salesRepresentativeId, salesRepName, o
             Планы по категориям
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Торговый представитель: {salesRepName}
+            ТП: {salesRepName}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -470,7 +470,7 @@ export function CategoryPlansManagement({ salesRepresentativeId, salesRepName, o
           <DialogHeader>
             <DialogTitle>Создать план по категории</DialogTitle>
             <DialogDescription>
-              Установите план по категории для торгового представителя {salesRepName}
+              Установите план по категории для ТП {salesRepName}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -655,7 +655,7 @@ export function CategoryPlansManagement({ salesRepresentativeId, salesRepName, o
           <DialogHeader>
             <DialogTitle>Редактировать план по категории</DialogTitle>
             <DialogDescription>
-              Обновите план по категории для торгового представителя {salesRepName}
+              Обновите план по категории для ТП {salesRepName}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

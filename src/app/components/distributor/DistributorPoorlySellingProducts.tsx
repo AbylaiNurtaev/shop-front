@@ -44,34 +44,34 @@ export function DistributorPoorlySellingProducts() {
     setIsLoading(true);
     try {
       const params: Record<string, string | number> = {};
-      
+
       if (minQuantity.trim()) {
         const parsedMinQuantity = Number(minQuantity);
         if (!Number.isNaN(parsedMinQuantity) && parsedMinQuantity >= 0) {
           params.minQuantity = parsedMinQuantity;
         }
       }
-      
+
       if (maxSales.trim()) {
         const parsedMaxSales = Number(maxSales);
         if (!Number.isNaN(parsedMaxSales) && parsedMaxSales >= 0) {
           params.maxSales = parsedMaxSales;
         }
       }
-      
+
       if (periodDays.trim()) {
         const parsedPeriodDays = Number(periodDays);
         if (!Number.isNaN(parsedPeriodDays) && parsedPeriodDays > 0) {
           params.periodDays = parsedPeriodDays;
         }
       }
-      
+
       const response = await api.get<PoorlySellingProductsResponse>('/distributors/me/poorly-selling-products', { params });
       setProducts(response.data?.items || []);
       setTotal(response.data?.total || 0);
     } catch (error: any) {
-      console.error('Ошибка загрузки товаров с плохими продажами', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить товары с плохими продажами';
+      console.error('Ошибка загрузки товаров с низкими продажами', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить товары с низкими продажами';
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -89,10 +89,10 @@ export function DistributorPoorlySellingProducts() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
+    return date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
     });
   };
 
@@ -130,7 +130,7 @@ export function DistributorPoorlySellingProducts() {
         <div>
           <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
             <TrendingDown className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
-            Товары с плохими продажами
+            Товары с низкими продажами
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Всего товаров: {total}
@@ -212,7 +212,7 @@ export function DistributorPoorlySellingProducts() {
       {products.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <TrendingDown className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Нет товаров с плохими продажами</p>
+          <p className="text-muted-foreground">Нет товаров с низкими продажами</p>
           <p className="text-sm text-muted-foreground mt-2">
             Товары, соответствующие заданным критериям, будут отображаться здесь
           </p>

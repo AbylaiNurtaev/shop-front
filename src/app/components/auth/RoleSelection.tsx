@@ -35,7 +35,7 @@ export function RoleSelection({ onSelectRole, onBack }: RoleSelectionProps) {
               </div>
               <h3 className="font-semibold mb-2">Дистрибьютор</h3>
               <p className="text-sm text-muted-foreground">
-                Управление портфелем брендов и торговыми представителями
+                Управление портфелем брендов и ТП
               </p>
             </button>
 
@@ -67,7 +67,7 @@ export function RoleSelection({ onSelectRole, onBack }: RoleSelectionProps) {
               </p>
             </button>
 
-            {/* Торговый представитель */}
+            {/* ТП */}
             <button
               type="button"
               onClick={() => onSelectRole('salesRep')}
@@ -76,7 +76,7 @@ export function RoleSelection({ onSelectRole, onBack }: RoleSelectionProps) {
               <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mb-4">
                 <Users className="w-6 h-6 text-muted-foreground" />
               </div>
-              <h3 className="font-semibold mb-2">Торговый представитель</h3>
+              <h3 className="font-semibold mb-2">ТП</h3>
               <p className="text-sm text-muted-foreground">
                 Аналитика по закрепленным магазинам и своим товарам
               </p>

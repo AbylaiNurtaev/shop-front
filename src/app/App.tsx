@@ -106,7 +106,7 @@ type ApiProduct = {
   productionDate?: string;
   allergens?: string | string[];
   ageRestrictions?: string;
-  // Себестоимость от дистрибьютора
+  // Себестоимость от Дс
   costPrice?: number | null;
   costCurrency?: string | null;
   // Цена магазина
@@ -220,7 +220,7 @@ export default function App() {
       price: overrides.price,
       currency: overrides.currency,
       isAvailable: overrides.isAvailable,
-      // Себестоимость от дистрибьютора (из API напрямую)
+      // Себестоимость от Дс (из API напрямую)
       costPrice: apiProduct.costPrice ?? undefined,
       costCurrency: apiProduct.costCurrency ?? undefined,
       // Цена магазина (из API напрямую)
@@ -378,7 +378,7 @@ export default function App() {
     }
 
     // Для остальных ролей пока только сообщаем, что регистрация будет позже
-    toast.info('Регистрация этой роли появится позже. Сейчас доступны магазин, бренд, дистрибьютор, торговый представитель и продавец магазина.');
+    toast.info('Регистрация этой роли появится позже. Сейчас доступны магазин, бренд, дистрибьютор, ТП и продавец магазина.');
   };
 
   const handleStoreRegistration = async (profile: StoreProfile) => {
@@ -511,8 +511,8 @@ export default function App() {
       toast.success('Дистрибьютор успешно зарегистрирован.');
       navigate('/distributor/stores', { replace: true });
     } catch (error: any) {
-      console.error('Ошибка регистрации дистрибьютора', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось завершить регистрацию дистрибьютора.';
+      console.error('Ошибка регистрации Дс', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось завершить регистрацию Дс.';
       toast.error(errorMessage);
     }
   };
@@ -703,9 +703,9 @@ export default function App() {
         return;
       }
 
-      // Создание товара для магазина (через дистрибьютора)
+      // Создание товара для магазина (через Дс)
       if (!user.distributorId) {
-        toast.error('Не удалось определить дистрибьютора для создания товара.');
+        toast.error('Не удалось определить Дс для создания товара.');
         return;
       }
       const response = await api.post('/products', {
@@ -962,7 +962,6 @@ export default function App() {
     if (path.startsWith('/distributor/poorlySelling')) return 'poorlySelling';
     if (path.startsWith('/distributor/history')) return 'history';
     if (path.startsWith('/distributor/settings')) return 'settings';
-    if (path.startsWith('/salesrep/home')) return 'home';
     if (path.startsWith('/salesrep/chat')) return 'chat';
     if (path.startsWith('/salesrep/history')) return 'history';
     if (path.startsWith('/salesrep/stores')) return 'stores';
@@ -1018,7 +1017,6 @@ export default function App() {
     }
     if (user.role === 'salesRep') {
       if (view === 'analytics') navigate('/salesrep/analytics');
-      if (view === 'home') navigate('/salesrep/home');
       if (view === 'chat') navigate('/salesrep/chat');
       if (view === 'history') navigate('/salesrep/history');
       if (view === 'stores') navigate('/salesrep/stores');
@@ -1182,17 +1180,6 @@ export default function App() {
                     <Route
                       path="/store/pos"
                       element={<POS />}
-                    />
-                    <Route
-                      path="/store/products"
-                      element={
-                        <ProductList
-                          products={storeProducts}
-                          categories={categories}
-                          onCreateProduct={handleCreateProduct}
-                          isLoading={isLoadingProducts}
-                        />
-                      }
                     />
                     <Route
                       path="/store/qr-scanner"

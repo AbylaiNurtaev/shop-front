@@ -131,7 +131,7 @@ export function Analytics() {
   const [stockData, setStockData] = useState<StockByStore[]>([]);
   const [isLoadingStock, setIsLoadingStock] = useState(false);
 
-  // Группировка данных по торговым представителям
+  // Группировка данных по ТП
   const stockBySalesRep = useMemo(() => {
     const salesRepMap = new Map<string, StockBySalesRep>();
 
@@ -281,7 +281,7 @@ export function Analytics() {
       setKpiData(response.data);
     } catch (error: any) {
       console.error('Ошибка загрузки KPI', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить KPI торговых представителей';
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить KPI ТП';
       toast.error(errorMessage);
     } finally {
       setIsLoadingKPI(false);
@@ -338,7 +338,7 @@ export function Analytics() {
         >
           <div className="flex items-center gap-2 md:gap-3 mb-2">
             <Users className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
-            <h3 className="font-semibold text-sm md:text-base">Торговые представители</h3>
+            <h3 className="font-semibold text-sm md:text-base">ТП</h3>
           </div>
           {isLoadingSummary ? (
             <Loader2 className="w-6 h-6 md:w-8 md:h-8 animate-spin text-muted-foreground" />
@@ -363,11 +363,11 @@ export function Analytics() {
         </div>
       </div>
 
-      {/* Остатки по торговым представителям */}
+      {/* Остатки по ТП */}
       <div className="bg-card border border-border rounded-lg p-4 md:p-6">
         <h3 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center gap-2">
           <BarChart3 className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
-          <span>Остатки по торговым представителям</span>
+          <span>Остатки по ТП</span>
         </h3>
         {isLoadingStock ? (
           <div className="flex items-center justify-center py-12">
@@ -566,11 +566,11 @@ export function Analytics() {
         )}
       </div>
 
-      {/* KPI торговых представителей */}
+      {/* KPI ТП */}
       <div className="bg-card border border-border rounded-lg p-6">
         <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
           <Users className="w-5 h-5" />
-          KPI торговых представителей
+          KPI ТП
         </h3>
         <div className="mb-4 space-y-4">
           <div className="grid md:grid-cols-4 gap-4">
@@ -633,7 +633,7 @@ export function Analytics() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-2">Торговый представитель</th>
+                  <th className="text-left p-2">ТП</th>
                   <th className="text-left p-2">Email</th>
                   <th className="text-right p-2">Выручка</th>
                   <th className="text-right p-2">Продажи</th>

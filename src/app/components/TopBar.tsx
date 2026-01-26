@@ -20,13 +20,13 @@ export function TopBar({ userEmail, role, onLogout }: TopBarProps) {
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-medium">
             {role === 'admin' ? 'Панель администратора' :
-              role === 'distributor' ? 'Панель дистрибьютора' :
+              role === 'distributor' ? 'Панель Дс' :
                 role === 'store' ? 'Управление магазином' :
-                  role === 'salesRep' ? 'Панель торгового представителя' : 'Управление брендом'}
+                  role === 'salesRep' ? 'Панель ТП' : 'Управление брендом'}
           </h1>
           <p className="text-sm text-muted-foreground">
             {role === 'admin' ? 'Модерация и управление системой' :
-              role === 'distributor' ? 'Управление портфелем брендов и торговыми представителями' :
+              role === 'distributor' ? 'Управление портфелем брендов и ТП' :
                 role === 'store' ? 'Учет и контроль товарных запасов' :
                   role === 'salesRep' ? 'Аналитика по закрепленным магазинам и своим товарам' : 'Управление каталогом товаров'}
           </p>
@@ -70,7 +70,7 @@ export function TopBar({ userEmail, role, onLogout }: TopBarProps) {
               <div className="text-sm font-medium">{userEmail}</div>
               <div className="text-xs text-muted-foreground">
                 {role === 'store' ? 'Аккаунт магазина' :
-                  role === 'distributor' ? 'Аккаунт дистрибьютора' :
+                  role === 'distributor' ? 'Аккаунт Дс' :
                     role === 'admin' ? 'Администратор' : 'Аккаунт бренда'}
               </div>
             </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShoppingCart, Search, Plus, Minus, Trash2, CheckCircle2, XCircle, Loader2, Receipt, History, TrendingUp } from 'lucide-react';
+import { ShoppingCart, Search, Plus, Minus, Trash2, CheckCircle2, XCircle, Loader2, Receipt, History, TrendingUp, QrCode } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 
@@ -36,6 +37,7 @@ interface AddItemResponse {
 }
 
 export function POS() {
+  const navigate = useNavigate();
   const [currentSale, setCurrentSale] = useState<Sale | null>(null);
   const [scannedSku, setScannedSku] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -331,12 +333,21 @@ export function POS() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleShowHistory}
-              className="p-2 hover:bg-accent rounded-lg transition-colors"
-            >
-              <History className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/store/qr-scanner')}
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
+                title="Приход товара"
+              >
+                <QrCode className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleShowHistory}
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
+              >
+                <History className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* SKU Scanner */}
@@ -468,13 +479,23 @@ export function POS() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={handleShowHistory}
-                  className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
-                >
-                  <History className="w-4 h-4" />
-                  История
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => navigate('/store/qr-scanner')}
+                    className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
+                    title="Приход товара"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span>Приход</span>
+                  </button>
+                  <button
+                    onClick={handleShowHistory}
+                    className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
+                  >
+                    <History className="w-4 h-4" />
+                    История
+                  </button>
+                </div>
               </div>
 
               {/* SKU Scanner */}

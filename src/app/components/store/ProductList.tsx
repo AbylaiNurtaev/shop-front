@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Package, Save, Loader2 } from 'lucide-react';
+import { Search, Plus, Package, Save, Loader2, ArrowUp } from 'lucide-react';
 import { Product, Category } from '../../types';
 import api from '../../api/axios';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ interface ProductListProps {
 export function ProductList({ products, categories, onCreateProduct, isLoading = false }: ProductListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Состояние для редактирования наценок
   const [editingMarkups, setEditingMarkups] = useState<Record<string, { markup: string; currency: string }>>({});
@@ -53,6 +54,31 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
     setEditingMarkups(initialMarkups);
     setOriginalMarkups(initialOriginal);
   }, [products]);
+
+  // Отслеживание прокрутки для показа кнопки "наверх"
+  useEffect(() => {
+    const handleScroll = () => {
+      // Показываем кнопку только на мобильной версии и когда прокрутка больше 300px
+      if (window.innerWidth < 768) {
+        setShowScrollTop(window.scrollY > 300);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    // Проверяем при загрузке
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
   const getCategoryName = (categoryId: string) => {
     const category = categories.find((c) => c.id === categoryId);
@@ -676,6 +702,17 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
             )}
           </button>
         </div>
+      )}
+
+      {/* Кнопка "наверх" для мобильной версии */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="md:hidden fixed bottom-30 right-4 z-40 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 active:bg-blue-800 transition-all duration-200"
+          aria-label="Наверх"
+        >
+          <ArrowUp className="w-6 h-6" />
+        </button>
       )}
     </div>
   );

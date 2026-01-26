@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, RefreshCw, Upload, Trash2, HelpCircle } from 'lucide-react';
+import { X, RefreshCw, Upload, Trash2, HelpCircle, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { Product, Category } from '../../types';
 import api from '../../api/axios';
 import { uploadPhoto } from '../../api/upload';
@@ -38,6 +38,26 @@ const buildPackageInfo = (amount: string, unit: string) => {
   return `${normalizedAmount} ${unit}`.trim();
 };
 
+interface ImageValidationResult {
+  productId: string;
+  productName: string;
+  isValid: boolean;
+  validation: {
+    isSquare: boolean;
+    hasExtraElements: boolean;
+    matchesProduct: boolean;
+    confidence: number;
+    aspectRatio: string;
+    issues: string[];
+    recommendations: string[];
+    detectedProduct?: {
+      name: string;
+      brand: string;
+      packageInfo: string;
+    };
+  };
+}
+
 interface BrandProductFormProps {
   product?: Product;
   categories: Category[];
@@ -75,6 +95,10 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
   const [autoGenerateSku, setAutoGenerateSku] = useState(!product);
   const [isSkuLoading, setIsSkuLoading] = useState(false);
   const [isImagesUploading, setIsImagesUploading] = useState(false);
+  const [isValidatingImage, setIsValidatingImage] = useState(false);
+  const [imageValidation, setImageValidation] = useState<ImageValidationResult | null>(null);
+  const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(product?.images?.[0] || null);
   const [showCategoryRequest, setShowCategoryRequest] = useState(false);
   const [categoryRequestData, setCategoryRequestData] = useState({
     categoryName: '',
@@ -108,6 +132,27 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Проверяем валидацию изображения только для новых загруженных изображений
+    // Если изображение уже было у товара и не менялось, валидация не требуется
+    const isNewImage = uploadedImageFile !== null;
+    const imageChanged = formData.images?.[0] !== originalImageUrl;
+    
+    if (formData.images && formData.images.length > 0 && isNewImage && imageChanged) {
+      if (isValidatingImage) {
+        toast.error('Пожалуйста, дождитесь завершения проверки изображения.');
+        return;
+      }
+      if (!imageValidation) {
+        toast.error('Пожалуйста, дождитесь завершения проверки изображения.');
+        return;
+      }
+      if (!imageValidation.isValid) {
+        toast.error('Изображение не прошло проверку. Исправьте проблемы и попробуйте снова.');
+        return;
+      }
+    }
+
     if (autoGenerateSku && !formData.sku) {
       try {
         setIsSkuLoading(true);
@@ -165,6 +210,24 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
     updateField('ageRestrictions', `${restriction}+`);
   };
 
+  const validateImage = async (file: File, productId?: string): Promise<ImageValidationResult | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      if (productId) {
+        formData.append('productId', productId);
+      }
+
+      const response = await api.post<ImageValidationResult>('/brands/products/validate-image', formData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Ошибка валидации изображения', error);
+      const errorMessage = error.response?.data?.message || 'Не удалось проверить изображение';
+      toast.error(errorMessage);
+      return null;
+    }
+  };
+
   const handleImagesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
@@ -180,47 +243,53 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
     const file = files[0];
     if (!file) return;
 
-    // Проверяем формат изображения (должно быть квадратным)
-    const checkImageSquare = (file: File): Promise<boolean> => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          const isSquare = Math.abs(img.width - img.height) < 5; // Допускаем небольшую погрешность в 5px
-          resolve(isSquare);
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          resolve(false);
-        };
-        img.src = url;
-      });
-    };
-
     setIsImagesUploading(true);
+    setIsValidatingImage(true);
+    setImageValidation(null);
+    setUploadedImageFile(null);
+
     try {
-      // Проверяем, что изображение квадратное
-      const isSquare = await checkImageSquare(file);
-      if (!isSquare) {
-        toast.error('Изображение должно быть квадратным (ширина должна равняться высоте).');
-        event.target.value = '';
+      // Сначала загружаем изображение
+      const uploadedUrl = await uploadPhoto(file);
+      if (!uploadedUrl) {
+        toast.error('Не удалось загрузить изображение.');
         return;
       }
 
-      const uploadedUrl = await uploadPhoto(file);
-      if (uploadedUrl) {
-        setFormData((prev) => ({
-          ...prev,
-          images: [uploadedUrl],
-        }));
-        toast.success('Изображение успешно загружено.');
+      // Сохраняем файл для валидации
+      setUploadedImageFile(file);
+      setFormData((prev) => ({
+        ...prev,
+        images: [uploadedUrl],
+      }));
+
+      // Отправляем на ИИ валидацию
+      const validationResult = await validateImage(file, product?.id);
+      
+      if (validationResult) {
+        setImageValidation(validationResult);
+        if (validationResult.isValid) {
+          toast.success('Изображение успешно проверено и одобрено.');
+        } else {
+          toast.warning('Изображение проверено, но есть замечания. Проверьте рекомендации.');
+        }
+      } else {
+        // Если валидация не удалась, но изображение загружено, разрешаем продолжить
+        toast.warning('Изображение загружено, но проверка не выполнена. Вы можете продолжить.');
       }
     } catch (error) {
       console.error('Ошибка загрузки изображений', error);
       toast.error('Не удалось загрузить изображение.');
+      // Очищаем данные при ошибке
+      setFormData((prev) => ({
+        ...prev,
+        images: [],
+      }));
+      setUploadedImageFile(null);
+      setImageValidation(null);
     } finally {
       setIsImagesUploading(false);
+      setIsValidatingImage(false);
       event.target.value = '';
     }
   };
@@ -512,27 +581,105 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
             <label className="block text-sm font-medium mb-2">Изображение товара</label>
             <div className="space-y-2">
               {formData.images && formData.images.length > 0 && (
-                <div className="max-w-xs">
-                  <div className="relative group aspect-square bg-muted rounded-lg border border-border overflow-hidden">
-                    <img src={formData.images[0]} alt="Товар" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateField('images', []);
-                      }}
-                      className="absolute top-1 right-1 p-2 bg-destructive text-destructive-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity min-h-[36px] min-w-[36px]"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                <div className="space-y-3">
+                  <div className="max-w-xs">
+                    <div className="relative group aspect-square bg-muted rounded-lg border border-border overflow-hidden">
+                      <img src={formData.images[0]} alt="Товар" className="w-full h-full object-cover" />
+                      {isValidatingImage && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Loader2 className="w-8 h-8 text-white animate-spin" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateField('images', []);
+                          setImageValidation(null);
+                          setUploadedImageFile(null);
+                          setOriginalImageUrl(null);
+                        }}
+                        disabled={isValidatingImage}
+                        className="absolute top-1 right-1 p-2 bg-destructive text-destructive-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity min-h-[36px] min-w-[36px] disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+                  
+                  {/* Статус валидации */}
+                  {isValidatingImage && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Проверка изображения ИИ...</span>
+                    </div>
+                  )}
+                  
+                  {imageValidation && !isValidatingImage && (
+                    <div className={`p-3 rounded-lg border ${
+                      imageValidation.isValid 
+                        ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
+                        : 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800'
+                    }`}>
+                      <div className="flex items-start gap-2 mb-2">
+                        {imageValidation.isValid ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1">
+                          <p className={`font-medium text-sm ${
+                            imageValidation.isValid 
+                              ? 'text-green-900 dark:text-green-100' 
+                              : 'text-yellow-900 dark:text-yellow-100'
+                          }`}>
+                            {imageValidation.isValid 
+                              ? 'Изображение одобрено' 
+                              : 'Изображение требует внимания'}
+                          </p>
+                          {imageValidation.validation.detectedProduct && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Обнаружен товар: {imageValidation.validation.detectedProduct.name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {imageValidation.validation.issues.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Проблемы:</p>
+                          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                            {imageValidation.validation.issues.map((issue, idx) => (
+                              <li key={idx}>{issue}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {imageValidation.validation.recommendations.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Рекомендации:</p>
+                          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                            {imageValidation.validation.recommendations.map((rec, idx) => (
+                              <li key={idx}>{rec}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <p>Уверенность: {Math.round(imageValidation.validation.confidence * 100)}%</p>
+                        <p>Соотношение сторон: {imageValidation.validation.aspectRatio}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {(!formData.images || formData.images.length === 0) && (
-                <label className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors cursor-pointer block ${isImagesUploading ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/50'
+                <label className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors cursor-pointer block ${isImagesUploading || isValidatingImage ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/50'
                   }`}>
                   <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground mb-1">
-                    {isImagesUploading ? 'Загрузка изображения...' : 'Нажмите для загрузки изображения товара'}
+                    {isImagesUploading || isValidatingImage ? 'Загрузка и проверка изображения...' : 'Нажмите для загрузки изображения товара'}
                   </p>
                   <p className="text-xs text-muted-foreground">PNG, JPG до 5 МБ, квадратное изображение (1:1)</p>
                   <input
@@ -540,7 +687,7 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     className="hidden"
                     onChange={handleImagesChange}
-                    disabled={isImagesUploading}
+                    disabled={isImagesUploading || isValidatingImage}
                   />
                 </label>
               )}
@@ -558,7 +705,12 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-primary text-primary-foreground py-3 rounded-lg hover:opacity-90 transition-opacity font-medium min-h-[48px] shadow-sm"
+                disabled={
+                  (formData.images && formData.images.length > 0 && uploadedImageFile && formData.images[0] !== originalImageUrl && (!imageValidation || !imageValidation.isValid)) ||
+                  isValidatingImage ||
+                  isImagesUploading
+                }
+                className="flex-1 bg-primary text-primary-foreground py-3 rounded-lg hover:opacity-90 transition-opacity font-medium min-h-[48px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {product ? 'Сохранить изменения' : 'Создать товар'}
               </button>

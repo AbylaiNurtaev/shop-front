@@ -10,7 +10,9 @@ interface SalesRepRegistrationProps {
 
 export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistrationProps) {
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
+    middleName: '',
     email: '',
     password: '',
   });
@@ -39,7 +41,9 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
     setIsSubmitting(true);
     try {
       await api.post('/auth/register-sales-representative', {
-        name: formData.name,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        middleName: formData.middleName || undefined,
         email: formData.email,
         password: formData.password,
         verificationCode,
@@ -47,7 +51,7 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
       toast.success('Регистрация успешна!');
       await onComplete();
     } catch (error: any) {
-      console.error('Ошибка при регистрации торгового представителя', error);
+      console.error('Ошибка при регистрации ТП', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось зарегистрироваться';
       toast.error(errorMessage);
     } finally {
@@ -146,7 +150,7 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
               </div>
             </div>
             <div className="text-center">
-              <h3 className="text-base sm:text-lg font-semibold mb-1">Регистрация торгового представителя</h3>
+              <h3 className="text-base sm:text-lg font-semibold mb-1">Регистрация ТП</h3>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Отправка данных...
               </p>
@@ -178,7 +182,7 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
               <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-semibold">Регистрация торгового представителя</h1>
+              <h1 className="text-lg sm:text-xl font-semibold">Регистрация ТП</h1>
               <p className="text-xs sm:text-sm text-muted-foreground">Укажите основные данные</p>
             </div>
           </div>
@@ -190,15 +194,42 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
             <div className="space-y-4">
               <div>
                 <label className="block text-xs sm:text-sm mb-1.5">
-                  Имя торгового представителя <span className="text-destructive">*</span>
+                  Имя <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => updateField('name', e.target.value)}
+                  value={formData.firstName}
+                  onChange={(e) => updateField('firstName', e.target.value)}
                   className="w-full px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="Введите ваше имя"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm mb-1.5">
+                  Фамилия <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.lastName}
+                  onChange={(e) => updateField('lastName', e.target.value)}
+                  className="w-full px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Введите вашу фамилию"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm mb-1.5">
+                  Отчество
+                </label>
+                <input
+                  type="text"
+                  value={formData.middleName}
+                  onChange={(e) => updateField('middleName', e.target.value)}
+                  className="w-full px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Введите ваше отчество (необязательно)"
                 />
               </div>
 

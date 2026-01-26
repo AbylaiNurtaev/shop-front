@@ -70,8 +70,8 @@ export function ProductCatalog({
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
-      {/* Mobile Header */}
-      <div className="md:hidden bg-card border-b border-border sticky top-0 z-10">
+      {/* Mobile Header and Search - Fixed */}
+      <div className="md:hidden bg-card border-b border-border fixed top-0 left-0 right-0 z-20">
         <div className="px-4 py-4">
           <h1 className="text-xl font-semibold mb-3">Каталог товаров</h1>
           <button
@@ -81,6 +81,19 @@ export function ProductCatalog({
             <Plus className="w-5 h-5" />
             Создать товар
           </button>
+        </div>
+        {/* Search */}
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+            <input
+              type="search"
+              placeholder="Поиск товаров в каталоге..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full h-12 pl-12 pr-4 bg-card border border-border rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
         </div>
       </div>
 
@@ -101,8 +114,8 @@ export function ProductCatalog({
         </button>
       </div>
 
-      {/* Search */}
-      <div className="px-4 py-3 md:px-0 md:py-0 md:mb-4">
+      {/* Search - Desktop */}
+      <div className="hidden md:block md:mb-4">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
           <input
@@ -114,6 +127,9 @@ export function ProductCatalog({
           />
         </div>
       </div>
+
+      {/* Spacer for fixed elements on mobile */}
+      <div className="md:hidden h-[200px]"></div>
 
       {filteredProducts.length === 0 ? (
         <div className="px-4 py-16 text-center">

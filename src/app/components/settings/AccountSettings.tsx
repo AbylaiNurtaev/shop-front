@@ -115,6 +115,8 @@ export function AccountSettings({
     isActive?: boolean;
     email?: string;
     firstName?: string;
+    lastName?: string;
+    middleName?: string;
     name?: string;
     id?: string;
   }>({
@@ -134,6 +136,8 @@ export function AccountSettings({
     isActive?: boolean;
     email?: string;
     firstName?: string;
+    lastName?: string;
+    middleName?: string;
     name?: string;
     id?: string;
   }>({
@@ -168,13 +172,15 @@ export function AccountSettings({
     let isActive = true;
     const loadProfile = async () => {
       try {
-        // Для торгового представителя используем специальный API
+        // Для ТП используем специальный API
         if (role === 'salesRep') {
-          const salesRepResponse = await api.get<{ email: string; firstName: string }>('/sales-reps/me');
+          const salesRepResponse = await api.get<{ email: string; firstName: string; lastName?: string; middleName?: string }>('/sales-reps/me');
           if (!isActive) return;
           const initialData = {
             email: salesRepResponse.data.email,
-            firstName: salesRepResponse.data.firstName,
+            firstName: salesRepResponse.data.firstName || '',
+            lastName: salesRepResponse.data.lastName || '',
+            middleName: salesRepResponse.data.middleName || '',
           };
           setInitialUserForm(initialData);
           setUserForm(initialData);
@@ -182,13 +188,13 @@ export function AccountSettings({
           return;
         }
 
-        // Для дистрибьютора используем специальный API
+        // Для Дс используем специальный API
         if (role === 'distributor') {
           // Получаем данные пользователя для получения email
           const userResponse = await api.get<ApiUser>(`/users/${userId}`);
           if (!isActive) return;
 
-          // Получаем данные дистрибьютора
+          // Получаем данные Дс
           const distributorResponse = await api.get<{ id: string; name: string }>('/distributors/me');
           if (!isActive) return;
 
@@ -303,9 +309,9 @@ export function AccountSettings({
       } catch (error) {
         console.error('Ошибка загрузки профиля', error);
         if (role === 'salesRep') {
-          toast.error('Не удалось загрузить данные торгового представителя');
+          toast.error('Не удалось загрузить данные ТП');
         } else if (role === 'distributor') {
-          toast.error('Не удалось загрузить данные дистрибьютора');
+          toast.error('Не удалось загрузить данные Дс');
         } else {
           toast.error('Не удалось загрузить профиль');
         }
@@ -324,43 +330,54 @@ export function AccountSettings({
   const handleUpdateUser = async () => {
     setIsSavingUser(true);
     try {
-      // Для торгового представителя используем специальный API
+      // Для ТП используем специальный API
       if (role === 'salesRep') {
-        const response = await api.put<{
-          message: string;
-          salesRepresentative: { email: string; firstName: string };
-        }>('/sales-reps/me', {
+        await api.put('/sales-reps/me', {
           firstName: userForm.firstName,
+          lastName: userForm.lastName,
+          middleName: userForm.middleName || undefined,
         });
 
+        // Получаем обновленные данные с сервера
+        const salesRepResponse = await api.get<{ 
+          email: string; 
+          firstName: string; 
+          lastName?: string; 
+          middleName?: string;
+        }>('/sales-reps/me');
+
         // Обновляем начальные значения
-        setInitialUserForm({
-          email: response.data.salesRepresentative.email,
-          firstName: response.data.salesRepresentative.firstName,
-        });
+        const updatedData = {
+          email: salesRepResponse.data.email,
+          firstName: salesRepResponse.data.firstName || '',
+          lastName: salesRepResponse.data.lastName || '',
+          middleName: salesRepResponse.data.middleName || '',
+        };
+        setInitialUserForm(updatedData);
+        setUserForm(updatedData);
 
         // Обновляем данные пользователя в App.tsx
         const updatedUserData: User = {
           id: userId,
-          email: response.data.salesRepresentative.email,
+          email: salesRepResponse.data.email,
           role,
           profileComplete: true,
-          firstName: response.data.salesRepresentative.firstName,
-          lastName: '',
+          firstName: salesRepResponse.data.firstName,
+          lastName: salesRepResponse.data.lastName || '',
         };
 
         onUserUpdated(updatedUserData);
-        toast.success('Имя успешно обновлено');
+        toast.success('Данные успешно обновлены');
         return;
       }
 
-      // Для дистрибьютора используем специальный API
+      // Для Дс используем специальный API
       if (role === 'distributor') {
         await api.put('/distributors/me/name', {
           name: userForm.name,
         });
 
-        // Получаем обновленные данные дистрибьютора
+        // Получаем обновленные данные Дс
         const distributorResponse = await api.get<{ id: string; name: string }>('/distributors/me');
 
         // Получаем обновленные данные пользователя для email
@@ -606,7 +623,11 @@ export function AccountSettings({
   // Проверяем, изменились ли данные пользователя
   const isUserFormChanged = useMemo(() => {
     if (role === 'salesRep') {
-      return userForm.firstName !== initialUserForm.firstName;
+      return (
+        userForm.firstName !== initialUserForm.firstName ||
+        userForm.lastName !== initialUserForm.lastName ||
+        userForm.middleName !== initialUserForm.middleName
+      );
     }
     if (role === 'distributor') {
       return userForm.name !== initialUserForm.name;
@@ -699,7 +720,7 @@ export function AccountSettings({
       {role === 'salesRep' && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
           <div>
-            <h3 className="text-xl font-semibold">Данные торгового представителя</h3>
+            <h3 className="text-xl font-semibold">Данные ТП</h3>
             <p className="text-sm text-gray-500">Обновите информацию о себе</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
@@ -713,14 +734,40 @@ export function AccountSettings({
               />
               <p className="text-xs text-gray-500 mt-1">Email нельзя изменить</p>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Имя</label>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Имя <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 value={userForm.firstName || ''}
                 onChange={(e) => setUserForm((prev) => ({ ...prev, firstName: e.target.value }))}
                 className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
                 placeholder="Введите ваше имя"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Фамилия <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={userForm.lastName || ''}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                placeholder="Введите вашу фамилию"
+                required
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Отчество</label>
+              <input
+                type="text"
+                value={userForm.middleName || ''}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, middleName: e.target.value }))}
+                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                placeholder="Введите ваше отчество (необязательно)"
               />
             </div>
           </div>
@@ -880,19 +927,19 @@ export function AccountSettings({
       {role === 'distributor' && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
           <div>
-            <h3 className="text-xl font-semibold">Данные дистрибьютора</h3>
+            <h3 className="text-xl font-semibold">Данные Дс</h3>
             <p className="text-sm text-gray-500">Обновите информацию о себе</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">ID дистрибьютора</label>
+              <label className="block text-sm font-medium mb-1">ID Дс</label>
               <div className="flex items-center gap-2">
                 <button
                   onClick={async () => {
                     if (userForm.id) {
                       try {
                         await navigator.clipboard.writeText(userForm.id);
-                        toast.success('ID дистрибьютора скопирован в буфер обмена');
+                        toast.success('ID Дс скопирован в буфер обмена');
                       } catch (error) {
                         console.error('Ошибка копирования ID', error);
                         toast.error('Не удалось скопировать ID');

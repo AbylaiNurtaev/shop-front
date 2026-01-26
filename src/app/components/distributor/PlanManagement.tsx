@@ -326,7 +326,7 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
         <div>
           <h2 className="text-xl font-semibold">Управление планами</h2>
           <p className="text-sm text-muted-foreground">
-            Торговый представитель: {salesRepName}
+            ТП: {salesRepName}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -351,7 +351,7 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">Нет планов</p>
-          <p className="text-sm text-muted-foreground mt-2">Создайте первый план для этого торгового представителя</p>
+          <p className="text-sm text-muted-foreground mt-2">Создайте первый план для этого ТП</p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
@@ -433,7 +433,7 @@ export function PlanManagement({ salesRepresentativeId, salesRepName, onClose }:
           <DialogHeader>
             <DialogTitle>Создать план</DialogTitle>
             <DialogDescription>
-              Установите план по сумме и количеству для торгового представителя
+              Установите план по сумме и количеству для ТП
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

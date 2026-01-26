@@ -26,12 +26,12 @@ interface QuestionResponse {
 const QUICK_QUESTIONS: QuickQuestion[] = [
   {
     id: 'sales-reps-count',
-    question: 'Сколько торговых представителей у меня сейчас?',
+    question: 'Сколько ТП у меня сейчас?',
     endpoint: '/ai-assistant/questions/sales-reps-count',
   },
   {
     id: 'stores-without-sales-reps',
-    question: 'Какие магазины сейчас без торгового представителя?',
+    question: 'Какие магазины сейчас без ТП?',
     endpoint: '/ai-assistant/questions/stores-without-sales-reps',
   },
   {
@@ -226,9 +226,9 @@ export function AIFAQ() {
               <div className="w-16 h-16 md:w-20 md:h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
                 <Bot className="w-8 h-8 md:w-10 md:h-10 text-primary" />
               </div>
-              <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-3">AI-помощник дистрибьютора</h2>
+              <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-3">AI-помощник Дс</h2>
               <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-6 md:mb-8">
-                Задайте вопрос, и я помогу вам с информацией о работе дистрибьютора, аналитике, планах и многом другом.
+                Задайте вопрос, и я помогу вам с информацией о работе Дс, аналитике, планах и многом другом.
               </p>
 
               {/* Готовые вопросы */}

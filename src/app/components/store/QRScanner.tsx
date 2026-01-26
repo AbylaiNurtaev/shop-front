@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { QrCode, Search, Plus, Package, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { QrCode, Search, Plus, Package, Loader2, CheckCircle2, XCircle, Camera, X } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 
@@ -30,11 +31,26 @@ export function QRScanner() {
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [lastAdded, setLastAdded] = useState<{ barcode: string; quantity: number } | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const qrCodeRegionId = 'qr-reader';
 
   // Автофокус на поле ввода штрих-кода
   useEffect(() => {
-    barcodeInputRef.current?.focus();
+    if (!isScanning) {
+      barcodeInputRef.current?.focus();
+    }
+  }, [isScanning]);
+
+  // Очистка сканера при размонтировании
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+        scannerRef.current.clear();
+      }
+    };
   }, []);
 
   // Автоматический поиск при вводе штрих-кода
@@ -127,6 +143,54 @@ export function QRScanner() {
     }
   };
 
+  const startCamera = async () => {
+    try {
+      setIsScanning(true);
+      const scanner = new Html5Qrcode(qrCodeRegionId);
+      scannerRef.current = scanner;
+
+      await scanner.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+        },
+        async (decodedText) => {
+          // Успешно отсканировано
+          await stopCamera();
+          setBarcode(decodedText);
+          toast.success('Штрих-код отсканирован');
+        },
+        (errorMessage) => {
+          // Игнорируем ошибки сканирования (они происходят постоянно, пока не найден код)
+        }
+      );
+    } catch (error: any) {
+      console.error('Ошибка запуска камеры', error);
+      setIsScanning(false);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Доступ к камере запрещен. Разрешите доступ в настройках браузера.');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('Камера не найдена');
+      } else {
+        toast.error('Не удалось запустить камеру');
+      }
+    }
+  };
+
+  const stopCamera = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      } catch (error) {
+        console.error('Ошибка остановки камеры', error);
+      }
+      scannerRef.current = null;
+    }
+    setIsScanning(false);
+  };
+
   return (
     <div className="min-h-screen bg-muted/30 p-4">
       {/* Mobile Layout */}
@@ -158,16 +222,53 @@ export function QRScanner() {
               onChange={(e) => setBarcode(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Введите или отсканируйте штрих-код"
-              className="w-full pl-10 pr-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base"
-              disabled={isSearching || isAdding}
+              className="w-full pl-10 pr-20 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base"
+              disabled={isSearching || isAdding || isScanning}
             />
             {isSearching && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="absolute right-14 top-1/2 -translate-y-1/2">
                 <Loader2 className="w-5 h-5 text-primary animate-spin" />
               </div>
             )}
+            {!isScanning ? (
+              <button
+                onClick={startCamera}
+                disabled={isSearching || isAdding}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
+                title="Открыть камеру"
+              >
+                <Camera className="w-5 h-5 text-primary" />
+              </button>
+            ) : (
+              <button
+                onClick={stopCamera}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-accent rounded-lg transition-colors"
+                title="Закрыть камеру"
+              >
+                <X className="w-5 h-5 text-destructive" />
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Camera Scanner */}
+        {isScanning && (
+          <div className="bg-card border border-border rounded-lg shadow-sm p-4 mb-4">
+            <div className="relative">
+              <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden" />
+              <button
+                onClick={stopCamera}
+                className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                title="Закрыть камеру"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              Наведите камеру на штрих-код
+            </p>
+          </div>
+        )}
 
         {/* Product Info */}
         {product && (
@@ -313,16 +414,55 @@ export function QRScanner() {
                 onChange={(e) => setBarcode(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Введите или отсканируйте штрих-код"
-                className="w-full pl-10 pr-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-                disabled={isSearching || isAdding}
+                className="w-full pl-10 pr-20 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                disabled={isSearching || isAdding || isScanning}
               />
               {isSearching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="absolute right-14 top-1/2 -translate-y-1/2">
                   <Loader2 className="w-5 h-5 text-primary animate-spin" />
                 </div>
               )}
+              {!isScanning ? (
+                <button
+                  onClick={startCamera}
+                  disabled={isSearching || isAdding}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-accent rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                  title="Открыть камеру"
+                >
+                  <Camera className="w-5 h-5 text-primary" />
+                  <span className="text-sm hidden sm:inline">Камера</span>
+                </button>
+              ) : (
+                <button
+                  onClick={stopCamera}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-accent rounded-lg transition-colors flex items-center gap-2"
+                  title="Закрыть камеру"
+                >
+                  <X className="w-5 h-5 text-destructive" />
+                  <span className="text-sm hidden sm:inline">Закрыть</span>
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Camera Scanner */}
+          {isScanning && (
+            <div className="mb-6 bg-card border border-border rounded-lg shadow-sm p-4">
+              <div className="relative">
+                <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden max-w-md mx-auto" />
+                <button
+                  onClick={stopCamera}
+                  className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                  title="Закрыть камеру"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+              <p className="text-sm text-muted-foreground text-center mt-2">
+                Наведите камеру на штрих-код
+              </p>
+            </div>
+          )}
 
           {/* Product Info and Actions */}
           {product && (

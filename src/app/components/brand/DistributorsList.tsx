@@ -51,8 +51,8 @@ export function DistributorsList() {
 
   // Фильтры
   const [filters, setFilters] = useState({
-    country: '',
-    city: '',
+    country: 'Казахстан',
+    city: 'Алматы',
     hasActiveStores: false,
   });
 
@@ -416,7 +416,7 @@ export function DistributorsList() {
 
           <div>
             <label className="block text-xs sm:text-sm mb-1.5">Город</label>
-            {filters.country ? (
+            {filters.country && getCitiesForCountry(filters.country).length > 0 ? (
               <select
                 value={filters.city}
                 onChange={(e) => setFilters({ ...filters, city: e.target.value })}

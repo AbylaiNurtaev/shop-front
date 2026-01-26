@@ -92,8 +92,8 @@ export function SalesRepsList() {
       const items = response.data?.items || response.data || [];
       setSalesReps(Array.isArray(items) ? items : []);
     } catch (error: any) {
-      console.error('Ошибка загрузки торговых представителей', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить торговых представителей';
+      console.error('Ошибка загрузки ТП', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить ТП';
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -102,7 +102,7 @@ export function SalesRepsList() {
 
   const handleAddSalesRep = async () => {
     if (!salesRepresentativeId.trim()) {
-      toast.error('Введите ID торгового представителя');
+      toast.error('Введите ID ТП');
       return;
     }
 
@@ -111,13 +111,13 @@ export function SalesRepsList() {
       await api.post('/distributors/sales-representatives', {
         salesRepresentativeId: salesRepresentativeId.trim(),
       });
-      toast.success('Торговый представитель успешно добавлен');
+      toast.success('ТП успешно добавлен');
       setIsAddDialogOpen(false);
       setSalesRepresentativeId('');
       await loadSalesReps();
     } catch (error: any) {
-      console.error('Ошибка добавления торгового представителя', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось добавить торгового представителя';
+      console.error('Ошибка добавления ТП', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось добавить ТП';
       toast.error(errorMessage);
     } finally {
       setIsAdding(false);
@@ -125,18 +125,18 @@ export function SalesRepsList() {
   };
 
   const handleDeleteSalesRep = async (salesRepresentativeId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этого торгового представителя?')) {
+    if (!confirm('Вы уверены, что хотите удалить этого ТП?')) {
       return;
     }
 
     setIsDeleting(salesRepresentativeId);
     try {
       await api.delete(`/distributors/sales-representatives/${salesRepresentativeId}`);
-      toast.success('Торговый представитель успешно удален');
+      toast.success('ТП успешно удален');
       await loadSalesReps();
     } catch (error: any) {
-      console.error('Ошибка удаления торгового представителя', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось удалить торгового представителя';
+      console.error('Ошибка удаления ТП', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось удалить ТП';
       toast.error(errorMessage);
     } finally {
       setIsDeleting(null);
@@ -151,7 +151,7 @@ export function SalesRepsList() {
       const storesList = Array.isArray(items) ? items : [];
       setAssignedStores(storesList);
     } catch (error: any) {
-      console.error('Ошибка загрузки магазинов торгового представителя', error);
+      console.error('Ошибка загрузки магазинов ТП', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить магазины';
       toast.error(errorMessage);
       setAssignedStores([]);
@@ -227,7 +227,7 @@ export function SalesRepsList() {
 
   const handleDeleteStore = async (storeId: string) => {
     if (!selectedSalesRep) return;
-    if (!confirm('Вы уверены, что хотите удалить этот магазин у торгового представителя?')) {
+    if (!confirm('Вы уверены, что хотите удалить этот магазин у ТП?')) {
       return;
     }
     setIsDeletingStore(storeId);
@@ -287,7 +287,7 @@ export function SalesRepsList() {
       const productsList = Array.isArray(items) ? items : [];
       setAssignedProducts(productsList);
     } catch (error: any) {
-      console.error('Ошибка загрузки товаров торгового представителя', error);
+      console.error('Ошибка загрузки товаров ТП', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить товары';
       toast.error(errorMessage);
       setAssignedProducts([]);
@@ -298,7 +298,7 @@ export function SalesRepsList() {
 
   const loadAvailableProducts = async () => {
     try {
-      // Получаем список всех товаров от подключенных брендов дистрибьютора
+      // Получаем список всех товаров от подключенных брендов Дс
       const response = await api.get<{ items?: Product[]; total?: number }>('/distributors/me/products');
       const items = response.data?.items || [];
       const productsList = Array.isArray(items) ? items : [];
@@ -335,7 +335,7 @@ export function SalesRepsList() {
 
   const handleDeleteProduct = async (productId: string) => {
     if (!selectedSalesRep) return;
-    if (!confirm('Вы уверены, что хотите открепить этот товар у торгового представителя?')) {
+    if (!confirm('Вы уверены, что хотите открепить этот товар у ТП?')) {
       return;
     }
     setIsDeletingProduct(productId);
@@ -486,7 +486,7 @@ export function SalesRepsList() {
             <div>
               <h1 className="text-xl md:text-2xl font-semibold">Управление</h1>
               <p className="text-xs md:text-sm text-muted-foreground">
-                Торговый представитель: {selectedSalesRep.firstName} {selectedSalesRep.lastName}
+                ТП: {selectedSalesRep.firstName} {selectedSalesRep.lastName}
               </p>
             </div>
           </div>
@@ -880,11 +880,11 @@ export function SalesRepsList() {
     );
   }
 
-  // Иначе показываем список торговых представителей
+  // Иначе показываем список ТП
   return (
     <div className="space-y-4 p-4 md:p-0">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-xl md:text-2xl font-semibold">Торговые представители</h1>
+        <h1 className="text-xl md:text-2xl font-semibold">ТП</h1>
         <Button
           onClick={() => setIsAddDialogOpen(true)}
           className="flex items-center gap-2 self-start sm:self-auto"
@@ -898,13 +898,13 @@ export function SalesRepsList() {
       {isLoading ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <Loader2 className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-spin" />
-          <p className="text-muted-foreground">Загрузка торговых представителей...</p>
+          <p className="text-muted-foreground">Загрузка ТП...</p>
         </div>
       ) : salesReps.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Торговые представители не найдены</p>
-          <p className="text-sm text-muted-foreground mt-2">Добавьте первого торгового представителя</p>
+          <p className="text-muted-foreground">ТП не найдены</p>
+          <p className="text-sm text-muted-foreground mt-2">Добавьте первого ТП</p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -929,7 +929,7 @@ export function SalesRepsList() {
                 }}
                 disabled={isDeleting === rep.id}
                 className="absolute top-4 right-4 p-1.5 text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
-                title="Удалить торгового представителя"
+                title="Удалить ТП"
               >
                 {isDeleting === rep.id ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -969,23 +969,23 @@ export function SalesRepsList() {
         </div>
       )}
 
-      {/* Диалог добавления торгового представителя */}
+      {/* Диалог добавления ТП */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Добавить торгового представителя</DialogTitle>
+            <DialogTitle>Добавить ТП</DialogTitle>
             <DialogDescription>
-              Введите ID торгового представителя для добавления в ваш список
+              Введите ID ТП для добавления в ваш список
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="salesRepId">ID торгового представителя</Label>
+              <Label htmlFor="salesRepId">ID ТП</Label>
               <Input
                 id="salesRepId"
                 value={salesRepresentativeId}
                 onChange={(e) => setSalesRepresentativeId(e.target.value)}
-                placeholder="Введите ID торгового представителя"
+                placeholder="Введите ID ТП"
                 disabled={isAdding}
               />
             </div>

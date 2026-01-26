@@ -6,6 +6,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '../ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { Separator } from '../ui/separator';
 import { useIsMobile } from '../ui/use-mobile';
+import { Button } from '../ui/button';
 
 interface SalesAnalyticsData {
   period: {
@@ -375,7 +376,7 @@ export function SalesRepSalesAnalytics() {
           </p>
         </div>
         <button
-          onClick={() => loadAnalytics()}
+          onClick={() => loadAnalytics(startDate, endDate)}
           className="px-4 py-2 border border-foreground/30 rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
         >
           Обновить
@@ -383,24 +384,45 @@ export function SalesRepSalesAnalytics() {
       </div>
 
       {/* Фильтры дат */}
-      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-        <div className="w-full sm:w-1/2">
-          <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Дата начала</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-colors text-sm shadow-sm hover:border-primary/50"
-          />
+      <div className="flex flex-col gap-3 md:gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+          <div className="w-full sm:w-1/2">
+            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Дата начала</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-colors text-sm shadow-sm hover:border-primary/50"
+            />
+          </div>
+          <div className="w-full sm:w-1/2">
+            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Дата окончания</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-colors text-sm shadow-sm hover:border-primary/50"
+            />
+          </div>
         </div>
-        <div className="w-full sm:w-1/2">
-          <label className="text-xs text-muted-foreground mb-1.5 block font-medium">Дата окончания</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-full px-4 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-colors text-sm shadow-sm hover:border-primary/50"
-          />
+        <div className="flex justify-end sm:justify-start">
+          <Button
+            onClick={() => {
+              if (!startDate || !endDate) {
+                toast.error('Пожалуйста, выберите обе даты');
+                return;
+              }
+              if (new Date(startDate) > new Date(endDate)) {
+                toast.error('Дата начала не может быть позже даты окончания');
+                return;
+              }
+              loadAnalytics(startDate, endDate);
+            }}
+            className="w-full sm:w-auto"
+          >
+            <Calendar className="w-4 h-4" />
+            Применить фильтр
+          </Button>
         </div>
       </div>
 

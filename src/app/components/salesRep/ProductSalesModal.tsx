@@ -68,8 +68,8 @@ interface ProductSalesModalProps {
   isOpen: boolean;
   onClose: () => void;
   productId: string;
-  salesRepresentativeId?: string; // Для дистрибьютора (когда смотрит продажи конкретного торгового представителя)
-  useDistributorEndpoint?: boolean; // Для дистрибьютора (когда смотрит свои товары)
+  salesRepresentativeId?: string; // Для Дс (когда смотрит продажи конкретного ТП)
+  useDistributorEndpoint?: boolean; // Для Дс (когда смотрит свои товары)
 }
 
 export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentativeId, useDistributorEndpoint }: ProductSalesModalProps) {
@@ -112,13 +112,13 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
       if (endDateParam) params.endDate = endDateParam;
       
       if (salesRepresentativeId) {
-        // Для дистрибьютора (когда смотрит продажи конкретного торгового представителя)
+        // Для Дс (когда смотрит продажи конкретного ТП)
         url = `/distributors/sales-representatives/${salesRepresentativeId}/products/${productId}/sales-by-stores`;
       } else if (useDistributorEndpoint) {
-        // Для дистрибьютора (когда смотрит свои товары)
+        // Для Дс (когда смотрит свои товары)
         url = `/distributors/me/products/${productId}/sales-by-stores`;
       } else {
-        // Для торгового представителя
+        // Для ТП
         url = `/sales-representatives/products/${productId}/sales-by-stores`;
       }
       
@@ -218,7 +218,7 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
               {data.salesRepresentative && (
                 <div className="mt-3 pt-3 border-t border-border">
                   <p className="text-sm text-muted-foreground">
-                    Торговый представитель: {data.salesRepresentative.firstName} {data.salesRepresentative.lastName}
+                    ТП: {data.salesRepresentative.firstName} {data.salesRepresentative.lastName}
                   </p>
                 </div>
               )}

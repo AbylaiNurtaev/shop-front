@@ -70,8 +70,8 @@ export function SalesRepPoorlySellingProducts() {
       setProducts(response.data?.items || []);
       setTotal(response.data?.total || 0);
     } catch (error: any) {
-      console.error('Ошибка загрузки товаров с плохими продажами', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить товары с плохими продажами';
+      console.error('Ошибка загрузки товаров с низкими продажами', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить товары с низкими продажами';
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -130,7 +130,7 @@ export function SalesRepPoorlySellingProducts() {
         <div>
           <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
             <TrendingDown className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
-            Товары с плохими продажами
+            Товары с низкими продажами
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Всего товаров: {total}
@@ -212,7 +212,7 @@ export function SalesRepPoorlySellingProducts() {
       {products.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <TrendingDown className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">Нет товаров с плохими продажами</p>
+          <p className="text-muted-foreground">Нет товаров с низкими продажами</p>
           <p className="text-sm text-muted-foreground mt-2">
             Товары, соответствующие заданным критериям, будут отображаться здесь
           </p>

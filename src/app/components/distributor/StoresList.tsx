@@ -167,13 +167,13 @@ export function StoresList() {
           next.delete(repId);
           return next;
         });
-        toast.success('Магазин отвязан от торгового представителя');
+        toast.success('Магазин отвязан от ТП');
       } else {
         await api.post(`/distributors/sales-representatives/${repId}/stores`, {
           storeId: selectedStore.id,
         });
         setAssignedSalesRepIds((prev) => new Set(prev).add(repId));
-        toast.success('Магазин привязан к торговому представителю');
+        toast.success('Магазин привязан к ТП');
       }
     } catch (error: any) {
       console.error('Ошибка привязки магазина к ТП', error);
@@ -266,7 +266,7 @@ export function StoresList() {
               )}
               <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
                 <Users className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
-                <span>Торговые представители</span>
+                <span>ТП</span>
               </div>
             </div>
           ))}
@@ -322,11 +322,11 @@ export function StoresList() {
         </DialogContent>
       </Dialog>
 
-      {/* Диалог привязки торговых представителей к магазину */}
+      {/* Диалог привязки ТП к магазину */}
       <Dialog open={isAssignmentsOpen} onOpenChange={setIsAssignmentsOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
           <DialogHeader className="pb-3">
-            <DialogTitle className="text-lg sm:text-xl">Привязка торговых представителей</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">Привязка ТП</DialogTitle>
             <DialogDescription className="text-sm">
               {selectedStore ? `Магазин: ${selectedStore.name}` : 'Выберите магазин'}
             </DialogDescription>
@@ -401,16 +401,16 @@ export function StoresList() {
             <div className="pt-2 border-t border-border">
               <h4 className="text-sm sm:text-base font-semibold mb-3 flex items-center gap-2">
                 <Users className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
-                Торговые представители
+                ТП
               </h4>
               {isAssignmentsLoading ? (
                 <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-xs sm:text-sm">Загрузка торговых представителей...</span>
+                  <span className="text-xs sm:text-sm">Загрузка ТП...</span>
                 </div>
               ) : salesReps.length === 0 ? (
                 <div className="text-xs sm:text-sm text-muted-foreground py-4 text-center">
-                  Торговые представители не найдены
+                  ТП не найдены
                 </div>
               ) : (
                 <div className="space-y-2 sm:space-y-3 max-h-[300px] overflow-y-auto">

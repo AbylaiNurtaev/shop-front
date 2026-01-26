@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Navigation, MapPin, Search, Mic, Paperclip, Store, Package, Image as ImageIcon, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Navigation, MapPin, Search, Mic, Paperclip, Store, Package, Image as ImageIcon, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../api/axios';
 
@@ -124,6 +125,7 @@ declare var SpeechRecognition: {
 };
 
 export function BuyerHome() {
+  const navigate = useNavigate();
   const [geoState, setGeoState] = useState<GeoState>({ status: 'idle' });
   const [radiusKm, setRadiusKm] = useState(1);
   const [locationLink, setLocationLink] = useState('');
@@ -840,16 +842,26 @@ export function BuyerHome() {
       <div className="w-full h-full sm:h-[90vh] sm:max-h-[800px] sm:max-w-xl sm:rounded-lg bg-card sm:border sm:border-border shadow-sm flex flex-col">
         {/* Закрепленная верхняя часть */}
         <div className="flex-shrink-0 bg-card border-b border-border p-3 sm:p-4 space-y-3 sm:space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center">
-              <Search className="w-5 h-5 text-primary" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Search className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg font-semibold">Покупатель</h1>
+                <p className="text-xs text-muted-foreground">
+                  Чат‑поиск продуктов рядом
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-lg font-semibold">Покупатель</h1>
-              <p className="text-xs text-muted-foreground">
-                Чат‑поиск продуктов рядом
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted transition-colors"
+              title="Выход"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
           </div>
 
           <div className="space-y-3">
@@ -886,11 +898,26 @@ export function BuyerHome() {
               type="text"
               value={locationLink}
               onChange={(e) => handleLocationChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleLocationChange(locationLink);
+                }
+              }}
               placeholder="Ссылка 2ГИС"
               className="flex-1 min-w-0 px-2 sm:px-3 py-2 bg-input-background border border-border rounded-md text-base sm:text-sm"
               pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
               title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
             />
+            <button
+              type="button"
+              onClick={() => handleLocationChange(locationLink)}
+              disabled={!locationLink.trim()}
+              className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Подтвердить ссылку"
+            >
+              <Check className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
           </div>
         </div>
 
