@@ -11,28 +11,54 @@ interface InventoryProps {
 }
 
 type InvoiceProcessingResult = {
-  invoiceNumber?: string;
-  invoiceDate?: string;
-  supplier?: string;
+  message: string;
+  invoiceInfo?: {
+    invoiceNumber: string;
+    date: string;
+    supplier: string;
+  };
   summary: {
-    processed: number;
+    total: number;
+    found: number;
     notFound: number;
     errors: number;
   };
-  processedItems: Array<{
-    productId: string;
-    productName: string;
+  found: Array<{
+    originalItem: {
+      productName: string;
+      quantity: number;
+      sku?: string | null;
+      brand?: string;
+      unit?: string;
+      notes?: string | null;
+    };
+    product: {
+      id: string;
+      name: string;
+      sku: string;
+      brandName: string;
+      brandId: string;
+    };
     quantity: number;
-    sku?: string;
+    currentQuantity: number;
+    newQuantity: number;
+    error?: string | null;
+    canAdd: boolean;
   }>;
-  notFoundItems: Array<{
-    name: string;
+  notFound: Array<{
+    productName: string;
+    sku?: string | null;
+    brand?: string;
     quantity: number;
-    sku?: string;
+    unit?: string;
+    notes?: string | null;
   }>;
   errors: Array<{
-    message: string;
-    item?: string;
+    item: {
+      productName: string;
+      quantity: number;
+    };
+    error: string;
   }>;
 };
 
@@ -43,6 +69,9 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
   const [isProcessingInvoice, setIsProcessingInvoice] = useState(false);
   const [invoiceResult, setInvoiceResult] = useState<InvoiceProcessingResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [editedQuantities, setEditedQuantities] = useState<Record<string, number>>({});
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getCategoryName = (categoryId: string) => {
@@ -98,15 +127,17 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
       const result: InvoiceProcessingResult = response.data;
 
       setInvoiceResult(result);
+      // Инициализируем выбранные товары (только те, которые можно добавить)
+      const selectableItems = result.found.filter(item => item.canAdd).map(item => item.product.id);
+      setSelectedItems(new Set(selectableItems));
+      // Инициализируем отредактированные количества
+      const initialQuantities: Record<string, number> = {};
+      result.found.forEach(item => {
+        initialQuantities[item.product.id] = item.quantity;
+      });
+      setEditedQuantities(initialQuantities);
       setShowResultModal(true);
-
-      if (result.summary.processed > 0) {
-        toast.success(`Обработано ${result.summary.processed} товар(ов)`);
-        // Обновляем страницу или перезагружаем товары
-        window.location.reload();
-      } else {
-        toast.warning('Товары не были обработаны');
-      }
+      toast.success('Накладная проанализирована. Проверьте найденные товары.');
     } catch (error: any) {
       console.error('Ошибка обработки накладной', error);
       toast.error(error?.response?.data?.message || 'Не удалось обработать накладную');
@@ -116,6 +147,59 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const handleConfirmInvoice = async () => {
+    if (!invoiceResult) return;
+
+    // Собираем только выбранные товары
+    const itemsToConfirm = invoiceResult.found
+      .filter(item => selectedItems.has(item.product.id) && item.canAdd)
+      .map(item => ({
+        productId: item.product.id,
+        quantity: editedQuantities[item.product.id] || item.quantity,
+      }));
+
+    if (itemsToConfirm.length === 0) {
+      toast.warning('Выберите хотя бы один товар для добавления');
+      return;
+    }
+
+    setIsConfirming(true);
+    try {
+      const response = await api.post('/warehouse/invoice/confirm', { items: itemsToConfirm });
+      toast.success(response.data.message || 'Товары успешно добавлены на склад');
+      setShowResultModal(false);
+      setInvoiceResult(null);
+      setSelectedItems(new Set());
+      setEditedQuantities({});
+      // Обновляем страницу для отображения новых товаров
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Ошибка подтверждения накладной', error);
+      toast.error(error?.response?.data?.message || 'Не удалось добавить товары на склад');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const handleQuantityChange = (productId: string, newQuantity: number) => {
+    setEditedQuantities(prev => ({
+      ...prev,
+      [productId]: Math.max(0, newQuantity),
+    }));
+  };
+
+  const handleToggleItem = (productId: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -469,103 +553,199 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
 
       {/* Modal для результатов обработки накладной */}
       {showResultModal && invoiceResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-xl font-semibold flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Результаты обработки накладной
+        <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+          <div className="bg-white rounded-t-2xl md:rounded-xl max-w-4xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between z-10">
+              <h3 className="text-lg md:text-xl font-semibold flex items-center gap-2">
+                <FileText className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden sm:inline">Результаты обработки накладной</span>
+                <span className="sm:hidden">Накладная</span>
               </h3>
               <button
-                onClick={() => setShowResultModal(false)}
+                onClick={() => {
+                  setShowResultModal(false);
+                  setInvoiceResult(null);
+                  setSelectedItems(new Set());
+                  setEditedQuantities({});
+                }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6 flex-1 overflow-y-auto pb-20 md:pb-6">
               {/* Информация о накладной */}
-              {(invoiceResult.invoiceNumber || invoiceResult.invoiceDate || invoiceResult.supplier) && (
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  {invoiceResult.invoiceNumber && (
-                    <div className="text-sm">
-                      <span className="font-medium">Номер накладной:</span> {invoiceResult.invoiceNumber}
+              {invoiceResult.invoiceInfo && (
+                <div className="bg-gray-50 rounded-lg p-3 md:p-4 space-y-2">
+                  {invoiceResult.invoiceInfo.invoiceNumber && (
+                    <div className="text-xs md:text-sm">
+                      <span className="font-medium">Номер накладной:</span> {invoiceResult.invoiceInfo.invoiceNumber}
                     </div>
                   )}
-                  {invoiceResult.invoiceDate && (
-                    <div className="text-sm">
-                      <span className="font-medium">Дата:</span> {invoiceResult.invoiceDate}
+                  {invoiceResult.invoiceInfo.date && (
+                    <div className="text-xs md:text-sm">
+                      <span className="font-medium">Дата:</span> {invoiceResult.invoiceInfo.date}
                     </div>
                   )}
-                  {invoiceResult.supplier && (
-                    <div className="text-sm">
-                      <span className="font-medium">Поставщик:</span> {invoiceResult.supplier}
+                  {invoiceResult.invoiceInfo.supplier && (
+                    <div className="text-xs md:text-sm">
+                      <span className="font-medium">Поставщик:</span> {invoiceResult.invoiceInfo.supplier}
                     </div>
                   )}
                 </div>
               )}
 
               {/* Сводка */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-700">Обработано</span>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4">
+                  <div className="flex items-center gap-1 md:gap-2 mb-1">
+                    <FileText className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
+                    <span className="text-xs md:text-sm font-medium text-blue-700">Всего</span>
                   </div>
-                  <p className="text-2xl font-bold text-green-900">{invoiceResult.summary.processed}</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900">{invoiceResult.summary.total}</p>
                 </div>
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <AlertCircle className="w-5 h-5 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-700">Не найдено</span>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 md:p-4">
+                  <div className="flex items-center gap-1 md:gap-2 mb-1">
+                    <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
+                    <span className="text-xs md:text-sm font-medium text-green-700">Найдено</span>
                   </div>
-                  <p className="text-2xl font-bold text-orange-900">{invoiceResult.summary.notFound}</p>
+                  <p className="text-xl md:text-2xl font-bold text-green-900">{invoiceResult.summary.found}</p>
                 </div>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <X className="w-5 h-5 text-red-600" />
-                    <span className="text-sm font-medium text-red-700">Ошибки</span>
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 md:p-4">
+                  <div className="flex items-center gap-1 md:gap-2 mb-1">
+                    <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
+                    <span className="text-xs md:text-sm font-medium text-orange-700">Не найдено</span>
                   </div>
-                  <p className="text-2xl font-bold text-red-900">{invoiceResult.summary.errors}</p>
+                  <p className="text-xl md:text-2xl font-bold text-orange-900">{invoiceResult.summary.notFound}</p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 md:p-4">
+                  <div className="flex items-center gap-1 md:gap-2 mb-1">
+                    <X className="w-4 h-4 md:w-5 md:h-5 text-red-600" />
+                    <span className="text-xs md:text-sm font-medium text-red-700">Ошибки</span>
+                  </div>
+                  <p className="text-xl md:text-2xl font-bold text-red-900">{invoiceResult.summary.errors}</p>
                 </div>
               </div>
 
-              {/* Обработанные товары */}
-              {invoiceResult.processedItems.length > 0 && (
+              {/* Найденные товары с возможностью редактирования */}
+              {invoiceResult.found.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base">
                     <CheckCircle className="w-4 h-4 text-green-600" />
-                    Обработанные товары ({invoiceResult.processedItems.length})
+                    Найденные товары ({invoiceResult.found.length})
                   </h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {invoiceResult.processedItems.map((item, idx) => (
-                      <div key={idx} className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
-                        <div className="font-medium">{item.productName}</div>
-                        <div className="text-gray-600 mt-1">
-                          Количество: <span className="font-semibold">{item.quantity}</span>
-                          {item.sku && <span className="ml-2">Артикул: {item.sku}</span>}
+                  <div className="space-y-3 max-h-[50vh] md:max-h-96 overflow-y-auto">
+                    {invoiceResult.found.map((item, idx) => {
+                      const isSelected = selectedItems.has(item.product.id);
+                      const editedQty = editedQuantities[item.product.id] ?? item.quantity;
+                      const canSelect = item.canAdd;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`border-2 rounded-lg p-3 md:p-4 ${item.error
+                            ? 'bg-red-50 border-red-200'
+                            : canSelect && isSelected
+                              ? 'bg-green-50 border-green-300'
+                              : 'bg-gray-50 border-gray-200'
+                            }`}
+                        >
+                          <div className="flex items-start gap-2 md:gap-3">
+                            {canSelect && (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleItem(item.product.id)}
+                                className="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-blue-500 flex-shrink-0"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="mb-2">
+                                <div className="font-medium text-gray-900 text-sm md:text-base break-words">{item.product.name}</div>
+                                <div className="text-xs md:text-sm text-gray-600 mt-1 flex flex-wrap gap-x-2">
+                                  <span>Артикул: {item.product.sku}</span>
+                                  {item.product.brandName && (
+                                    <span>Бренд: {item.product.brandName}</span>
+                                  )}
+                                </div>
+                                {item.originalItem.productName !== item.product.name && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    Найдено как: "{item.originalItem.productName}"
+                                  </div>
+                                )}
+                              </div>
+                              {item.error && (
+                                <div className="text-xs md:text-sm text-red-700 mb-2 bg-red-100 px-2 py-1 rounded">
+                                  ⚠️ {item.error}
+                                </div>
+                              )}
+                              <div className="space-y-2 md:space-y-0 md:flex md:flex-wrap md:items-center md:gap-3 md:gap-y-2 mt-3">
+                                <div className="text-xs md:text-sm text-gray-600">
+                                  <span className="font-medium hidden md:inline">Текущий: </span>{item.currentQuantity} шт
+                                </div>
+                                <div className="text-xs md:text-sm text-gray-600">
+                                  <span className="font-medium hidden md:inline">В накладной: </span>
+                                  {item.originalItem.quantity} {item.originalItem.unit || 'шт'}
+                                </div>
+                                {canSelect && (
+                                  <div className="flex flex-col md:flex-row md:items-center gap-2">
+                                    <span className="text-xs md:text-sm font-medium text-gray-700 hidden md:inline">Добавить: </span>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuantityChange(item.product.id, editedQty - 1)}
+                                        className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-50 active:scale-95 transition-transform"
+                                      >
+                                        <Minus className="w-4 h-4" />
+                                      </button>
+                                      <input
+                                        type="number"
+                                        value={editedQty}
+                                        onChange={(e) =>
+                                          handleQuantityChange(item.product.id, parseInt(e.target.value) || 0)
+                                        }
+                                        className="w-16 md:w-20 px-2 py-1 text-center text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        min="0"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuantityChange(item.product.id, editedQty + 1)}
+                                        className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-50 active:scale-95 transition-transform"
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                    <span className="text-xs md:text-sm text-gray-500">
+                                      → Будет: <span className="font-semibold">{item.currentQuantity + editedQty}</span> шт
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               {/* Не найденные товары */}
-              {invoiceResult.notFoundItems.length > 0 && (
+              {invoiceResult.notFound.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base">
                     <AlertCircle className="w-4 h-4 text-orange-600" />
-                    Товары не найдены в базе ({invoiceResult.notFoundItems.length})
+                    Товары не найдены в базе ({invoiceResult.notFound.length})
                   </h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {invoiceResult.notFoundItems.map((item, idx) => (
-                      <div key={idx} className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-gray-600 mt-1">
-                          Количество: <span className="font-semibold">{item.quantity}</span>
-                          {item.sku && <span className="ml-2">Артикул: {item.sku}</span>}
+                    {invoiceResult.notFound.map((item, idx) => (
+                      <div key={idx} className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-xs md:text-sm">
+                        <div className="font-medium break-words">{item.productName || 'Не указано название'}</div>
+                        <div className="text-gray-600 mt-1 flex flex-wrap gap-x-2">
+                          <span>Количество: <span className="font-semibold">{item.quantity}</span> {item.unit || 'шт'}</span>
+                          {item.sku && <span>Артикул: {item.sku}</span>}
+                          {item.brand && <span>Бренд: {item.brand}</span>}
                         </div>
                       </div>
                     ))}
@@ -576,27 +756,56 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               {/* Ошибки */}
               {invoiceResult.errors.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base">
                     <X className="w-4 h-4 text-red-600" />
-                    Ошибки ({invoiceResult.errors.length})
+                    Ошибки обработки ({invoiceResult.errors.length})
                   </h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {invoiceResult.errors.map((error, idx) => (
-                      <div key={idx} className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
-                        <div className="font-medium text-red-700">{error.message}</div>
-                        {error.item && <div className="text-gray-600 mt-1">Товар: {error.item}</div>}
+                      <div key={idx} className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs md:text-sm">
+                        <div className="font-medium text-red-700 break-words">{error.error}</div>
+                        {error.item.productName && (
+                          <div className="text-gray-600 mt-1">Товар: {error.item.productName}</div>
+                        )}
+                        {error.item.quantity && (
+                          <div className="text-gray-600">Количество: {error.item.quantity}</div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              <div className="flex justify-end pt-4 border-t border-gray-200">
+              {/* Кнопки действий */}
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 md:p-0 md:relative md:bg-transparent md:border-t md:pt-4 -mx-4 md:mx-0 -mb-4 md:mb-0 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 shadow-lg md:shadow-none">
                 <button
-                  onClick={() => setShowResultModal(false)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  onClick={() => {
+                    setShowResultModal(false);
+                    setInvoiceResult(null);
+                    setSelectedItems(new Set());
+                    setEditedQuantities({});
+                  }}
+                  className="w-full sm:w-auto px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 active:scale-98 transition-all text-sm md:text-base"
+                  disabled={isConfirming}
                 >
-                  Закрыть
+                  Отмена
+                </button>
+                <button
+                  onClick={handleConfirmInvoice}
+                  disabled={isConfirming || selectedItems.size === 0}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 text-sm md:text-base active:scale-98"
+                >
+                  {isConfirming ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Добавление...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Добавить на склад ({selectedItems.size})</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

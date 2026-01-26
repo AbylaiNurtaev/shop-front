@@ -220,13 +220,13 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
           {shouldShowBurgerMenu && (
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${isMenuOpen
+              className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${burgerMenuItems.some(item => item.id === currentView)
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'text-gray-600 active:bg-gray-100'
                 }`}
             >
-              <Menu className="w-6 h-6" strokeWidth={isMenuOpen ? 2.5 : 2} />
-              <span className={`text-xs leading-tight ${isMenuOpen ? 'font-bold' : 'font-medium'}`}>
+              <Menu className="w-6 h-6" strokeWidth={burgerMenuItems.some(item => item.id === currentView) ? 2.5 : 2} />
+              <span className={`text-xs leading-tight ${burgerMenuItems.some(item => item.id === currentView) ? 'font-bold' : 'font-medium'}`}>
                 Ещё
               </span>
             </button>

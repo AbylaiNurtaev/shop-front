@@ -108,43 +108,49 @@ export function SalesRepInventory() {
       const response = await api.get<{ items?: ApiInventoryItem[] }>('/sales-reps/stock-control', { params });
       console.log('GET /sales-reps/stock-control response', response.data);
       const items = response.data?.items || response.data || [];
-      const mappedItems = (Array.isArray(items) ? items : []).map((item) => {
-        const productName = item.productName ?? item.product?.name ?? '—';
-        const sku = item.sku ?? item.product?.sku ?? '—';
-        const storeId = item.storeId ?? item.store?.id ?? '—';
-        const storeName = item.storeName ?? item.store?.name ?? '—';
-        const currentStock = item.currentStock ?? item.stock ?? item.quantity ?? 0;
-        const minStock = item.minStock ?? item.threshold ?? 0;
-        const maxStock = item.maxStock ?? 0;
-        const categoryId = item.categoryId ?? item.product?.categoryId ?? item.product?.category?.id;
-        const categoryName = item.categoryName ?? item.product?.category?.name;
-        let status: InventoryItem['status'] =
-          item.status ?? (item.lowStock ? 'low' : 'normal');
-
-        if (!item.status) {
-          if (currentStock < minStock) {
-            status = 'low';
-          } else if (maxStock > 0 && currentStock > maxStock) {
-            status = 'high';
+      const mappedItems = (Array.isArray(items) ? items : [])
+        .map((item) => {
+          const productName = item.productName ?? item.product?.name ?? '';
+          // Пропускаем товары без названия
+          if (!productName || productName.trim() === '') {
+            return null;
           }
-        }
+          const sku = item.sku ?? item.product?.sku ?? '—';
+          const storeId = item.storeId ?? item.store?.id ?? '—';
+          const storeName = item.storeName ?? item.store?.name ?? '—';
+          const currentStock = item.currentStock ?? item.stock ?? item.quantity ?? 0;
+          const minStock = item.minStock ?? item.threshold ?? 0;
+          const maxStock = item.maxStock ?? 0;
+          const categoryId = item.categoryId ?? item.product?.categoryId ?? item.product?.category?.id;
+          const categoryName = item.categoryName ?? item.product?.category?.name;
+          let status: InventoryItem['status'] =
+            item.status ?? (item.lowStock ? 'low' : 'normal');
 
-        return {
-          id: item.id ?? `${storeId}-${sku}-${productName}`,
-          productName,
-          sku,
-          storeName,
-          storeId,
-          currentStock,
-          minStock,
-          maxStock,
-          status,
-          expiryDate: item.expiryDate,
-          daysUntilExpiry: item.daysUntilExpiry,
-          categoryId,
-          categoryName,
-        } as InventoryItem;
-      });
+          if (!item.status) {
+            if (currentStock < minStock) {
+              status = 'low';
+            } else if (maxStock > 0 && currentStock > maxStock) {
+              status = 'high';
+            }
+          }
+
+          return {
+            id: item.id ?? `${storeId}-${sku}-${productName}`,
+            productName,
+            sku,
+            storeName,
+            storeId,
+            currentStock,
+            minStock,
+            maxStock,
+            status,
+            expiryDate: item.expiryDate,
+            daysUntilExpiry: item.daysUntilExpiry,
+            categoryId,
+            categoryName,
+          } as InventoryItem;
+        })
+        .filter((item): item is InventoryItem => item !== null);
       setInventory(mappedItems);
     } catch (error) {
       console.error('Ошибка загрузки остатков', error);
