@@ -41,7 +41,7 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
   const distributorMenuItems = [
     { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'salesReps', label: 'ТП', icon: Users },
-    { id: 'products', label: 'Товары и себестоимость', icon: Package },
+    { id: 'products', label: 'Товары', icon: Package },
     { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
     { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
     { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },

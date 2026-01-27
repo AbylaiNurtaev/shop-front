@@ -50,21 +50,73 @@ export function AIFAQ() {
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMobileNavHidden, setIsMobileNavHidden] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
+
+  const hideMobileNav = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      window.dispatchEvent(
+        new CustomEvent('mobileNavVisibilityChange', {
+          detail: { hidden: true },
+        })
+      );
+    }
+  };
+
+  const showMobileNav = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      window.dispatchEvent(
+        new CustomEvent('mobileNavVisibilityChange', {
+          detail: { hidden: false },
+        })
+      );
+    }
+  };
 
   // Автопрокрутка к последнему сообщению
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
+
+    // Дополнительно принудительно скроллим контейнер чата в самый низ,
+    // чтобы на мобильных и после изменения высоты всё равно видеть последнее сообщение
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      // Небольшая задержка, чтобы успели отрендериться новые сообщения и изменить высоту
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+      }, 0);
+    }
   }, [messages, isLoading]);
 
-  // Автофокус на поле ввода
+  // Слушаем изменение видимости мобильной навигации,
+  // чтобы опускать поле ввода ниже, когда навигация скрыта
   useEffect(() => {
-    if (!isLoading && inputRef.current) {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ hidden: boolean }>;
+      if (typeof customEvent.detail?.hidden === 'boolean') {
+        setIsMobileNavHidden(customEvent.detail.hidden);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mobileNavVisibilityChange', handler as EventListener);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('mobileNavVisibilityChange', handler as EventListener);
+      }
+    };
+  }, []);
+
+  // Автофокус на поле ввода (только для десктопа, чтобы на мобиле не ломать навигацию и клавиатуру)
+  useEffect(() => {
+    if (!isLoading && inputRef.current && typeof window !== 'undefined' && window.innerWidth >= 768) {
       inputRef.current.focus();
     }
   }, [isLoading]);
@@ -262,7 +314,7 @@ export function AIFAQ() {
               overscrollBehavior: 'contain',
             }}
           >
-            <div className="max-w-3xl xl:max-w-4xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 md:py-6 pb-24 md:pb-6">
+            <div className="max-w-3xl xl:max-w-4xl mx-auto w-full px-3 sm:px-4 md:px-6 py-4 md:py-6 pb-32 md:pb-6">
               <div className="space-y-4 md:space-y-6">
                 {messages.map((msg) => (
                   <div
@@ -337,7 +389,9 @@ export function AIFAQ() {
         )}
 
         {/* Поле ввода */}
-        <div className="fixed md:static bottom-24 md:bottom-auto left-0 right-0 border-t border-border bg-card flex-shrink-0 z-10 md:z-auto shadow-lg md:shadow-none md:border-t">
+        <div
+          className={`fixed md:static ${isMobileNavHidden ? 'bottom-0' : 'bottom-24'} md:bottom-auto left-0 right-0 border-t border-border bg-card flex-shrink-0 z-10 md:z-auto shadow-lg md:shadow-none md:border-t`}
+        >
           <div className="max-w-3xl xl:max-w-4xl mx-auto w-full px-3 sm:px-4 md:px-6 py-3 md:py-4">
             <div className="flex gap-2 md:gap-3 items-center">
               <div className="flex-1 relative">
@@ -352,7 +406,7 @@ export function AIFAQ() {
                   placeholder="Задайте вопрос..."
                   disabled={isLoading}
                   rows={1}
-                  className="w-full px-3 md:px-4 py-2.5 md:py-3 bg-background border border-border rounded-xl md:rounded-2xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base placeholder:text-muted-foreground shadow-sm"
+                  className="w-full px-3 md:px-4 py-2.5 md:py-3 bg-background border border-border rounded-xl md:rounded-2xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed text-[16px] md:text-base placeholder:text-muted-foreground shadow-sm"
                   style={{
                     minHeight: '44px',
                     maxHeight: '200px',
@@ -362,12 +416,19 @@ export function AIFAQ() {
                   onInput={(e) => {
                     adjustTextareaHeight(e.target as HTMLTextAreaElement);
                   }}
+                  onFocus={hideMobileNav}
+                  onBlur={showMobileNav}
                 />
               </div>
               <button
                 onClick={handleSend}
                 disabled={!question.trim() || isLoading}
                 className="flex-shrink-0 bg-primary text-primary-foreground rounded-xl md:rounded-2xl hover:opacity-90 active:opacity-80 transition-opacity flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                onMouseDown={(e) => {
+                  // Не даём кнопке убирать фокус с textarea на мобильных,
+                  // чтобы первый тап сразу отправлял сообщение, а не просто закрывал клавиатуру
+                  e.preventDefault();
+                }}
                 style={{
                   width: '44px',
                   height: '44px',

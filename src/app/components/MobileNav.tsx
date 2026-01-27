@@ -12,6 +12,7 @@ interface MobileNavProps {
 
 export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, userRole }: MobileNavProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
   const adminMenuItems = [
     { id: 'brands', label: 'Бренды', icon: Building2 },
     { id: 'categories', label: 'Категории', icon: FolderTree },
@@ -83,7 +84,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
     { id: 'history', label: 'История', icon: History },
     { id: 'productGroups', label: 'Группы товаров', icon: FolderTree },
     { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
-    { id: 'poorlySelling', label: 'низкие продажи', icon: TrendingDown },
+    { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
     { id: 'plan', label: 'План', icon: Calendar },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
@@ -109,6 +110,21 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   useEffect(() => {
     setIsMenuOpen(false);
   }, [currentView]);
+
+  // Управление видимостью навигации с помощью кастомного события (например, при фокусе на инпуте на мобильных)
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ hidden: boolean }>;
+      if (typeof customEvent.detail?.hidden === 'boolean') {
+        setIsHidden(customEvent.detail.hidden);
+      }
+    };
+
+    window.addEventListener('mobileNavVisibilityChange', handler as EventListener);
+    return () => {
+      window.removeEventListener('mobileNavVisibilityChange', handler as EventListener);
+    };
+  }, []);
 
   // Для Дс, ТП, владельца магазина и бренда - только 4 элемента (3 основных + бургер-меню)
   // Для остальных ролей - как было (с кнопкой выхода)
@@ -195,6 +211,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
       )}
 
       {/* Нижняя навигация */}
+      {!isHidden && (
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 z-50 shadow-2xl pb-safe">
         <div className={`grid ${gridColsClass} gap-1 px-2 py-2 safe-area-inset-bottom`}>
           {mainItems.map((item) => {
@@ -245,6 +262,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
           )}
         </div>
       </nav>
+      )}
     </>
   );
 }

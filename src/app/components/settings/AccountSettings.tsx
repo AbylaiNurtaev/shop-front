@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 const formatPhoneNumber = (value: string): string => {
   // Удаляем все нецифровые символы, кроме +
   const cleaned = value.replace(/[^\d+]/g, '');
-  
+
   // Если начинается с +7, форматируем как казахстанский номер
   if (cleaned.startsWith('+7')) {
     const digits = cleaned.slice(2).replace(/\D/g, '').slice(0, 10);
@@ -19,7 +19,7 @@ const formatPhoneNumber = (value: string): string => {
     if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
     return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
   }
-  
+
   // Если начинается с 7 без +, добавляем +
   if (cleaned.startsWith('7') && !cleaned.startsWith('+')) {
     const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
@@ -29,7 +29,7 @@ const formatPhoneNumber = (value: string): string => {
     if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
     return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
   }
-  
+
   // Если начинается с 8, заменяем на +7
   if (cleaned.startsWith('8')) {
     const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
@@ -39,12 +39,12 @@ const formatPhoneNumber = (value: string): string => {
     if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
     return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
   }
-  
+
   // Если начинается с +, но не +7, оставляем как есть
   if (cleaned.startsWith('+')) {
     return cleaned;
   }
-  
+
   // Если ничего не подошло, начинаем с +7
   const digits = cleaned.replace(/\D/g, '').slice(0, 10);
   if (digits.length === 0) return '+7';
@@ -236,6 +236,35 @@ export function AccountSettings({
     let isActive = true;
     const loadProfile = async () => {
       try {
+        // Для продавца магазина (кассира) используем POS API
+        if (role === 'storeSeller') {
+          try {
+            // Получаем данные пользователя, чтобы взять email и storeId
+            const userResponse = await api.get<ApiUser>(`/users/${userId}`);
+            const posResponse = await api.get<{ name?: string }>('/pos/account');
+            if (!isActive) return;
+
+            const initialData = {
+              email: userResponse.data.email,
+              name: posResponse.data.name || '',
+            };
+
+            setInitialUserForm(initialData);
+            setUserForm(initialData);
+          } catch (error) {
+            console.error('Ошибка загрузки профиля кассира', error);
+            // Если не удалось получить данные кассира, просто показываем пустое поле имени
+            const initialData = { name: '' };
+            setInitialUserForm(initialData);
+            setUserForm(initialData);
+          } finally {
+            if (isActive) {
+              setLoading(false);
+            }
+          }
+          return;
+        }
+
         // Для ТП используем специальный API
         if (role === 'salesRep') {
           const salesRepResponse = await api.get<{ email: string; firstName: string; lastName?: string; middleName?: string; phoneNumber?: string }>('/sales-reps/me');
@@ -425,6 +454,39 @@ export function AccountSettings({
   const handleUpdateUser = async () => {
     setIsSavingUser(true);
     try {
+      // Для продавца магазина (кассира) используем POS API
+      if (role === 'storeSeller') {
+        await api.put('/pos/account', {
+          name: userForm.name,
+        });
+
+        // Пытаемся получить актуальные данные пользователя для обновления стора
+        try {
+          const userResponse = await api.get<ApiUser>(`/users/${userId}`);
+          const updatedUserData: User = {
+            id: userId,
+            email: userResponse.data.email,
+            role,
+            profileComplete: true,
+            firstName: userForm.name || userResponse.data.firstName,
+            lastName: userResponse.data.lastName || '',
+            storeId: userResponse.data.storeId,
+            isActive: userResponse.data.isActive,
+          };
+          onUserUpdated(updatedUserData);
+        } catch (error) {
+          console.error('Не удалось обновить данные пользователя после обновления кассира', error);
+        }
+
+        setInitialUserForm((prev) => ({
+          ...prev,
+          name: userForm.name,
+        }));
+
+        toast.success('Имя кассира успешно обновлено');
+        return;
+      }
+
       // Для ТП используем специальный API
       if (role === 'salesRep') {
         await api.put('/sales-reps/me', {
@@ -435,10 +497,10 @@ export function AccountSettings({
         });
 
         // Получаем обновленные данные с сервера
-        const salesRepResponse = await api.get<{ 
-          email: string; 
-          firstName: string; 
-          lastName?: string; 
+        const salesRepResponse = await api.get<{
+          email: string;
+          firstName: string;
+          lastName?: string;
           middleName?: string;
           phoneNumber?: string;
         }>('/sales-reps/me');
@@ -778,6 +840,9 @@ export function AccountSettings({
       );
     }
     if (role === 'distributor') {
+      return userForm.name !== initialUserForm.name;
+    }
+    if (role === 'storeSeller') {
       return userForm.name !== initialUserForm.name;
     }
     return userForm.isActive !== initialUserForm.isActive;
@@ -1174,6 +1239,94 @@ export function AccountSettings({
         </div>
       )}
 
+      {role === 'storeSeller' && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+          <div>
+            <h3 className="text-xl font-semibold">Настройки кассира</h3>
+            <p className="text-sm text-gray-500">
+              Обновите отображаемое имя кассира для POS-страницы
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">
+                Имя кассира <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={userForm.name || ''}
+                onChange={(e) =>
+                  setUserForm((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
+                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                placeholder="Введите имя, которое будет видно на кассе"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Это имя будет использоваться на странице кассы (POS).
+              </p>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Email</label>
+              <input
+                type="email"
+                value={userForm.email || ''}
+                disabled
+                className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-500 mt-1">Email кассира менять нельзя.</p>
+            </div>
+
+            {storeId && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">ID магазина</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyStoreId}
+                    className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                    title="Копировать ID"
+                    type="button"
+                  >
+                    <Copy className="h-5 w-5 text-gray-600" />
+                  </button>
+                  <input
+                    type="text"
+                    value={storeId}
+                    readOnly
+                    className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleUpdateUser}
+              disabled={!isUserFormChanged || isSavingUser}
+              className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isUserFormChanged && !isSavingUser
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+            >
+              {isSavingUser ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Сохранение...
+                </span>
+              ) : (
+                'Сохранить'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {role === 'store' && storeId && (
         <>
           <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
@@ -1265,134 +1418,134 @@ export function AccountSettings({
             <div className="grid md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1">ID магазина</label>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCopyStoreId}
-                  className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                  title="Копировать ID"
-                >
-                  <Copy className="h-5 w-5 text-gray-600" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyStoreId}
+                    className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                    title="Копировать ID"
+                  >
+                    <Copy className="h-5 w-5 text-gray-600" />
+                  </button>
+                  <input
+                    type="text"
+                    value={storeId}
+                    readOnly
+                    className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Email</label>
                 <input
-                  type="text"
-                  value={storeId}
-                  readOnly
+                  type="email"
+                  value={storeForm.email}
+                  disabled
                   className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
                 />
               </div>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                type="email"
-                value={storeForm.email}
-                disabled
-                className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Название</label>
-              <input
-                type="text"
-                value={storeForm.name}
-                onChange={(e) => setStoreForm((prev) => ({ ...prev, name: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Адрес</label>
-              <input
-                type="text"
-                value={storeForm.address}
-                onChange={(e) => setStoreForm((prev) => ({ ...prev, address: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
-                placeholder="Улица, дом"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Локация (ссылка в 2ГИС)</label>
-              <input
-                type="url"
-                value={storeForm.locationLink}
-                onChange={(e) => setStoreForm((prev) => ({ ...prev, locationLink: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
-                placeholder="https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
-                pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
-                title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Описание</label>
-              <textarea
-                value={storeForm.description}
-                onChange={(e) => setStoreForm((prev) => ({ ...prev, description: e.target.value }))}
-                className="w-full min-h-[90px] px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Фото магазина</label>
-              {storeForm.photos ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {storeForm.photos
-                    .split(',')
-                    .map((item) => item.trim())
-                    .filter(Boolean)
-                    .map((photo, index) => (
-                      <div
-                        key={`${photo}-${index}`}
-                        className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
-                      >
-                        <img src={photo} alt={`Фото магазина ${index + 1}`} className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">Фото еще не загружены.</p>
-              )}
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Загрузка фото магазина</label>
-              <label className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm ${isPhotosUploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'
-                }`}>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Название</label>
                 <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  multiple
-                  className="hidden"
-                  onChange={handleStorePhotosChange}
-                  disabled={isPhotosUploading}
+                  type="text"
+                  value={storeForm.name}
+                  onChange={(e) => setStoreForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
                 />
-                {isPhotosUploading ? 'Загрузка...' : 'Выбрать файлы'}
-              </label>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Адрес</label>
+                <input
+                  type="text"
+                  value={storeForm.address}
+                  onChange={(e) => setStoreForm((prev) => ({ ...prev, address: e.target.value }))}
+                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  placeholder="Улица, дом"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Локация (ссылка в 2ГИС)</label>
+                <input
+                  type="url"
+                  value={storeForm.locationLink}
+                  onChange={(e) => setStoreForm((prev) => ({ ...prev, locationLink: e.target.value }))}
+                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  placeholder="https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
+                  pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
+                  title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Описание</label>
+                <textarea
+                  value={storeForm.description}
+                  onChange={(e) => setStoreForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full min-h-[90px] px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Фото магазина</label>
+                {storeForm.photos ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {storeForm.photos
+                      .split(',')
+                      .map((item) => item.trim())
+                      .filter(Boolean)
+                      .map((photo, index) => (
+                        <div
+                          key={`${photo}-${index}`}
+                          className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                        >
+                          <img src={photo} alt={`Фото магазина ${index + 1}`} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Фото еще не загружены.</p>
+                )}
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Загрузка фото магазина</label>
+                <label className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm ${isPhotosUploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'
+                  }`}>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    multiple
+                    className="hidden"
+                    onChange={handleStorePhotosChange}
+                    disabled={isPhotosUploading}
+                  />
+                  {isPhotosUploading ? 'Загрузка...' : 'Выбрать файлы'}
+                </label>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={handleUpdateStore}
+                disabled={!isStoreFormChanged || isSavingStore}
+                className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isStoreFormChanged && !isSavingStore
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+              >
+                {isSavingStore ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Сохранение...
+                  </span>
+                ) : (
+                  'Сохранить магазин'
+                )}
+              </button>
+              <button
+                onClick={handleDeleteStore}
+                className="px-4 py-2 border border-red-300 text-red-600 rounded-lg font-semibold cursor-pointer hover:bg-red-50 transition-colors"
+              >
+                Удалить магазин
+              </button>
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handleUpdateStore}
-              disabled={!isStoreFormChanged || isSavingStore}
-              className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isStoreFormChanged && !isSavingStore
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-            >
-              {isSavingStore ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Сохранение...
-                </span>
-              ) : (
-                'Сохранить магазин'
-              )}
-            </button>
-            <button
-              onClick={handleDeleteStore}
-              className="px-4 py-2 border border-red-300 text-red-600 rounded-lg font-semibold cursor-pointer hover:bg-red-50 transition-colors"
-            >
-              Удалить магазин
-            </button>
-          </div>
-        </div>
         </>
       )}
     </div>
