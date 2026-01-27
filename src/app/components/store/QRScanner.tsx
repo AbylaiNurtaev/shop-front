@@ -47,8 +47,9 @@ export function QRScanner() {
   useEffect(() => {
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
+        scannerRef.current.stop().catch(() => { });
         scannerRef.current.clear();
+        scannerRef.current = null;
       }
     };
   }, []);
@@ -58,7 +59,7 @@ export function QRScanner() {
     if (barcode.trim().length > 0) {
       const timeoutId = setTimeout(() => {
         handleSearch();
-      }, 500); // Задержка 500мс для предотвращения лишних запросов
+      }, 500);
 
       return () => clearTimeout(timeoutId);
     } else {
@@ -115,12 +116,10 @@ export function QRScanner() {
 
       toast.success(`Товар добавлен! Текущее количество: ${response.data.offer.quantity}`);
       setLastAdded({ barcode: barcode.trim(), quantity: quantity });
-      
-      // Обновляем информацию о товаре
+
       const searchResponse = await api.get<BarcodeResponse>(`/warehouse/barcode/${barcode.trim()}`);
       setProduct(searchResponse.data);
-      
-      // Очищаем поле ввода для следующего сканирования
+
       setBarcode('');
       setQuantity(1);
       barcodeInputRef.current?.focus();
@@ -133,7 +132,7 @@ export function QRScanner() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       if (product && !isAdding) {
         handleQuickAdd();
@@ -144,38 +143,132 @@ export function QRScanner() {
   };
 
   const startCamera = async () => {
-    try {
-      setIsScanning(true);
-      const scanner = new Html5Qrcode(qrCodeRegionId);
-      scannerRef.current = scanner;
+    // Проверяем, находимся ли мы в безопасном контексте (HTTPS или localhost)
+    const isSecureContext = window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isSecureContext) {
+      toast.error('Доступ к камере возможен только через HTTPS или localhost. Текущий протокол: ' + location.protocol);
+      return;
+    }
 
-      await scanner.start(
-        { facingMode: 'environment' },
-        {
+    // Базовая проверка поддержки (но не строгая, так как Html5Qrcode сам проверит)
+    if (typeof navigator === 'undefined' || (!navigator.mediaDevices && !(navigator as any).getUserMedia && !(navigator as any).webkitGetUserMedia)) {
+      console.warn('MediaDevices API может быть недоступен, но попробуем запустить камеру через Html5Qrcode');
+    }
+
+    setIsScanning(true);
+
+    // Увеличиваем задержку для мобильных устройств
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const delay = isMobile ? 300 : 100;
+
+    setTimeout(async () => {
+      const element = document.getElementById(qrCodeRegionId);
+      if (!element) {
+        toast.error('Ошибка: элемент для камеры не найден');
+        setIsScanning(false);
+        return;
+      }
+
+      try {
+        const scanner = new Html5Qrcode(qrCodeRegionId);
+        scannerRef.current = scanner;
+
+        // Адаптивная конфигурация для мобильных и десктопных устройств
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const qrboxSize = isMobile
+          ? Math.min(viewportWidth * 0.8, viewportHeight * 0.4, 300)
+          : 250;
+
+        const config: any = {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        async (decodedText) => {
-          // Успешно отсканировано
+          qrbox: { width: qrboxSize, height: qrboxSize },
+        };
+
+        // aspectRatio может вызывать проблемы на некоторых мобильных устройствах
+        if (!isMobile) {
+          config.aspectRatio = 1.0;
+        }
+
+        const onScanSuccess = async (decodedText: string) => {
           await stopCamera();
           setBarcode(decodedText);
           toast.success('Штрих-код отсканирован');
-        },
-        (errorMessage) => {
-          // Игнорируем ошибки сканирования (они происходят постоянно, пока не найден код)
+        };
+
+        const onScanError = (errorMessage: string) => {
+          // Игнорируем ошибки сканирования
+        };
+
+        try {
+          // Пробуем с facingMode (предпочтительно для мобильных)
+          await scanner.start(
+            { facingMode: 'environment' },
+            config,
+            onScanSuccess,
+            onScanError
+          );
+        } catch (facingModeError: any) {
+          console.warn('Не удалось запустить с facingMode, пробуем список камер', facingModeError);
+
+          // Если не получилось, пробуем через список камер
+          try {
+            const cameras = await Html5Qrcode.getCameras();
+            if (cameras && cameras.length > 0) {
+              // На мобильных устройствах ищем заднюю камеру
+              const backCamera = cameras.find(device =>
+                device.label.toLowerCase().includes('back') ||
+                device.label.toLowerCase().includes('rear') ||
+                device.label.toLowerCase().includes('environment')
+              );
+              const cameraId = backCamera ? backCamera.id : cameras[0].id;
+
+              await scanner.start(
+                cameraId,
+                config,
+                onScanSuccess,
+                onScanError
+              );
+            } else {
+              throw new Error('Камеры не найдены');
+            }
+          } catch (camerasError: any) {
+            // Если и это не сработало, пробрасываем исходную ошибку
+            throw facingModeError;
+          }
         }
-      );
-    } catch (error: any) {
-      console.error('Ошибка запуска камеры', error);
-      setIsScanning(false);
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        toast.error('Доступ к камере запрещен. Разрешите доступ в настройках браузера.');
-      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        toast.error('Камера не найдена');
-      } else {
-        toast.error('Не удалось запустить камеру');
+      } catch (error: any) {
+        console.error('Ошибка запуска камеры', error);
+        setIsScanning(false);
+
+        if (scannerRef.current) {
+          try {
+            await scannerRef.current.stop();
+            scannerRef.current.clear();
+          } catch (e) {
+            console.error('Ошибка очистки сканера', e);
+          }
+          scannerRef.current = null;
+        }
+
+        const errorName = error?.name || '';
+        const errorMessage = error?.message || '';
+
+        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' || errorMessage.includes('permission')) {
+          toast.error('Доступ к камере запрещен. Разрешите доступ в настройках браузера.');
+        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError' || errorMessage.includes('not found')) {
+          toast.error('Камера не найдена. Убедитесь, что камера подключена.');
+        } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError' || errorMessage.includes('not readable')) {
+          toast.error('Камера уже используется другим приложением.');
+        } else if (errorName === 'OverconstrainedError' || errorMessage.includes('constraint')) {
+          toast.error('Камера не поддерживает требуемые параметры.');
+        } else if (errorMessage.includes('HTTPS') || errorMessage.includes('secure context')) {
+          toast.error('Доступ к камере возможен только через HTTPS.');
+        } else {
+          toast.error(`Не удалось запустить камеру: ${errorMessage || errorName || 'Неизвестная ошибка'}`);
+        }
       }
-    }
+    }, delay);
   };
 
   const stopCamera = async () => {
@@ -255,10 +348,10 @@ export function QRScanner() {
         {isScanning && (
           <div className="bg-card border border-border rounded-lg shadow-sm p-4 mb-4">
             <div className="relative">
-              <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden" />
+              <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden" style={{ minHeight: '250px' }} />
               <button
                 onClick={stopCamera}
-                className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-10"
                 title="Закрыть камеру"
               >
                 <X className="w-5 h-5 text-white" />
@@ -449,10 +542,12 @@ export function QRScanner() {
           {isScanning && (
             <div className="mb-6 bg-card border border-border rounded-lg shadow-sm p-4">
               <div className="relative">
-                <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden max-w-md mx-auto" />
+                <div className="w-full rounded-lg overflow-hidden max-w-md mx-auto">
+                  <div id={qrCodeRegionId} style={{ minHeight: '250px', width: '100%' }} />
+                </div>
                 <button
                   onClick={stopCamera}
-                  className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                  className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors z-10"
                   title="Закрыть камеру"
                 >
                   <X className="w-5 h-5 text-white" />

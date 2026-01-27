@@ -103,12 +103,14 @@ export function StoreRegistration({ onComplete, onBack }: StoreRegistrationProps
   const [formData, setFormData] = useState<StoreProfile>({
     firstName: '',
     lastName: '',
+    middleName: '',
     password: '',
     storeName: '',
     address: '',
     city: '',
     country: '',
     phone: '',
+    phoneNumber: '',
     email: '',
     description: '',
     locationLink: '',
@@ -128,6 +130,7 @@ export function StoreRegistration({ onComplete, onBack }: StoreRegistrationProps
   const handlePhoneChange = (e: ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
     updateField('phone', formatted);
+    updateField('phoneNumber', formatted);
   };
 
   const isKazakhstan = formData.country === 'Казахстан';
@@ -172,6 +175,45 @@ export function StoreRegistration({ onComplete, onBack }: StoreRegistrationProps
                   className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="Введите название магазина"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1.5">
+                  Фамилия <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.lastName}
+                  onChange={(e) => updateField('lastName', e.target.value)}
+                  className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Введите фамилию"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1.5">
+                  Имя <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.firstName}
+                  onChange={(e) => updateField('firstName', e.target.value)}
+                  className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Введите имя"
+                  required
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm mb-1.5">Отчество</label>
+                <input
+                  type="text"
+                  value={formData.middleName}
+                  onChange={(e) => updateField('middleName', e.target.value)}
+                  className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Введите отчество (необязательно)"
                 />
               </div>
 

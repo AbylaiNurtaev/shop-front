@@ -8,6 +8,55 @@ interface SalesRepRegistrationProps {
   onBack: () => void;
 }
 
+// Функция для форматирования номера телефона
+const formatPhoneNumber = (value: string): string => {
+  // Удаляем все нецифровые символы, кроме +
+  const cleaned = value.replace(/[^\d+]/g, '');
+  
+  // Если начинается с +7, форматируем как казахстанский номер
+  if (cleaned.startsWith('+7')) {
+    const digits = cleaned.slice(2).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+  
+  // Если начинается с 7 без +, добавляем +
+  if (cleaned.startsWith('7') && !cleaned.startsWith('+')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+  
+  // Если начинается с 8, заменяем на +7
+  if (cleaned.startsWith('8')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+  
+  // Если начинается с +, но не +7, оставляем как есть
+  if (cleaned.startsWith('+')) {
+    return cleaned;
+  }
+  
+  // Если ничего не подошло, начинаем с +7
+  const digits = cleaned.replace(/\D/g, '').slice(0, 10);
+  if (digits.length === 0) return '+7';
+  if (digits.length <= 3) return `+7 (${digits}`;
+  if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+};
+
 export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistrationProps) {
   const [formData, setFormData] = useState({
     firstName: '',
@@ -15,6 +64,7 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
     middleName: '',
     email: '',
     password: '',
+    phoneNumber: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,6 +96,7 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
         middleName: formData.middleName || undefined,
         email: formData.email,
         password: formData.password,
+        phoneNumber: formData.phoneNumber || undefined,
         verificationCode,
       });
       toast.success('Регистрация успешна!');
@@ -333,6 +384,22 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
                   placeholder="Минимум 8 символов"
                   minLength={8}
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm mb-1.5">
+                  Номер телефона
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phoneNumber}
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    updateField('phoneNumber', formatted);
+                  }}
+                  className="w-full px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="+7 (900) 123-45-67"
                 />
               </div>
             </div>

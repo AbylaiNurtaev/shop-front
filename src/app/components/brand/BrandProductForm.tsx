@@ -39,23 +39,9 @@ const buildPackageInfo = (amount: string, unit: string) => {
 };
 
 interface ImageValidationResult {
-  productId: string;
-  productName: string;
   isValid: boolean;
-  validation: {
-    isSquare: boolean;
-    hasExtraElements: boolean;
-    matchesProduct: boolean;
-    confidence: number;
-    aspectRatio: string;
-    issues: string[];
-    recommendations: string[];
-    detectedProduct?: {
-      name: string;
-      brand: string;
-      packageInfo: string;
-    };
-  };
+  message: string;
+  issues: string[];
 }
 
 interface BrandProductFormProps {
@@ -107,6 +93,8 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
     useExistingParent: true,
   });
   const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [selectedParentCategory, setSelectedParentCategory] = useState<string | null>(null);
+  const [processedCategories, setProcessedCategories] = useState<Category[]>([]);
 
   const fetchSku = async () => {
     const response = await api.get('/products/sku');
@@ -132,13 +120,19 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Проверяем валидацию изображения только для новых загруженных изображений
-    // Если изображение уже было у товара и не менялось, валидация не требуется
+
+    // Проверяем, что изображение загружено и прошло валидацию
+    if (!formData.images || formData.images.length === 0) {
+      toast.error('Необходимо загрузить изображение товара.');
+      return;
+    }
+
+    // Если изображение было загружено (новое или измененное), проверяем валидацию
     const isNewImage = uploadedImageFile !== null;
     const imageChanged = formData.images?.[0] !== originalImageUrl;
-    
-    if (formData.images && formData.images.length > 0 && isNewImage && imageChanged) {
+
+    if (isNewImage || imageChanged || !product) {
+      // Для новых товаров или при изменении изображения требуется валидация
       if (isValidatingImage) {
         toast.error('Пожалуйста, дождитесь завершения проверки изображения.');
         return;
@@ -148,7 +142,7 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
         return;
       }
       if (!imageValidation.isValid) {
-        toast.error('Изображение не прошло проверку. Исправьте проблемы и попробуйте снова.');
+        toast.error('Изображение не прошло проверку. Загрузите другое изображение.');
         return;
       }
     }
@@ -173,7 +167,22 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
   };
 
   const updateField = (field: keyof Product, value: string | number | string[] | undefined) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+
+      // Если изменилось название товара и есть загруженное изображение, сбрасываем валидацию
+      // Пользователю нужно будет перезагрузить изображение для повторной проверки
+      if (field === 'name' && uploadedImageFile && prev.images && prev.images.length > 0) {
+        const oldName = prev.name || '';
+        const newName = (typeof value === 'string' ? value : '') || '';
+        // Сбрасываем валидацию только если название действительно изменилось
+        if (oldName.trim() !== newName.trim()) {
+          setImageValidation(null);
+        }
+      }
+
+      return newData;
+    });
   };
 
   const handlePackageAmountChange = (value: string) => {
@@ -210,13 +219,11 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
     updateField('ageRestrictions', `${restriction}+`);
   };
 
-  const validateImage = async (file: File, productId?: string): Promise<ImageValidationResult | null> => {
+  const validateImage = async (file: File, productName: string): Promise<ImageValidationResult | null> => {
     try {
       const formData = new FormData();
       formData.append('image', file);
-      if (productId) {
-        formData.append('productId', productId);
-      }
+      formData.append('name', productName);
 
       const response = await api.post<ImageValidationResult>('/brands/products/validate-image', formData);
       return response.data;
@@ -232,6 +239,14 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
 
+    // Проверяем, что есть название товара
+    const productName = formData.name?.trim();
+    if (!productName) {
+      toast.error('Сначала введите название товара');
+      event.target.value = '';
+      return;
+    }
+
     // Проверяем, что уже нет изображений
     if (formData.images && formData.images.length > 0) {
       toast.error('Можно загрузить только одно изображение. Удалите существующее изображение перед загрузкой нового.');
@@ -243,6 +258,7 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
     const file = files[0];
     if (!file) return;
 
+    // Сразу показываем лоадинг
     setIsImagesUploading(true);
     setIsValidatingImage(true);
     setImageValidation(null);
@@ -253,6 +269,8 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
       const uploadedUrl = await uploadPhoto(file);
       if (!uploadedUrl) {
         toast.error('Не удалось загрузить изображение.');
+        setIsImagesUploading(false);
+        setIsValidatingImage(false);
         return;
       }
 
@@ -263,15 +281,22 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
         images: [uploadedUrl],
       }));
 
-      // Отправляем на ИИ валидацию
-      const validationResult = await validateImage(file, product?.id);
-      
+      // Отправляем на ИИ валидацию с названием товара
+      const validationResult = await validateImage(file, productName);
+
       if (validationResult) {
-        setImageValidation(validationResult);
         if (validationResult.isValid) {
-          toast.success('Изображение успешно проверено и одобрено.');
+          setImageValidation(validationResult);
+          toast.success(validationResult.message || 'Изображение успешно проверено и одобрено.');
         } else {
-          toast.warning('Изображение проверено, но есть замечания. Проверьте рекомендации.');
+          // Если изображение не прошло проверку, удаляем его
+          setFormData((prev) => ({
+            ...prev,
+            images: [],
+          }));
+          setUploadedImageFile(null);
+          setImageValidation(null);
+          toast.error(validationResult.message || 'Изображение не прошло проверку. Пожалуйста, загрузите другое изображение.');
         }
       } else {
         // Если валидация не удалась, но изображение загружено, разрешаем продолжить
@@ -294,6 +319,53 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
     }
   };
 
+  // Загружаем категории напрямую с правильной обработкой вложенной структуры
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await api.get<{ items: any[] }>('/categories');
+        const items = response.data.items || [];
+        const flatCategories: Category[] = [];
+
+        const processCategory = (cat: any, parentId?: string) => {
+          // Добавляем категорию в плоский список
+          flatCategories.push({
+            id: cat.id,
+            name: cat.name,
+            parentId: parentId || cat.parentId || cat.parentCategoryId || undefined,
+          });
+
+          // Обрабатываем подкатегории
+          if (cat.subCategories && Array.isArray(cat.subCategories)) {
+            cat.subCategories.forEach((sub: any) => {
+              processCategory(sub, cat.id);
+            });
+          } else if (cat.subcategories && Array.isArray(cat.subcategories)) {
+            cat.subcategories.forEach((sub: any) => {
+              processCategory(sub, cat.id);
+            });
+          }
+        };
+
+        // Обрабатываем все категории верхнего уровня
+        items.forEach((cat) => {
+          // Обрабатываем только категории верхнего уровня (без parentId/parentCategoryId)
+          if (!cat.parentId && !cat.parentCategoryId) {
+            processCategory(cat);
+          }
+        });
+
+        setProcessedCategories(flatCategories);
+      } catch (error) {
+        console.error('Ошибка загрузки категорий', error);
+        // В случае ошибки используем категории из пропсов
+        setProcessedCategories(categories);
+      }
+    };
+
+    loadCategories();
+  }, []); // Загружаем только один раз при монтировании
+
   useEffect(() => {
     // Загружаем все категории для формы заявки
     const loadAllCategories = async () => {
@@ -301,19 +373,20 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
         const response = await api.get<{ items: any[] }>('/categories');
         const items = response.data.items || [];
         const flatCategories: Category[] = [];
-        
-        const processCategory = (cat: any) => {
+
+        const processCategory = (cat: any, parentId?: string) => {
           flatCategories.push({
             id: cat.id,
             name: cat.name,
-            parentId: cat.parentId || cat.parentCategoryId,
+            parentId: parentId || cat.parentId || cat.parentCategoryId || undefined,
           });
           if (cat.subCategories || cat.subcategories) {
-            (cat.subCategories || cat.subcategories).forEach((sub: any) => processCategory(sub));
+            const subs = cat.subCategories || cat.subcategories;
+            subs.forEach((sub: any) => processCategory(sub, cat.id));
           }
         };
-        
-        items.forEach(processCategory);
+
+        items.forEach((cat) => processCategory(cat));
         setAllCategories(flatCategories);
       } catch (error) {
         console.error('Ошибка загрузки категорий', error);
@@ -322,13 +395,59 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
     loadAllCategories();
   }, []);
 
-  const topLevelCategories = categories.filter((c) => !c.parentId);
+  const topLevelCategories = processedCategories.filter((c) => !c.parentId);
   const getChildCategories = (parentId: string) =>
-    categories.filter((c) => c.parentId === parentId);
+    processedCategories.filter((c) => c.parentId === parentId);
+
+  // Определяем выбранную родительскую категорию из текущего categoryId
+  useEffect(() => {
+    if (formData.categoryId) {
+      const selectedCategory = processedCategories.find((c) => c.id === formData.categoryId);
+      if (selectedCategory) {
+        if (selectedCategory.parentId) {
+          // Если выбрана подкатегория, устанавливаем родительскую
+          setSelectedParentCategory(selectedCategory.parentId);
+        } else {
+          // Если выбрана категория верхнего уровня
+          const hasChildren = getChildCategories(selectedCategory.id).length > 0;
+          if (hasChildren) {
+            setSelectedParentCategory(selectedCategory.id);
+          } else {
+            // Категория без подкатегорий - устанавливаем selectedParentCategory для отображения в select
+            setSelectedParentCategory(selectedCategory.id);
+          }
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.categoryId, processedCategories]);
+
+  const handleParentCategorySelect = (categoryId: string) => {
+    if (!categoryId) {
+      setSelectedParentCategory(null);
+      updateField('categoryId', '');
+      return;
+    }
+
+    setSelectedParentCategory(categoryId);
+    const children = getChildCategories(categoryId);
+    // Если нет подкатегорий, сразу выбираем саму категорию
+    if (children.length === 0) {
+      updateField('categoryId', categoryId);
+    } else {
+      // Сбрасываем выбор, чтобы пользователь выбрал подкатегорию
+      updateField('categoryId', '');
+    }
+  };
+
+  const handleSubcategorySelect = (subcategoryId: string) => {
+    // Если выбрана сама категория (selectedParentCategory) или подкатегория
+    updateField('categoryId', subcategoryId);
+  };
 
   const handleSubmitCategoryRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Валидация
     if (!categoryRequestData.categoryName || categoryRequestData.categoryName.trim() === '') {
       toast.error('Введите название категории');
@@ -356,7 +475,7 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
 
       console.log('Отправка заявки на категорию:', JSON.stringify(payload, null, 2));
       console.log('categoryName значение:', categoryName, 'длина:', categoryName.length);
-      
+
       const response = await api.post('/categories/requests', payload);
       console.log('Ответ сервера:', response.data);
       toast.success('Заявка успешно отправлена. После одобрения категория будет доступна для выбора.');
@@ -404,41 +523,96 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Категория <span className="text-destructive">*</span>
-            </label>
-            <div className="flex gap-2">
-              <select
-                value={formData.categoryId}
-                onChange={(e) => updateField('categoryId', e.target.value)}
-                className="flex-1 px-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base"
-                required
-              >
-                <option value="">Выберите категорию</option>
-                {topLevelCategories.map((category) => {
-                  const children = getChildCategories(category.id);
-                  return (
-                    <optgroup key={category.id} label={category.name}>
-                      <option value={category.id}>{category.name}</option>
-                      {children.map((child) => (
-                        <option key={child.id} value={child.id}>
-                          {category.name} → {child.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-              </select>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium">
+                Категория <span className="text-destructive">*</span>
+              </label>
               <button
                 type="button"
                 onClick={() => setShowCategoryRequest(true)}
-                className="px-4 py-3 border border-border rounded-lg hover:bg-accent transition-colors flex items-center gap-2 whitespace-nowrap text-sm"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
                 title="Нет подходящей категории?"
               >
-                <HelpCircle className="w-5 h-5" />
-                <span className="hidden sm:inline">Нет подходящей категории?</span>
+                <HelpCircle className="w-4 h-4" />
+                <span>Нет подходящей категории?</span>
               </button>
             </div>
+
+            <div className="space-y-4">
+              {/* Выбор категории */}
+              <div>
+                <label className="block text-xs text-muted-foreground mb-2">
+                  Выберите категорию
+                </label>
+                <select
+                  value={(() => {
+                    // Если выбрана подкатегория, показываем родительскую категорию
+                    if (formData.categoryId) {
+                      const selected = processedCategories.find((c) => c.id === formData.categoryId);
+                      if (selected?.parentId) {
+                        return selected.parentId;
+                      }
+                      // Если выбрана категория верхнего уровня, показываем её
+                      return selected?.id || selectedParentCategory || '';
+                    }
+                    return selectedParentCategory || '';
+                  })()}
+                  onChange={(e) => handleParentCategorySelect(e.target.value)}
+                  className="w-full px-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base transition-all"
+                  required={!formData.categoryId}
+                >
+                  <option value="">Выберите категорию</option>
+                  {topLevelCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Выбор подкатегории - показывается только если выбрана категория с подкатегориями */}
+              {selectedParentCategory && getChildCategories(selectedParentCategory).length > 0 && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                  <label className="block text-xs text-muted-foreground mb-2">
+                    Выберите подкатегорию (опционально)
+                  </label>
+                  <select
+                    value={formData.categoryId || ''}
+                    onChange={(e) => handleSubcategorySelect(e.target.value)}
+                    className="w-full px-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base transition-all"
+                  >
+                    <option value={selectedParentCategory}>
+                      Использовать категорию "{topLevelCategories.find((c) => c.id === selectedParentCategory)?.name ||
+                        processedCategories.find((c) => c.id === selectedParentCategory)?.name}" без подкатегории
+                    </option>
+                    {getChildCategories(selectedParentCategory).map((subcategory) => (
+                      <option key={subcategory.id} value={subcategory.id}>
+                        {subcategory.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Показываем выбранную категорию, если она выбрана и у неё нет подкатегорий */}
+              {formData.categoryId &&
+                selectedParentCategory &&
+                getChildCategories(selectedParentCategory).length === 0 && (
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <p className="text-xs text-muted-foreground mb-1">Выбранная категория</p>
+                    <p className="text-sm font-medium text-primary">
+                      {processedCategories.find((c) => c.id === formData.categoryId)?.name}
+                    </p>
+                  </div>
+                )}
+            </div>
+
+            {/* Скрытое поле для валидации формы */}
+            <input
+              type="hidden"
+              value={formData.categoryId || ''}
+              required
+            />
           </div>
 
           <div>
@@ -470,8 +644,8 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
                 }}
                 disabled={isSkuLoading}
                 className={`px-4 py-3 border rounded-lg transition-colors flex items-center gap-2 min-h-[48px] ${autoGenerateSku
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'border-border hover:bg-accent'
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border hover:bg-accent'
                   } ${isSkuLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 <RefreshCw className={`w-5 h-5 ${isSkuLoading ? 'animate-spin' : ''}`} />
@@ -605,7 +779,7 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
                       </button>
                     </div>
                   </div>
-                  
+
                   {/* Статус валидации */}
                   {isValidatingImage && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -613,13 +787,12 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
                       <span>Проверка изображения ИИ...</span>
                     </div>
                   )}
-                  
+
                   {imageValidation && !isValidatingImage && (
-                    <div className={`p-3 rounded-lg border ${
-                      imageValidation.isValid 
-                        ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
-                        : 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800'
-                    }`}>
+                    <div className={`p-3 rounded-lg border ${imageValidation.isValid
+                      ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                      : 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800'
+                      }`}>
                       <div className="flex items-start gap-2 mb-2">
                         {imageValidation.isValid ? (
                           <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
@@ -627,69 +800,64 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
                           <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
                         )}
                         <div className="flex-1">
-                          <p className={`font-medium text-sm ${
-                            imageValidation.isValid 
-                              ? 'text-green-900 dark:text-green-100' 
-                              : 'text-yellow-900 dark:text-yellow-100'
-                          }`}>
-                            {imageValidation.isValid 
-                              ? 'Изображение одобрено' 
-                              : 'Изображение требует внимания'}
+                          <p className={`font-medium text-sm ${imageValidation.isValid
+                            ? 'text-green-900 dark:text-green-100'
+                            : 'text-yellow-900 dark:text-yellow-100'
+                            }`}>
+                            {imageValidation.message || (imageValidation.isValid
+                              ? 'Изображение одобрено'
+                              : 'Изображение требует внимания')}
                           </p>
-                          {imageValidation.validation.detectedProduct && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Обнаружен товар: {imageValidation.validation.detectedProduct.name}
-                            </p>
-                          )}
                         </div>
                       </div>
-                      
-                      {imageValidation.validation.issues.length > 0 && (
+
+                      {imageValidation.issues && imageValidation.issues.length > 0 && (
                         <div className="mt-2">
                           <p className="text-xs font-medium text-muted-foreground mb-1">Проблемы:</p>
                           <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                            {imageValidation.validation.issues.map((issue, idx) => (
+                            {imageValidation.issues.map((issue, idx) => (
                               <li key={idx}>{issue}</li>
                             ))}
                           </ul>
                         </div>
                       )}
-                      
-                      {imageValidation.validation.recommendations.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Рекомендации:</p>
-                          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                            {imageValidation.validation.recommendations.map((rec, idx) => (
-                              <li key={idx}>{rec}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        <p>Уверенность: {Math.round(imageValidation.validation.confidence * 100)}%</p>
-                        <p>Соотношение сторон: {imageValidation.validation.aspectRatio}</p>
-                      </div>
                     </div>
                   )}
                 </div>
               )}
               {(!formData.images || formData.images.length === 0) && (
-                <label className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors cursor-pointer block ${isImagesUploading || isValidatingImage ? 'opacity-60 cursor-not-allowed' : 'hover:border-primary/50'
-                  }`}>
-                  <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-1">
-                    {isImagesUploading || isValidatingImage ? 'Загрузка и проверка изображения...' : 'Нажмите для загрузки изображения товара'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">PNG, JPG до 5 МБ, квадратное изображение (1:1)</p>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    onChange={handleImagesChange}
-                    disabled={isImagesUploading || isValidatingImage}
-                  />
-                </label>
+                <div className="space-y-2">
+                  <label className={`border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors cursor-pointer block ${isImagesUploading || isValidatingImage || !formData.name?.trim()
+                    ? 'opacity-60 cursor-not-allowed'
+                    : 'hover:border-primary/50'
+                    }`}>
+                    <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground mb-1">
+                      {isImagesUploading || isValidatingImage
+                        ? 'Проверка проходит, подождите...'
+                        : 'Нажмите для загрузки изображения товара'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">PNG, JPG до 5 МБ, квадратное изображение (1:1)</p>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleImagesChange}
+                      disabled={isImagesUploading || isValidatingImage || !formData.name?.trim()}
+                    />
+                  </label>
+                  {!formData.name?.trim() && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Сначала введите название товара для загрузки изображения
+                    </p>
+                  )}
+                  {isValidatingImage && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Проверка изображения ИИ...</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -705,12 +873,38 @@ export function BrandProductForm({ product, categories, onSave, onCancel, onDele
               </button>
               <button
                 type="submit"
-                disabled={
-                  (formData.images && formData.images.length > 0 && uploadedImageFile && formData.images[0] !== originalImageUrl && (!imageValidation || !imageValidation.isValid)) ||
-                  isValidatingImage ||
-                  isImagesUploading
-                }
+                disabled={(() => {
+                  // Если нет изображения - блокируем
+                  const hasNoImage = !formData.images || formData.images.length === 0;
+                  if (hasNoImage) return true;
+
+                  // Если идет загрузка или валидация - блокируем
+                  if (isValidatingImage || isImagesUploading) return true;
+
+                  // Если изображение новое или измененное, проверяем валидацию
+                  const isNewImage = uploadedImageFile !== null;
+                  const imageChanged = formData.images && formData.images[0] !== originalImageUrl;
+                  const isNewProduct = !product;
+
+                  if (isNewImage || imageChanged || isNewProduct) {
+                    // Для новых товаров или при изменении изображения требуется валидация
+                    if (!imageValidation || !imageValidation.isValid) {
+                      return true;
+                    }
+                  }
+
+                  return false;
+                })()}
                 className="flex-1 bg-primary text-primary-foreground py-3 rounded-lg hover:opacity-90 transition-opacity font-medium min-h-[48px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  !formData.images || formData.images.length === 0
+                    ? 'Необходимо загрузить изображение товара'
+                    : isValidatingImage || isImagesUploading
+                      ? 'Идет проверка изображения...'
+                      : (uploadedImageFile || !product) && (!imageValidation || !imageValidation.isValid)
+                        ? 'Изображение должно пройти валидацию'
+                        : undefined
+                }
               >
                 {product ? 'Сохранить изменения' : 'Создать товар'}
               </button>

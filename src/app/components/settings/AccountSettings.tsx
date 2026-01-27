@@ -5,6 +5,55 @@ import { uploadPhoto } from '../../api/upload';
 import { User } from '../../types';
 import { toast } from 'sonner';
 
+// Функция для форматирования номера телефона
+const formatPhoneNumber = (value: string): string => {
+  // Удаляем все нецифровые символы, кроме +
+  const cleaned = value.replace(/[^\d+]/g, '');
+  
+  // Если начинается с +7, форматируем как казахстанский номер
+  if (cleaned.startsWith('+7')) {
+    const digits = cleaned.slice(2).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+  
+  // Если начинается с 7 без +, добавляем +
+  if (cleaned.startsWith('7') && !cleaned.startsWith('+')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+  
+  // Если начинается с 8, заменяем на +7
+  if (cleaned.startsWith('8')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+  
+  // Если начинается с +, но не +7, оставляем как есть
+  if (cleaned.startsWith('+')) {
+    return cleaned;
+  }
+  
+  // Если ничего не подошло, начинаем с +7
+  const digits = cleaned.replace(/\D/g, '').slice(0, 10);
+  if (digits.length === 0) return '+7';
+  if (digits.length <= 3) return `+7 (${digits}`;
+  if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+};
+
 const COUNTRIES = [
   'Казахстан',
   'Россия',
@@ -119,6 +168,7 @@ export function AccountSettings({
     middleName?: string;
     name?: string;
     id?: string;
+    phoneNumber?: string;
   }>({
     isActive: true,
   });
@@ -140,6 +190,7 @@ export function AccountSettings({
     middleName?: string;
     name?: string;
     id?: string;
+    phoneNumber?: string;
   }>({
     isActive: true,
   });
@@ -167,6 +218,19 @@ export function AccountSettings({
     photos: '',
     email: '',
   });
+  const [storeSettingsForm, setStoreSettingsForm] = useState({
+    firstName: '',
+    lastName: '',
+    middleName: '',
+    phoneNumber: '',
+  });
+  const [initialStoreSettingsForm, setInitialStoreSettingsForm] = useState({
+    firstName: '',
+    lastName: '',
+    middleName: '',
+    phoneNumber: '',
+  });
+  const [isSavingStoreSettings, setIsSavingStoreSettings] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -174,13 +238,14 @@ export function AccountSettings({
       try {
         // Для ТП используем специальный API
         if (role === 'salesRep') {
-          const salesRepResponse = await api.get<{ email: string; firstName: string; lastName?: string; middleName?: string }>('/sales-reps/me');
+          const salesRepResponse = await api.get<{ email: string; firstName: string; lastName?: string; middleName?: string; phoneNumber?: string }>('/sales-reps/me');
           if (!isActive) return;
           const initialData = {
             email: salesRepResponse.data.email,
             firstName: salesRepResponse.data.firstName || '',
             lastName: salesRepResponse.data.lastName || '',
             middleName: salesRepResponse.data.middleName || '',
+            phoneNumber: salesRepResponse.data.phoneNumber || '',
           };
           setInitialUserForm(initialData);
           setUserForm(initialData);
@@ -251,6 +316,36 @@ export function AccountSettings({
         setInitialUserForm(initialUser);
         setUserForm(initialUser);
         if (storeId) {
+          // Загружаем настройки магазина
+          try {
+            const storeSettingsResponse = await api.get<{
+              firstName?: string;
+              lastName?: string;
+              middleName?: string;
+              phoneNumber?: string;
+            }>('/stores/me/settings');
+            if (!isActive) return;
+            const settingsData = {
+              firstName: storeSettingsResponse.data.firstName || userResponse.data.firstName || '',
+              lastName: storeSettingsResponse.data.lastName || userResponse.data.lastName || '',
+              middleName: storeSettingsResponse.data.middleName || '',
+              phoneNumber: storeSettingsResponse.data.phoneNumber || '',
+            };
+            setInitialStoreSettingsForm(settingsData);
+            setStoreSettingsForm(settingsData);
+          } catch (error) {
+            console.error('Ошибка загрузки настроек магазина', error);
+            // Если настройки не загрузились, используем данные пользователя
+            const settingsData = {
+              firstName: userResponse.data.firstName || '',
+              lastName: userResponse.data.lastName || '',
+              middleName: '',
+              phoneNumber: '',
+            };
+            setInitialStoreSettingsForm(settingsData);
+            setStoreSettingsForm(settingsData);
+          }
+
           const storeResponse = await api.get<ApiStore>(`/stores/${storeId}`);
           if (!isActive) return;
 
@@ -336,6 +431,7 @@ export function AccountSettings({
           firstName: userForm.firstName,
           lastName: userForm.lastName,
           middleName: userForm.middleName || undefined,
+          phoneNumber: userForm.phoneNumber || undefined,
         });
 
         // Получаем обновленные данные с сервера
@@ -344,6 +440,7 @@ export function AccountSettings({
           firstName: string; 
           lastName?: string; 
           middleName?: string;
+          phoneNumber?: string;
         }>('/sales-reps/me');
 
         // Обновляем начальные значения
@@ -352,6 +449,7 @@ export function AccountSettings({
           firstName: salesRepResponse.data.firstName || '',
           lastName: salesRepResponse.data.lastName || '',
           middleName: salesRepResponse.data.middleName || '',
+          phoneNumber: salesRepResponse.data.phoneNumber || '',
         };
         setInitialUserForm(updatedData);
         setUserForm(updatedData);
@@ -523,6 +621,55 @@ export function AccountSettings({
     }
   };
 
+  const handleUpdateStoreSettings = async () => {
+    setIsSavingStoreSettings(true);
+    try {
+      await api.put('/stores/me/settings', {
+        firstName: storeSettingsForm.firstName,
+        lastName: storeSettingsForm.lastName,
+        middleName: storeSettingsForm.middleName || undefined,
+        phoneNumber: storeSettingsForm.phoneNumber || undefined,
+      });
+
+      // Получаем обновленные настройки
+      const storeSettingsResponse = await api.get<{
+        firstName?: string;
+        lastName?: string;
+        middleName?: string;
+        phoneNumber?: string;
+      }>('/stores/me/settings');
+
+      const updatedSettings = {
+        firstName: storeSettingsResponse.data.firstName || '',
+        lastName: storeSettingsResponse.data.lastName || '',
+        middleName: storeSettingsResponse.data.middleName || '',
+        phoneNumber: storeSettingsResponse.data.phoneNumber || '',
+      };
+      setInitialStoreSettingsForm(updatedSettings);
+
+      // Обновляем данные пользователя в App.tsx
+      const userResponse = await api.get<ApiUser>(`/users/${userId}`);
+      const updatedUserData: User = {
+        id: userId,
+        email: userResponse.data.email,
+        role,
+        profileComplete: true,
+        firstName: updatedSettings.firstName,
+        lastName: updatedSettings.lastName,
+        storeId: userResponse.data.storeId,
+        isActive: userResponse.data.isActive,
+      };
+      onUserUpdated(updatedUserData);
+
+      toast.success('Настройки магазина обновлены.');
+    } catch (error) {
+      console.error('Ошибка обновления настроек магазина', error);
+      toast.error('Не удалось обновить настройки магазина.');
+    } finally {
+      setIsSavingStoreSettings(false);
+    }
+  };
+
   const handleUpdateStore = async () => {
     if (!storeId) return;
     setIsSavingStore(true);
@@ -626,7 +773,8 @@ export function AccountSettings({
       return (
         userForm.firstName !== initialUserForm.firstName ||
         userForm.lastName !== initialUserForm.lastName ||
-        userForm.middleName !== initialUserForm.middleName
+        userForm.middleName !== initialUserForm.middleName ||
+        userForm.phoneNumber !== initialUserForm.phoneNumber
       );
     }
     if (role === 'distributor') {
@@ -658,6 +806,16 @@ export function AccountSettings({
       storeForm.photos !== initialStoreForm.photos
     );
   }, [storeForm, initialStoreForm, storeId]);
+
+  // Проверяем, изменились ли настройки магазина (ФИО и телефон)
+  const isStoreSettingsFormChanged = useMemo(() => {
+    return (
+      storeSettingsForm.firstName !== initialStoreSettingsForm.firstName ||
+      storeSettingsForm.lastName !== initialStoreSettingsForm.lastName ||
+      storeSettingsForm.middleName !== initialStoreSettingsForm.middleName ||
+      storeSettingsForm.phoneNumber !== initialStoreSettingsForm.phoneNumber
+    );
+  }, [storeSettingsForm, initialStoreSettingsForm]);
 
   const handleStorePhotosChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []) as File[];
@@ -768,6 +926,19 @@ export function AccountSettings({
                 onChange={(e) => setUserForm((prev) => ({ ...prev, middleName: e.target.value }))}
                 className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
                 placeholder="Введите ваше отчество (необязательно)"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Номер телефона</label>
+              <input
+                type="tel"
+                value={userForm.phoneNumber || ''}
+                onChange={(e) => {
+                  const formatted = formatPhoneNumber(e.target.value);
+                  setUserForm((prev) => ({ ...prev, phoneNumber: formatted }));
+                }}
+                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                placeholder="+7 (900) 123-45-67"
               />
             </div>
           </div>
@@ -1004,14 +1175,96 @@ export function AccountSettings({
       )}
 
       {role === 'store' && storeId && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
-          <div>
-            <h3 className="text-xl font-semibold">Данные магазина</h3>
-            <p className="text-sm text-gray-500">Обновите информацию магазина</p>
+        <>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+            <div>
+              <h3 className="text-xl font-semibold">Настройки магазина</h3>
+              <p className="text-sm text-gray-500">Обновите ФИО и номер телефона</p>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Фамилия <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={storeSettingsForm.lastName}
+                  onChange={(e) => setStoreSettingsForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  placeholder="Введите фамилию"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Имя <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={storeSettingsForm.firstName}
+                  onChange={(e) => setStoreSettingsForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  placeholder="Введите имя"
+                  required
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Отчество</label>
+                <input
+                  type="text"
+                  value={storeSettingsForm.middleName}
+                  onChange={(e) => setStoreSettingsForm((prev) => ({ ...prev, middleName: e.target.value }))}
+                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  placeholder="Введите отчество (необязательно)"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">
+                  Номер телефона <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={storeSettingsForm.phoneNumber}
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setStoreSettingsForm((prev) => ({ ...prev, phoneNumber: formatted }));
+                  }}
+                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  placeholder="+7 (900) 123-45-67"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={handleUpdateStoreSettings}
+                disabled={!isStoreSettingsFormChanged || isSavingStoreSettings}
+                className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isStoreSettingsFormChanged && !isSavingStoreSettings
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+              >
+                {isSavingStoreSettings ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Сохранение...
+                  </span>
+                ) : (
+                  'Сохранить настройки'
+                )}
+              </button>
+            </div>
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">ID магазина</label>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+            <div>
+              <h3 className="text-xl font-semibold">Данные магазина</h3>
+              <p className="text-sm text-gray-500">Обновите информацию магазина</p>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">ID магазина</label>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCopyStoreId}
@@ -1140,6 +1393,7 @@ export function AccountSettings({
             </button>
           </div>
         </div>
+        </>
       )}
     </div>
   );

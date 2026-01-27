@@ -26,6 +26,8 @@ import { Inventory } from './components/store/Inventory';
 import { QRScanner } from './components/store/QRScanner';
 import { POS } from './components/store/POS';
 import { CategoryManagement } from './components/store/CategoryManagement';
+import { InvoiceHistory } from './components/store/InvoiceHistory';
+import { ActivityHistory } from './components/store/ActivityHistory';
 import { ProductCatalog } from './components/brand/ProductCatalog';
 import { BrandProductForm } from './components/brand/BrandProductForm';
 import { AccountSettings } from './components/settings/AccountSettings';
@@ -393,6 +395,7 @@ export default function App() {
         email: profile.email,
         firstName: profile.firstName,
         lastName: profile.lastName,
+        middleName: profile.middleName || undefined,
         password: profile.password,
         isActive: true,
         store: {
@@ -403,6 +406,7 @@ export default function App() {
           },
           description: profile.description || undefined,
           photos: logoUrl ? [logoUrl] : undefined,
+          phoneNumber: profile.phoneNumber || profile.phone || undefined,
         },
       });
 
@@ -945,6 +949,8 @@ export default function App() {
     if (path.startsWith('/admin/categories')) return 'categories';
     if (path.startsWith('/store/products')) return 'products';
     if (path.startsWith('/store/inventory')) return 'inventory';
+    if (path.startsWith('/store/invoice-history')) return 'invoice-history';
+    if (path.startsWith('/store/activity-history')) return 'activity-history';
     if (path.startsWith('/store/qr-scanner')) return 'qr-scanner';
     if (path.startsWith('/store/pos')) return 'pos';
     if (path.startsWith('/store/settings')) return 'settings';
@@ -1011,6 +1017,8 @@ export default function App() {
       if (view === 'pos') navigate('/store/pos');
       if (view === 'products') navigate('/store/products');
       if (view === 'inventory') navigate('/store/inventory');
+      if (view === 'invoice-history') navigate('/store/invoice-history');
+      if (view === 'activity-history') navigate('/store/activity-history');
       if (view === 'qr-scanner') navigate('/store/qr-scanner');
       if (view === 'settings') navigate('/store/settings');
       return;
@@ -1172,6 +1180,14 @@ export default function App() {
                           onUpdateQuantity={handleUpdateQuantity}
                         />
                       }
+                    />
+                    <Route
+                      path="/store/invoice-history"
+                      element={<InvoiceHistory />}
+                    />
+                    <Route
+                      path="/store/activity-history"
+                      element={<ActivityHistory />}
                     />
                   </>
                 )}

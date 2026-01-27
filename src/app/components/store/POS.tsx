@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShoppingCart, Search, Plus, Minus, Trash2, CheckCircle2, XCircle, Loader2, Receipt, History, TrendingUp, QrCode } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ShoppingCart, Search, Plus, Minus, Trash2, CheckCircle2, XCircle, Loader2, Receipt, History, TrendingUp, Camera, X } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 
@@ -37,7 +37,6 @@ interface AddItemResponse {
 }
 
 export function POS() {
-  const navigate = useNavigate();
   const [currentSale, setCurrentSale] = useState<Sale | null>(null);
   const [scannedSku, setScannedSku] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +46,10 @@ export function POS() {
   const [salesHistory, setSalesHistory] = useState<Sale[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotal, setHistoryTotal] = useState(0);
+  const [isScanning, setIsScanning] = useState(false);
   const skuInputRef = useRef<HTMLInputElement>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const qrCodeRegionId = 'pos-camera';
 
   // Загрузка текущего чека при монтировании
   useEffect(() => {
@@ -60,6 +62,160 @@ export function POS() {
       skuInputRef.current?.focus();
     }
   }, [showHistory, currentSale]);
+
+  // Очистка сканера при размонтировании
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => { });
+        scannerRef.current.clear();
+        scannerRef.current = null;
+      }
+    };
+  }, []);
+
+  const startCamera = async () => {
+    // Проверяем, находимся ли мы в безопасном контексте (HTTPS или localhost)
+    const isSecureContext = window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isSecureContext) {
+      toast.error('Доступ к камере возможен только через HTTPS или localhost. Текущий протокол: ' + location.protocol);
+      return;
+    }
+
+    // Базовая проверка поддержки (но не строгая, так как Html5Qrcode сам проверит)
+    if (typeof navigator === 'undefined' || (!navigator.mediaDevices && !(navigator as any).getUserMedia && !(navigator as any).webkitGetUserMedia)) {
+      console.warn('MediaDevices API может быть недоступен, но попробуем запустить камеру через Html5Qrcode');
+    }
+
+    setIsScanning(true);
+
+    // Увеличиваем задержку для мобильных устройств
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const delay = isMobile ? 300 : 100;
+
+    setTimeout(async () => {
+      const element = document.getElementById(qrCodeRegionId);
+      if (!element) {
+        toast.error('Ошибка: элемент для камеры не найден');
+        setIsScanning(false);
+        return;
+      }
+
+      try {
+        const scanner = new Html5Qrcode(qrCodeRegionId);
+        scannerRef.current = scanner;
+
+        // Адаптивная конфигурация для мобильных и десктопных устройств
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const qrboxSize = isMobile 
+          ? Math.min(viewportWidth * 0.8, viewportHeight * 0.4, 300)
+          : 250;
+
+        const config: any = {
+          fps: 10,
+          qrbox: { width: qrboxSize, height: qrboxSize },
+        };
+
+        // aspectRatio может вызывать проблемы на некоторых мобильных устройствах
+        if (!isMobile) {
+          config.aspectRatio = 1.0;
+        }
+
+        const onScanError = (errorMessage: string) => {
+          // Игнорируем ошибки сканирования (пока функциональность не реализована)
+        };
+
+        try {
+          // Пробуем с facingMode (предпочтительно для мобильных)
+          await scanner.start(
+            { facingMode: 'environment' },
+            config,
+            (decodedText: string) => {
+              // Пока просто игнорируем отсканированный код
+              // В будущем здесь будет обработка сканирования
+              console.log('Отсканировано:', decodedText);
+            },
+            onScanError
+          );
+        } catch (facingModeError: any) {
+          console.warn('Не удалось запустить с facingMode, пробуем список камер', facingModeError);
+
+          // Если не получилось, пробуем через список камер
+          try {
+            const cameras = await Html5Qrcode.getCameras();
+            if (cameras && cameras.length > 0) {
+              // На мобильных устройствах ищем заднюю камеру
+              const backCamera = cameras.find(device =>
+                device.label.toLowerCase().includes('back') ||
+                device.label.toLowerCase().includes('rear') ||
+                device.label.toLowerCase().includes('environment')
+              );
+              const cameraId = backCamera ? backCamera.id : cameras[0].id;
+
+              await scanner.start(
+                cameraId,
+                config,
+                (decodedText: string) => {
+                  // Пока просто игнорируем отсканированный код
+                  console.log('Отсканировано:', decodedText);
+                },
+                onScanError
+              );
+            } else {
+              throw new Error('Камеры не найдены');
+            }
+          } catch (camerasError: any) {
+            // Если и это не сработало, пробрасываем исходную ошибку
+            throw facingModeError;
+          }
+        }
+      } catch (error: any) {
+        console.error('Ошибка запуска камеры', error);
+        setIsScanning(false);
+
+        if (scannerRef.current) {
+          try {
+            await scannerRef.current.stop();
+            scannerRef.current.clear();
+          } catch (e) {
+            console.error('Ошибка очистки сканера', e);
+          }
+          scannerRef.current = null;
+        }
+
+        const errorName = error?.name || '';
+        const errorMessage = error?.message || '';
+
+        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError' || errorMessage.includes('permission')) {
+          toast.error('Доступ к камере запрещен. Разрешите доступ в настройках браузера.');
+        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError' || errorMessage.includes('not found')) {
+          toast.error('Камера не найдена. Убедитесь, что камера подключена.');
+        } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError' || errorMessage.includes('not readable')) {
+          toast.error('Камера уже используется другим приложением.');
+        } else if (errorName === 'OverconstrainedError' || errorMessage.includes('constraint')) {
+          toast.error('Камера не поддерживает требуемые параметры.');
+        } else if (errorMessage.includes('HTTPS') || errorMessage.includes('secure context')) {
+          toast.error('Доступ к камере возможен только через HTTPS.');
+        } else {
+          toast.error(`Не удалось запустить камеру: ${errorMessage || errorName || 'Неизвестная ошибка'}`);
+        }
+      }
+    }, delay);
+  };
+
+  const stopCamera = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      } catch (error) {
+        console.error('Ошибка остановки камеры', error);
+      }
+      scannerRef.current = null;
+    }
+    setIsScanning(false);
+  };
 
   const loadCurrentSale = async () => {
     setIsLoading(true);
@@ -335,13 +491,6 @@ export function POS() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => navigate('/store/qr-scanner')}
-                className="p-2 hover:bg-accent rounded-lg transition-colors"
-                title="Приход товара"
-              >
-                <QrCode className="w-5 h-5" />
-              </button>
-              <button
                 onClick={handleShowHistory}
                 className="p-2 hover:bg-accent rounded-lg transition-colors"
               >
@@ -360,15 +509,52 @@ export function POS() {
               onChange={(e) => setScannedSku(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Сканируйте или введите артикул"
-              className="w-full pl-10 pr-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base"
-              disabled={isAdding}
+              className="w-full pl-10 pr-20 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base"
+              disabled={isAdding || isScanning}
             />
             {isAdding && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="absolute right-14 top-1/2 -translate-y-1/2">
                 <Loader2 className="w-5 h-5 text-primary animate-spin" />
               </div>
             )}
+            {!isScanning ? (
+              <button
+                onClick={startCamera}
+                disabled={isAdding}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
+                title="Открыть камеру"
+              >
+                <Camera className="w-5 h-5 text-primary" />
+              </button>
+            ) : (
+              <button
+                onClick={stopCamera}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-accent rounded-lg transition-colors"
+                title="Закрыть камеру"
+              >
+                <X className="w-5 h-5 text-destructive" />
+              </button>
+            )}
           </div>
+
+          {/* Camera Scanner */}
+          {isScanning && (
+            <div className="bg-card border border-border rounded-lg shadow-sm p-4 mb-4 mt-4">
+              <div className="relative">
+                <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden" style={{ minHeight: '250px' }} />
+                <button
+                  onClick={stopCamera}
+                  className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                  title="Закрыть камеру"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+              <p className="text-sm text-muted-foreground text-center mt-2">
+                Наведите камеру на штрих-код
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Sale Items */}
@@ -481,14 +667,6 @@ export function POS() {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => navigate('/store/qr-scanner')}
-                    className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
-                    title="Приход товара"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    <span>Приход</span>
-                  </button>
-                  <button
                     onClick={handleShowHistory}
                     className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
                   >
@@ -508,15 +686,54 @@ export function POS() {
                   onChange={(e) => setScannedSku(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Сканируйте или введите артикул"
-                  className="w-full pl-10 pr-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-                  disabled={isAdding}
+                  className="w-full pl-10 pr-20 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+                  disabled={isAdding || isScanning}
                 />
                 {isAdding && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="absolute right-14 top-1/2 -translate-y-1/2">
                     <Loader2 className="w-5 h-5 text-primary animate-spin" />
                   </div>
                 )}
+                {!isScanning ? (
+                  <button
+                    onClick={startCamera}
+                    disabled={isAdding}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-accent rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                    title="Открыть камеру"
+                  >
+                    <Camera className="w-5 h-5 text-primary" />
+                    <span className="text-sm hidden sm:inline">Камера</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={stopCamera}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-accent rounded-lg transition-colors flex items-center gap-2"
+                    title="Закрыть камеру"
+                  >
+                    <X className="w-5 h-5 text-destructive" />
+                    <span className="text-sm hidden sm:inline">Закрыть</span>
+                  </button>
+                )}
               </div>
+
+              {/* Camera Scanner */}
+              {isScanning && (
+                <div className="mt-4 bg-card border border-border rounded-lg shadow-sm p-4">
+                  <div className="relative">
+                    <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden max-w-md mx-auto" style={{ minHeight: '250px' }} />
+                    <button
+                      onClick={stopCamera}
+                      className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+                      title="Закрыть камеру"
+                    >
+                      <X className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center mt-2">
+                    Наведите камеру на штрих-код
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Sale Items */}

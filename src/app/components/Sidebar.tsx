@@ -1,5 +1,5 @@
-import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut, Search } from 'lucide-react';
-import { useState, useEffect, React } from 'react';
+import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut, Search, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 
 interface SidebarProps {
   role: 'store' | 'brand' | 'admin' | 'distributor' | 'salesRep';
@@ -17,6 +17,8 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
   const storeOwnerMenuItems = [
     { id: 'products', label: 'Товары', icon: Package },
     { id: 'inventory', label: 'Склад', icon: BarChart3 },
+    { id: 'invoice-history', label: 'История накладных', icon: FileText },
+    { id: 'activity-history', label: 'История действий', icon: History },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 

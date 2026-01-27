@@ -25,12 +25,14 @@ export interface User {
 export interface StoreProfile {
   firstName?: string;
   lastName?: string;
+  middleName?: string;
   password: string;
   storeName: string;
   address: string;
   city: string;
   country: string;
   phone: string;
+  phoneNumber?: string;
   email: string;
   description?: string;
   locationLink: string;
