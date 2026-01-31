@@ -1051,6 +1051,17 @@ export default function App() {
             <Login
               onLogin={handleLogin}
               onNavigateToRegister={() => navigate('/register/role')}
+              showQuickLogins={false}
+            />
+          }
+        />
+        <Route
+          path="/login/demo"
+          element={
+            <Login
+              onLogin={handleLogin}
+              onNavigateToRegister={() => navigate('/register/role')}
+              showQuickLogins={true}
             />
           }
         />
@@ -1140,7 +1151,15 @@ export default function App() {
       )}
 
       <div className="flex-1 flex flex-col md:overflow-hidden w-full">
-        <TopBar userEmail={user.email} role={uiRole} onLogout={handleLogout} />
+        <TopBar
+          userEmail={user.email}
+          role={uiRole}
+          onLogout={handleLogout}
+          firstName={user.firstName}
+          lastName={user.lastName}
+          middleName={undefined}
+          userRole={user.role}
+        />
 
         <main className="flex-1 md:overflow-y-auto overflow-x-hidden md:p-6 pb-24 md:pb-6">
           <Routes>

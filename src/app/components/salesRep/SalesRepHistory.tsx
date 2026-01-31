@@ -81,7 +81,7 @@ export function SalesRepHistory() {
             Всего записей: {history.length}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -93,12 +93,6 @@ export function SalesRepHistory() {
             <option value="recommendation">Рекомендации</option>
             <option value="inventory">Инвентаризация</option>
           </select>
-          <button
-            onClick={loadHistory}
-            className="px-3 md:px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
-          >
-            Обновить
-          </button>
         </div>
       </div>
 

@@ -6,12 +6,60 @@ interface TopBarProps {
   userEmail: string;
   role: 'store' | 'brand' | 'admin' | 'distributor' | 'salesRep';
   onLogout: () => void;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  userRole?: 'store' | 'storeSeller' | 'brand' | 'admin' | 'distributor' | 'salesRep';
 }
 
-export function TopBar({ userEmail, role, onLogout }: TopBarProps) {
+export function TopBar({ userEmail, role, onLogout, firstName, lastName, middleName, userRole }: TopBarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Функция для получения названия роли на русском
+  const getRoleName = (role: string | undefined): string => {
+    if (!role) return '';
+    switch (role) {
+      case 'store':
+        return 'Владелец магазина';
+      case 'storeSeller':
+        return 'Продавец магазина';
+      case 'brand':
+        return 'Владелец бренда';
+      case 'distributor':
+        return 'Дистрибьютор';
+      case 'salesRep':
+        return 'Торговый представитель';
+      case 'admin':
+        return 'Администратор';
+      default:
+        return '';
+    }
+  };
+
+  // Формируем ФИО
+  const fullName = [lastName, firstName, middleName].filter(Boolean).join(' ') || userEmail;
+
+  // Получаем путь к настройкам
+  const getSettingsPath = () => {
+    const actualRole = userRole || role;
+    switch (actualRole) {
+      case 'store':
+      case 'storeSeller':
+        return '/store/settings';
+      case 'distributor':
+        return '/distributor/settings';
+      case 'admin':
+        return '/admin/settings';
+      case 'salesRep':
+        return '/salesrep/settings';
+      case 'brand':
+        return '/brand/settings';
+      default:
+        return '/store/settings';
+    }
+  };
 
   return (
     <>
@@ -65,19 +113,20 @@ export function TopBar({ userEmail, role, onLogout }: TopBarProps) {
           </button>
 
           {/* Элемент 2: Информация о пользователе */}
-          <div className="flex items-center gap-3 pl-3 border-l border-border">
+          <button
+            onClick={() => navigate(getSettingsPath())}
+            className="flex items-center gap-3 pl-3 border-l border-border hover:opacity-80 transition-opacity cursor-pointer"
+          >
             <div className="text-right">
-              <div className="text-sm font-medium">{userEmail}</div>
+              <div className="text-sm font-medium">{fullName}</div>
               <div className="text-xs text-muted-foreground">
-                {role === 'store' ? 'Аккаунт магазина' :
-                  role === 'distributor' ? 'Аккаунт Дс' :
-                    role === 'admin' ? 'Администратор' : 'Аккаунт бренда'}
+                {getRoleName(userRole || role)}
               </div>
             </div>
             <div className="w-9 h-9 bg-muted rounded-full flex items-center justify-center">
               <User className="w-5 h-5 text-muted-foreground" />
             </div>
-          </div>
+          </button>
 
           {/* Элемент 3: Разделитель */}
           <div className="w-px h-8 bg-border"></div>

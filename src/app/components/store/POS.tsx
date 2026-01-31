@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShoppingCart, Search, Plus, Minus, Trash2, CheckCircle2, XCircle, Loader2, Receipt, History, TrendingUp, Camera, X } from 'lucide-react';
+import { ShoppingCart, Search, Plus, Minus, Trash2, CheckCircle2, XCircle, Loader2, Receipt, History, TrendingUp, Camera, X, Wallet, CreditCard } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 
 interface SaleItem {
   productId: string;
@@ -47,6 +48,7 @@ export function POS() {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const skuInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const qrCodeRegionId = 'pos-camera';
@@ -303,12 +305,19 @@ export function POS() {
     });
   };
 
-  const handleComplete = async () => {
+  const handleComplete = () => {
     if (!currentSale || currentSale.items.length === 0) {
       toast.error('Чек пуст');
       return;
     }
+    // Открываем модальное окно выбора способа оплаты
+    setShowPaymentModal(true);
+  };
 
+  const handlePaymentMethod = async (paymentMethod: 'cash' | 'card') => {
+    if (!currentSale) return;
+
+    setShowPaymentModal(false);
     setIsCompleting(true);
     try {
       // Сначала синхронизируем все изменения с сервером
@@ -334,11 +343,14 @@ export function POS() {
         }
       }
 
-      // Теперь завершаем продажу
+      // Теперь завершаем продажу с указанием способа оплаты
       const response = await api.post<AddItemResponse>('/pos/sale/complete', {
         saleId: currentSale.id,
+        paymentMethod: paymentMethod === 'cash' ? 'CASH' : 'CARD',
       });
-      toast.success(`Продажа завершена! Сумма: ${response.data.sale.totalAmount} ${response.data.sale.currency}`);
+      
+      const paymentMethodText = paymentMethod === 'cash' ? 'наличными' : 'безналичными';
+      toast.success(`Оплата ${paymentMethodText} завершена! Сумма: ${response.data.sale.totalAmount} ${response.data.sale.currency}`);
       
       // Загружаем новый чек
       await loadCurrentSale();
@@ -632,12 +644,12 @@ export function POS() {
                 {isCompleting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Пробитие...</span>
+                    <span>Оплата...</span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-5 h-5" />
-                    <span>Пробить чек</span>
+                    <span>Оплата</span>
                   </>
                 )}
               </button>
@@ -811,12 +823,12 @@ export function POS() {
                       {isCompleting ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
-                          <span>Пробитие...</span>
+                          <span>Оплата...</span>
                         </>
                       ) : (
                         <>
                           <CheckCircle2 className="w-5 h-5" />
-                          <span>Пробить чек</span>
+                          <span>Оплата</span>
                         </>
                       )}
                     </button>
@@ -838,6 +850,36 @@ export function POS() {
           </div>
         </div>
       </div>
+
+      {/* Payment Method Modal */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Выберите способ оплаты</DialogTitle>
+            <DialogDescription>
+              Сумма к оплате: {currentSale?.totalAmount} {currentSale?.currency}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <button
+              onClick={() => handlePaymentMethod('cash')}
+              className="flex flex-col items-center justify-center p-6 border-2 border-border rounded-lg hover:bg-accent hover:border-primary transition-all group"
+            >
+              <Wallet className="w-12 h-12 text-primary mb-3 group-hover:scale-110 transition-transform" />
+              <span className="text-xl font-semibold">Нал</span>
+              <span className="text-sm text-muted-foreground mt-1">Наличные</span>
+            </button>
+            <button
+              onClick={() => handlePaymentMethod('card')}
+              className="flex flex-col items-center justify-center p-6 border-2 border-border rounded-lg hover:bg-accent hover:border-primary transition-all group"
+            >
+              <CreditCard className="w-12 h-12 text-primary mb-3 group-hover:scale-110 transition-transform" />
+              <span className="text-xl font-semibold">Без нал</span>
+              <span className="text-sm text-muted-foreground mt-1">Безналичные</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

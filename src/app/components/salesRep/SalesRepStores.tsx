@@ -19,6 +19,11 @@ interface Store {
   email?: string;
   productCount?: number;
   owner?: StoreOwner;
+  // Поля владельца могут быть напрямую в объекте магазина
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  phoneNumber?: string;
   location?: string | {
     link?: string;
   };
@@ -63,16 +68,40 @@ export function SalesRepStores() {
     return null;
   };
 
+  // Получаем данные владельца из объекта магазина (может быть в owner или напрямую)
+  const getOwnerData = (store: Store) => {
+    return {
+      firstName: store.owner?.firstName || store.firstName,
+      lastName: store.owner?.lastName || store.lastName,
+      middleName: store.middleName,
+      phoneNumber: store.owner?.phoneNumber || store.phoneNumber,
+      email: store.owner?.email,
+    };
+  };
+
+  // Получаем полное имя владельца
+  const getOwnerName = (store: Store): string | null => {
+    const owner = getOwnerData(store);
+    const name = [owner.firstName, owner.lastName].filter(Boolean).join(' ');
+    return name || null;
+  };
+
   // Фильтрация магазинов по поисковому запросу
   const filteredStores = stores.filter((store) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
+    const owner = getOwnerData(store);
     return (
       store.name.toLowerCase().includes(query) ||
       store.address?.toLowerCase().includes(query) ||
       store.city?.toLowerCase().includes(query) ||
       store.phone?.toLowerCase().includes(query) ||
-      store.email?.toLowerCase().includes(query)
+      store.email?.toLowerCase().includes(query) ||
+      owner.phoneNumber?.toLowerCase().includes(query) ||
+      owner.firstName?.toLowerCase().includes(query) ||
+      owner.lastName?.toLowerCase().includes(query) ||
+      owner.middleName?.toLowerCase().includes(query) ||
+      owner.email?.toLowerCase().includes(query)
     );
   });
 
@@ -86,22 +115,14 @@ export function SalesRepStores() {
 
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
-            <Store className="w-5 h-5 md:w-6 md:h-6" />
-            Магазины
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Всего магазинов: {filteredStores.length} {searchQuery && `из ${stores.length}`}
-          </p>
-        </div>
-        <button
-          onClick={loadStores}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
-        >
-          Обновить
-        </button>
+      <div>
+        <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+          <Store className="w-5 h-5 md:w-6 md:h-6" />
+          Магазины
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Всего магазинов: {filteredStores.length} {searchQuery && `из ${stores.length}`}
+        </p>
       </div>
 
       {/* Поисковое окно */}
@@ -111,7 +132,7 @@ export function SalesRepStores() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Поиск по названию, адресу, городу, телефону или email..."
+          placeholder="Поиск по названию, адресу, городу, телефону, email или владельцу..."
           className="w-full pl-10 pr-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
         />
       </div>
@@ -127,10 +148,9 @@ export function SalesRepStores() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredStores.map((store) => {
             const locationLink = getLocationLink(store);
-            const ownerName = store.owner 
-              ? [store.owner.firstName, store.owner.lastName].filter(Boolean).join(' ') 
-              : null;
-            
+            const ownerName = getOwnerName(store);
+            const owner = getOwnerData(store);
+
             return (
               <div
                 key={store.id}
@@ -156,27 +176,32 @@ export function SalesRepStores() {
                 </div>
 
                 {/* Информация о владельце */}
-                {ownerName && (
+                {(ownerName || owner.phoneNumber) && (
                   <div className="mb-4 pb-4 border-b border-border">
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <User className="w-4 h-4 text-primary" />
+                    {ownerName && (
+                      <div className="flex items-center gap-2 text-sm mb-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground mb-0.5">Владелец</p>
+                          <p className="font-semibold text-foreground truncate">{ownerName}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground mb-0.5">Владелец</p>
-                        <p className="font-semibold text-foreground truncate">{ownerName}</p>
-                      </div>
-                    </div>
-                    {store.owner?.phoneNumber && (
-                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                        <Phone className="w-3.5 h-3.5" />
-                        <a 
-                          href={`tel:${store.owner.phoneNumber}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="hover:text-primary transition-colors"
-                        >
-                          {store.owner.phoneNumber}
-                        </a>
+                    )}
+                    {owner.phoneNumber && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="w-4 h-4 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          {!ownerName && <p className="text-xs text-muted-foreground mb-0.5">Телефон владельца</p>}
+                          <a
+                            href={`tel:${owner.phoneNumber}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-semibold text-foreground hover:text-primary transition-colors"
+                          >
+                            {owner.phoneNumber}
+                          </a>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -204,7 +229,7 @@ export function SalesRepStores() {
                   {store.phone && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Phone className="w-4 h-4 flex-shrink-0" />
-                      <a 
+                      <a
                         href={`tel:${store.phone}`}
                         onClick={(e) => e.stopPropagation()}
                         className="hover:text-primary transition-colors truncate"
@@ -216,7 +241,7 @@ export function SalesRepStores() {
                   {store.email && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="w-4 h-4 flex-shrink-0" />
-                      <a 
+                      <a
                         href={`mailto:${store.email}`}
                         onClick={(e) => e.stopPropagation()}
                         className="hover:text-primary transition-colors truncate"
@@ -240,11 +265,11 @@ export function SalesRepStores() {
 
       {/* Модальное окно с деталями магазина */}
       {selectedStore && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 md:p-6 animate-in fade-in duration-200"
           onClick={() => setSelectedStore(null)}
         >
-          <div 
+          <div
             className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
@@ -292,50 +317,54 @@ export function SalesRepStores() {
               )}
 
               {/* Информация о владельце */}
-              {selectedStore.owner && (
-                <div className="border border-border rounded-xl p-4 md:p-5 bg-gradient-to-br from-muted/50 to-muted/20">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="w-5 h-5 text-primary" />
+              {(() => {
+                const owner = getOwnerData(selectedStore);
+                const ownerName = getOwnerName(selectedStore);
+                return (ownerName || owner.phoneNumber || owner.email) ? (
+                  <div className="border border-border rounded-xl p-4 md:p-5 bg-gradient-to-br from-muted/50 to-muted/20">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-5 h-5 text-primary" />
+                      </div>
+                      <h3 className="text-base md:text-lg font-semibold">Владелец магазина</h3>
                     </div>
-                    <h3 className="text-base md:text-lg font-semibold">Владелец магазина</h3>
+                    <div className="space-y-3 pl-2">
+                      {ownerName && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Имя</p>
+                          <p className="text-base md:text-lg font-semibold text-foreground">
+                            {ownerName}
+                          </p>
+                        </div>
+                      )}
+                      {owner.phoneNumber && (
+                        <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+                          <p className="text-xs text-muted-foreground mb-2">Телефон</p>
+                          <a
+                            href={`tel:${owner.phoneNumber}`}
+                            className="flex items-center gap-2 text-lg md:text-xl font-bold text-primary hover:underline"
+                          >
+                            <Phone className="w-5 h-5" />
+                            {owner.phoneNumber}
+                          </a>
+                        </div>
+                      )}
+                      {owner.email && (
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Email</p>
+                          <a
+                            href={`mailto:${owner.email}`}
+                            className="flex items-center gap-2 text-sm md:text-base text-primary hover:underline break-all"
+                          >
+                            <Mail className="w-4 h-4 flex-shrink-0" />
+                            {owner.email}
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-3 pl-2">
-                    {(selectedStore.owner.firstName || selectedStore.owner.lastName) && (
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Имя</p>
-                        <p className="text-base md:text-lg font-semibold text-foreground">
-                          {[selectedStore.owner.firstName, selectedStore.owner.lastName].filter(Boolean).join(' ') || '—'}
-                        </p>
-                      </div>
-                    )}
-                    {selectedStore.owner.phoneNumber && (
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Телефон</p>
-                        <a 
-                          href={`tel:${selectedStore.owner.phoneNumber}`}
-                          className="flex items-center gap-2 text-base md:text-lg font-semibold text-primary hover:underline"
-                        >
-                          <Phone className="w-4 h-4" />
-                          {selectedStore.owner.phoneNumber}
-                        </a>
-                      </div>
-                    )}
-                    {selectedStore.owner.email && (
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Email</p>
-                        <a 
-                          href={`mailto:${selectedStore.owner.email}`}
-                          className="flex items-center gap-2 text-sm md:text-base text-primary hover:underline break-all"
-                        >
-                          <Mail className="w-4 h-4 flex-shrink-0" />
-                          {selectedStore.owner.email}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                ) : null;
+              })()}
 
               {/* Контакты магазина */}
               {(selectedStore.phone || selectedStore.email) && (
@@ -348,7 +377,7 @@ export function SalesRepStores() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted-foreground mb-0.5">Телефон</p>
-                        <a 
+                        <a
                           href={`tel:${selectedStore.phone}`}
                           className="text-base font-semibold text-foreground hover:text-primary transition-colors"
                         >
@@ -364,7 +393,7 @@ export function SalesRepStores() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-muted-foreground mb-0.5">Email</p>
-                        <a 
+                        <a
                           href={`mailto:${selectedStore.email}`}
                           className="text-sm md:text-base text-foreground hover:text-primary transition-colors break-all"
                         >

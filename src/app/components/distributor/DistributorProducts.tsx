@@ -289,12 +289,6 @@ export function DistributorProducts() {
             Всего товаров: {filteredProducts.length}
           </p>
         </div>
-        <button
-          onClick={loadProducts}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
-        >
-          Обновить
-        </button>
       </div>
 
       {/* Поиск */}

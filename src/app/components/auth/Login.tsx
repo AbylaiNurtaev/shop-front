@@ -5,9 +5,14 @@ import { Store, Mail, Lock, ShoppingBag, Building2, Network, Users } from 'lucid
 interface LoginProps {
   onLogin: (email: string, password: string) => void;
   onNavigateToRegister: () => void;
+  /**
+   * Показывать ли демо-кнопки для быстрого входа.
+   * Для реального логина (/login) отключаем, для демо (/login/demo) включаем.
+   */
+  showQuickLogins?: boolean;
 }
 
-export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
+export function Login({ onLogin, onNavigateToRegister, showQuickLogins = true }: LoginProps) {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -82,36 +87,40 @@ export function Login({ onLogin, onNavigateToRegister }: LoginProps) {
             </button>
           </form>
 
-          <div className="mt-4">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
+          {showQuickLogins && (
+            <>
+              <div className="mt-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">или</span>
+                  </div>
+                </div>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">или</span>
-              </div>
-            </div>
-          </div>
 
-          <div className="mt-4 space-y-2">
-            <p className="text-xs text-muted-foreground text-center mb-2">Быстрый вход (для разработки):</p>
-            <div className="grid grid-cols-2 gap-2">
-              {quickLoginAccounts.map((account) => {
-                const Icon = account.icon;
-                return (
-                  <button
-                    key={account.email}
-                    type="button"
-                    onClick={() => handleQuickLogin(account.email, account.password)}
-                    className={`${account.color} text-white py-2 px-3 rounded-md transition-opacity font-medium text-xs flex items-center justify-center gap-1.5`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span className="truncate">{account.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+              <div className="mt-4 space-y-2">
+                <p className="text-xs text-muted-foreground text-center mb-2">Быстрый вход (для разработки):</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {quickLoginAccounts.map((account) => {
+                    const Icon = account.icon;
+                    return (
+                      <button
+                        key={account.email}
+                        type="button"
+                        onClick={() => handleQuickLogin(account.email, account.password)}
+                        className={`${account.color} text-white py-2 px-3 rounded-md transition-opacity font-medium text-xs flex items-center justify-center gap-1.5`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span className="truncate">{account.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="mt-4">
             <div className="relative">

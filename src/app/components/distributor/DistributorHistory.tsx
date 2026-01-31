@@ -132,7 +132,7 @@ export function DistributorHistory() {
             Всего записей: {total}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <select
@@ -148,14 +148,6 @@ export function DistributorHistory() {
               ))}
             </select>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="px-3 md:px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Обновить
-          </button>
         </div>
       </div>
 

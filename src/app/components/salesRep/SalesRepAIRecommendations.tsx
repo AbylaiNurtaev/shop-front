@@ -111,7 +111,7 @@ export function SalesRepAIRecommendations() {
             )}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -122,12 +122,6 @@ export function SalesRepAIRecommendations() {
             <option value="expiring">Истекающий срок</option>
             <option value="reorder">Рекомендации по дозаказу</option>
           </select>
-          <button
-            onClick={loadRecommendations}
-            className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium"
-          >
-            Обновить
-          </button>
         </div>
       </div>
 

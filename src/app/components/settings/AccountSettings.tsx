@@ -933,11 +933,51 @@ export function AccountSettings({
     return <div className="p-4 text-sm text-gray-500">Загрузка профиля...</div>;
   }
 
+  // Функция для получения названия роли на русском
+  const getRoleName = (role: string): string => {
+    switch (role) {
+      case 'store':
+        return 'Владелец магазина';
+      case 'storeSeller':
+        return 'Продавец магазина';
+      case 'brand':
+        return 'Владелец бренда';
+      case 'distributor':
+        return 'Дистрибьютор';
+      case 'salesRep':
+        return 'Торговый представитель';
+      case 'admin':
+        return 'Администратор';
+      default:
+        return '';
+    }
+  };
+
+  // Формируем ФИО в зависимости от роли
+  const getFullName = (): string => {
+    if (role === 'salesRep') {
+      return [userForm.lastName, userForm.firstName, userForm.middleName].filter(Boolean).join(' ') || userForm.email || '';
+    }
+    if (role === 'store' && storeId) {
+      return [storeSettingsForm.lastName, storeSettingsForm.firstName, storeSettingsForm.middleName].filter(Boolean).join(' ') || userForm.email || '';
+    }
+    if (role === 'distributor') {
+      return userForm.name || userForm.email || '';
+    }
+    if (role === 'storeSeller') {
+      return userForm.name || userForm.email || '';
+    }
+    return userForm.email || '';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-0">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold">Настройки аккаунта</h2>
-        <p className="text-sm text-gray-500 mt-1">Обновление данных пользователя</p>
+        <div className="mt-4 p-4 bg-white border border-gray-200 rounded-lg">
+          <div className="text-lg font-semibold">{getFullName()}</div>
+          <div className="text-sm text-gray-500 mt-1">{getRoleName(role)}</div>
+        </div>
       </div>
 
       {role === 'salesRep' && (

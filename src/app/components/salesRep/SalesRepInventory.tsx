@@ -67,7 +67,6 @@ export function SalesRepInventory() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [storeFilter, setStoreFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [threshold, setThreshold] = useState<string>('');
 
   useEffect(() => {
     loadCategories();
@@ -80,7 +79,7 @@ export function SalesRepInventory() {
 
   useEffect(() => {
     loadInventory();
-  }, [storeFilter, threshold]);
+  }, [storeFilter]);
 
   const loadCategories = async () => {
     try {
@@ -98,12 +97,6 @@ export function SalesRepInventory() {
       const params: Record<string, string | number> = {};
       if (storeFilter !== 'all') {
         params.storeId = storeFilter;
-      }
-      if (threshold.trim()) {
-        const parsedThreshold = Number(threshold);
-        if (!Number.isNaN(parsedThreshold)) {
-          params.threshold = parsedThreshold;
-        }
       }
       const response = await api.get<{ items?: ApiInventoryItem[] }>('/sales-reps/stock-control', { params });
       console.log('GET /sales-reps/stock-control response', response.data);
@@ -206,22 +199,14 @@ export function SalesRepInventory() {
 
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
-            <Package className="w-5 h-5 md:w-6 md:h-6" />
-            Контроль остатков
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Всего позиций: {filteredInventory.length}
-          </p>
-        </div>
-        <button
-          onClick={loadInventory}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
-        >
-          Обновить
-        </button>
+      <div>
+        <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+          <Package className="w-5 h-5 md:w-6 md:h-6" />
+          Контроль остатков
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Всего позиций: {filteredInventory.length}
+        </p>
       </div>
 
       {/* Фильтры */}
@@ -236,6 +221,18 @@ export function SalesRepInventory() {
             className="w-full pl-10 pr-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
           />
         </div>
+        <select
+          value={storeFilter}
+          onChange={(e) => setStoreFilter(e.target.value)}
+          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+        >
+          <option value="all">Все магазины</option>
+          {stores.map((store) => (
+            <option key={store.id} value={store.id}>
+              {store.name}
+            </option>
+          ))}
+        </select>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
@@ -258,26 +255,6 @@ export function SalesRepInventory() {
           <option value="normal">Норма</option>
           <option value="high">Избыток</option>
         </select>
-        <select
-          value={storeFilter}
-          onChange={(e) => setStoreFilter(e.target.value)}
-          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-        >
-          <option value="all">Все магазины</option>
-          {stores.map((store) => (
-            <option key={store.id} value={store.id}>
-              {store.name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={0}
-          value={threshold}
-          onChange={(e) => setThreshold(e.target.value)}
-          placeholder="Порог"
-          className="px-3 md:px-4 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-        />
       </div>
 
       {filteredInventory.length === 0 ? (

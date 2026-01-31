@@ -15,18 +15,16 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
 
   // Меню для владельца магазина (полный доступ)
   const storeOwnerMenuItems = [
-    { id: 'products', label: 'Товары', icon: Package },
     { id: 'inventory', label: 'Склад', icon: BarChart3 },
     { id: 'invoice-history', label: 'История накладных', icon: FileText },
     { id: 'activity-history', label: 'История действий', icon: History },
-    { id: 'settings', label: 'Настройки', icon: Settings },
+    { id: 'products', label: 'Товары', icon: Package },
   ];
 
   // Меню для продавца магазина (ограниченный доступ)
   const storeSellerMenuItems = [
     { id: 'pos', label: 'Касса', icon: ShoppingCart },
     { id: 'qr-scanner', label: 'Приход товара', icon: QrCode },
-    { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   const storeMenuItems = userRole === 'storeSeller' ? storeSellerMenuItems : storeOwnerMenuItems;
@@ -35,7 +33,6 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
     { id: 'catalog', label: 'Каталог товаров', icon: Package },
     { id: 'distributors', label: 'Партнеры', icon: Network },
     { id: 'searchStatistics', label: 'Статистика поиска', icon: Search },
-    { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   const distributorMenuItems = [
@@ -48,7 +45,6 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
     { id: 'forecast', label: 'Прогноз спроса (AI)', icon: Brain },
     { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
     { id: 'history', label: 'История', icon: History },
-    { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   const salesRepMenuItems = [
@@ -60,7 +56,6 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
     { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
     { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
     { id: 'plan', label: 'План', icon: Calendar },
-    { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   const menuItems =
@@ -144,22 +139,6 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
           </ul>
         </nav>
 
-        <div className="p-3 border-t border-border space-y-2">
-          <button
-            onClick={() => {
-              onLogout();
-              setIsMobileOpen(false);
-            }}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-md transition-colors min-h-[44px] text-muted-foreground hover:bg-accent hover:text-accent-foreground ${isCollapsed ? 'justify-center' : ''}`}
-            title={isCollapsed ? 'Выход' : undefined}
-          >
-            <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && <span>Выход</span>}
-          </button>
-          <div className={`text-xs text-muted-foreground ${isCollapsed ? 'text-center' : ''}`}>
-            {isCollapsed ? 'v1' : 'Версия 1.0.0'}
-          </div>
-        </div>
       </aside>
     </>
   );

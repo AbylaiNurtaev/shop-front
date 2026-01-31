@@ -181,7 +181,7 @@ export function BrandSearchStatistics() {
               <div className="flex items-end md:items-end">
                 <Button onClick={fetchStatistics} className="w-full h-10 md:h-9 text-sm font-medium">
                   <Search className="w-4 h-4 mr-2" />
-                  Обновить
+                  Поиск
                 </Button>
               </div>
             </div>

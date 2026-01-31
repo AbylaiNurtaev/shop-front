@@ -164,22 +164,14 @@ export function SalesRepPlan() {
 
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
-            <Calendar className="w-5 h-5 md:w-6 md:h-6" />
-            Планы продаж
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Общие планы: {plans.length} | Планы по категориям: {categoryPlans.length}
-          </p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
-        >
-          Обновить
-        </button>
+      <div>
+        <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+          <Calendar className="w-5 h-5 md:w-6 md:h-6" />
+          Планы продаж
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Общие планы: {plans.length} | Планы по категориям: {categoryPlans.length}
+        </p>
       </div>
 
       {/* Общие планы */}

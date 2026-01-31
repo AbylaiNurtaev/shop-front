@@ -66,12 +66,14 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
+  const [editUnitsPerBoxValue, setEditUnitsPerBoxValue] = useState<number>(1);
   const [isProcessingInvoice, setIsProcessingInvoice] = useState(false);
   const [invoiceResult, setInvoiceResult] = useState<InvoiceProcessingResult | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [editedQuantities, setEditedQuantities] = useState<Record<string, number>>({});
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [expiryView, setExpiryView] = useState<'soon' | 'expired'>('soon');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getCategoryName = (categoryId: string) => {
@@ -82,11 +84,29 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
   const handleEdit = (product: Product) => {
     setEditingId(product.id);
     setEditValue(product.quantity);
+    setEditUnitsPerBoxValue(product.unitsPerBox);
   };
 
-  const handleSave = (product: Product) => {
-    onUpdateQuantity(product, editValue);
-    setEditingId(null);
+  const handleSave = async (product: Product) => {
+    if (editUnitsPerBoxValue < 1) {
+      toast.error('Единиц в упаковке должно быть не менее 1');
+      return;
+    }
+    try {
+      // Сохраняем остаток
+      onUpdateQuantity(product, editValue);
+      // Сохраняем единицы в упаковке
+      await api.put(`/products/${product.id}`, {
+        unitsPerPack: editUnitsPerBoxValue,
+      });
+      setEditingId(null);
+      toast.success('Изменения сохранены');
+      // Перезагружаем страницу для обновления данных
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Ошибка обновления единиц в упаковке', error);
+      toast.error(error?.response?.data?.message || 'Не удалось обновить единицы в упаковке');
+    }
   };
 
   const handleCancel = () => {
@@ -106,6 +126,41 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
   const totalStock = products.reduce((sum, p) => sum + p.quantity, 0);
   const lowStockCount = products.filter((p) => p.quantity < 20 && p.quantity > 0).length;
   const outOfStockCount = products.filter((p) => p.quantity === 0).length;
+
+  // Подсчет товаров с истекающим сроком годности
+  const getDaysUntilExpiry = (product: Product): number | null => {
+    if (!product.productionDate || !product.storageLife) return null;
+
+    try {
+      const productionDate = new Date(product.productionDate);
+      const storageLifeMatch = product.storageLife.match(/(\d+)/);
+      if (!storageLifeMatch) return null;
+
+      const storageLifeDays = parseInt(storageLifeMatch[1], 10);
+      const expiryDate = new Date(productionDate);
+      expiryDate.setDate(expiryDate.getDate() + storageLifeDays);
+
+      const now = new Date();
+      const diffTime = expiryDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      return diffDays;
+    } catch {
+      return null;
+    }
+  };
+
+  // Товары с истекшим сроком годности (отрицательные дни)
+  const expiredCount = products.filter((p) => {
+    const daysLeft = getDaysUntilExpiry(p);
+    return daysLeft !== null && daysLeft < 0;
+  }).length;
+
+  // Товары с истекающим сроком годности (0-7 дней)
+  const expiringSoonCount = products.filter((p) => {
+    const daysLeft = getDaysUntilExpiry(p);
+    return daysLeft !== null && daysLeft >= 0 && daysLeft < 7;
+  }).length;
 
   const handleInvoiceUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -265,7 +320,7 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               </div>
             </div>
 
-            {/* Low Stock + Out of Stock in row */}
+            {/* Low Stock + Out of Stock + Expiring in row */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-2xl p-4">
                 <p className="text-xs font-bold text-orange-700 uppercase tracking-wide mb-1">Мало</p>
@@ -277,6 +332,42 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                 <p className="text-xs font-bold text-red-700 uppercase tracking-wide mb-1">Нет</p>
                 <p className="text-3xl font-black text-red-900">{outOfStockCount}</p>
                 <span className="text-lg mt-1 block">⚠️</span>
+              </div>
+            </div>
+
+            {/* Expiring Products */}
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-purple-700 uppercase tracking-wide">Срок годности</p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setExpiryView('soon')}
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'soon' ? 'bg-purple-200 text-purple-900 font-medium' : 'text-purple-600'
+                      }`}
+                  >
+                    Скоро
+                  </button>
+                  <button
+                    onClick={() => setExpiryView('expired')}
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'expired' ? 'bg-red-200 text-red-900 font-medium' : 'text-red-600'
+                      }`}
+                  >
+                    Просрочено
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-purple-600 mb-1">
+                    {expiryView === 'soon' ? 'Истекает скоро' : 'Просрочено'}
+                  </p>
+                  <p className="text-3xl font-black text-purple-900">
+                    {expiryView === 'soon' ? expiringSoonCount : expiredCount}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">⏰</span>
+                </div>
               </div>
             </div>
           </div>
@@ -341,6 +432,33 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                         <button
                           type="button"
                           onClick={() => setEditValue(editValue + 1)}
+                          className="w-14 h-14 flex items-center justify-center bg-gray-100 rounded-xl active:scale-95 active:bg-gray-200 transition-all font-bold text-xl"
+                        >
+                          <Plus className="w-6 h-6" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-2xl p-4 border-2 border-blue-500 shadow-md">
+                      <p className="text-xs font-bold text-blue-600 uppercase text-center mb-3">Единиц в упаковке</p>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditUnitsPerBoxValue(Math.max(1, editUnitsPerBoxValue - 1))}
+                          className="w-14 h-14 flex items-center justify-center bg-gray-100 rounded-xl active:scale-95 active:bg-gray-200 transition-all font-bold text-xl"
+                        >
+                          <Minus className="w-6 h-6" />
+                        </button>
+                        <input
+                          type="number"
+                          value={editUnitsPerBoxValue}
+                          onChange={(e) => setEditUnitsPerBoxValue(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="flex-1 h-14 text-center text-3xl font-black bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-w-[120px]"
+                          min="1"
+                          style={{ maxWidth: '120px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEditUnitsPerBoxValue(editUnitsPerBoxValue + 1)}
                           className="w-14 h-14 flex items-center justify-center bg-gray-100 rounded-xl active:scale-95 active:bg-gray-200 transition-all font-bold text-xl"
                         >
                           <Plus className="w-6 h-6" />
@@ -436,7 +554,7 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
 
         {/* Stats Cards - Desktop */}
         <div className="mb-6">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -472,6 +590,41 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                 </div>
               </div>
             </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-purple-700 font-medium">Срок годности</p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setExpiryView('soon')}
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'soon' ? 'bg-purple-200 text-purple-900 font-medium' : 'text-purple-600'
+                      }`}
+                  >
+                    Скоро
+                  </button>
+                  <button
+                    onClick={() => setExpiryView('expired')}
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'expired' ? 'bg-red-200 text-red-900 font-medium' : 'text-red-600'
+                      }`}
+                  >
+                    Просрочено
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-purple-600 mb-1">
+                    {expiryView === 'soon' ? 'Истекает скоро' : 'Просрочено'}
+                  </p>
+                  <p className="text-3xl font-bold text-purple-900">
+                    {expiryView === 'soon' ? expiringSoonCount : expiredCount}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">⏰</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -498,8 +651,8 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                   <th className="text-left px-4 py-3 text-sm font-medium">Название</th>
                   <th className="text-left px-4 py-3 text-sm font-medium">Артикул</th>
                   <th className="text-left px-4 py-3 text-sm font-medium">Категория</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Остаток</th>
                   <th className="text-left px-4 py-3 text-sm font-medium">Ед/упак</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium">Остаток</th>
                   <th className="text-left px-4 py-3 text-sm font-medium">Действия</th>
                 </tr>
               </thead>
@@ -515,6 +668,19 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                         {isEditing ? (
                           <input
                             type="number"
+                            value={editUnitsPerBoxValue}
+                            onChange={(e) => setEditUnitsPerBoxValue(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="w-20 px-2 py-1 bg-gray-50 border border-gray-300 rounded text-sm"
+                            min="1"
+                          />
+                        ) : (
+                          <span className="text-sm">{product.unitsPerBox}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 w-32">
+                        {isEditing ? (
+                          <input
+                            type="number"
                             value={editValue}
                             onChange={(e) => setEditValue(parseInt(e.target.value) || 0)}
                             className="w-24 max-w-24 px-2 py-1 bg-gray-50 border border-gray-300 rounded"
@@ -525,7 +691,6 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                           <span className="font-medium">{product.quantity}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm">{product.unitsPerBox}</td>
                       <td className="px-4 py-3">
                         {isEditing ? (
                           <div className="flex gap-2">

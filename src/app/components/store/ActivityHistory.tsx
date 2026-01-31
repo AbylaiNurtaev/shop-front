@@ -48,7 +48,7 @@ const actionTypeLabels: Record<ActionType, string> = {
   CONFIRM_INVOICE: 'Подтверждение накладной',
 };
 
-const actionTypeIcons: Record<ActionType, typeof Package> = {
+const actionTypeIcons: Record<ActionType, React.ComponentType<{ className?: string }>> = {
   ADD_STOCK: Plus,
   REMOVE_STOCK: Minus,
   UPDATE_PRICE: DollarSign,
@@ -97,12 +97,11 @@ export function ActivityHistory() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ru-RU', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+      minute: '2-digit'
     });
   };
 
@@ -152,8 +151,8 @@ export function ActivityHistory() {
           <>
             <div className="p-4 space-y-4 pb-24">
               {(activities || []).map((activity, idx) => {
-                const Icon = actionTypeIcons[activity.actionType];
-                const colorClass = actionTypeColors[activity.actionType];
+                const Icon = actionTypeIcons[activity.actionType] || Activity;
+                const colorClass = actionTypeColors[activity.actionType] || 'bg-gray-100 text-gray-700 border-gray-200';
 
                 return (
                   <div
@@ -168,7 +167,7 @@ export function ActivityHistory() {
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-base text-gray-900">
-                              {actionTypeLabels[activity.actionType]}
+                              {actionTypeLabels[activity.actionType] || 'Неизвестное действие'}
                             </h3>
                           </div>
                         </div>
@@ -266,8 +265,8 @@ export function ActivityHistory() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {(activities || []).map((activity, idx) => {
-                      const Icon = actionTypeIcons[activity.actionType];
-                      const colorClass = actionTypeColors[activity.actionType];
+                      const Icon = actionTypeIcons[activity.actionType] || Activity;
+                      const colorClass = actionTypeColors[activity.actionType] || 'bg-gray-100 text-gray-700 border-gray-200';
 
                       return (
                         <tr key={`${activity.actionType}-${activity.timestamp}-${idx}`} className="hover:bg-gray-50 transition-colors">
@@ -276,7 +275,7 @@ export function ActivityHistory() {
                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${colorClass}`}>
                                 <Icon className="w-4 h-4" />
                               </div>
-                              <span className="font-medium">{actionTypeLabels[activity.actionType]}</span>
+                              <span className="font-medium">{actionTypeLabels[activity.actionType] || 'Неизвестное действие'}</span>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-sm">{getActionDescription(activity)}</td>

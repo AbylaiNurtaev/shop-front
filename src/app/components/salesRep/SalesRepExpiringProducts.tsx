@@ -100,24 +100,15 @@ export function SalesRepExpiringProducts() {
 
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-0">
-      {/* Заголовок и фильтры */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
-            Товары с истекающим сроком
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Всего товаров: {total}
-          </p>
-        </div>
-        <button
-          onClick={loadExpiringProducts}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto flex items-center gap-2"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Обновить
-        </button>
+      {/* Заголовок */}
+      <div>
+        <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
+          Товары с истекающим сроком
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Всего товаров: {total}
+        </p>
       </div>
 
       {/* Фильтр по дням */}

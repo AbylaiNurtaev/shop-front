@@ -261,20 +261,8 @@ export function DemandForecast() {
 
   return (
     <div className="space-y-4 p-4 md:p-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
         <h1 className="text-xl md:text-2xl font-semibold">Прогноз спроса (AI)</h1>
-        <Button
-          onClick={loadForecast}
-          disabled={isLoading}
-          className="flex items-center gap-2"
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <RefreshCw className="w-4 h-4" />
-          )}
-          Обновить прогноз
-        </Button>
       </div>
 
       {/* Фильтры */}

@@ -83,22 +83,14 @@ export function SalesRepAnalytics() {
 
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
-            <Brain className="w-5 h-5 md:w-6 md:h-6" />
-            AI-аналитика
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Анализ данных по вашим магазинам и товарам
-          </p>
-        </div>
-        <button
-          onClick={loadAnalytics}
-          className="px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
-        >
-          Обновить
-        </button>
+      <div>
+        <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+          <Brain className="w-5 h-5 md:w-6 md:h-6" />
+          AI-аналитика
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Анализ данных по вашим магазинам и товарам
+        </p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 md:gap-4">

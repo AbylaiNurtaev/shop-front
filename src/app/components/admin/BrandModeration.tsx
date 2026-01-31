@@ -173,19 +173,6 @@ export function BrandModeration() {
             <FolderTree className="w-4 h-4" />
             Категории
           </button>
-          <button
-            onClick={() => {
-              if (activeTab === 'pending') {
-                void loadPendingBrands();
-              } else {
-                void loadAllBrands();
-              }
-            }}
-            className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Обновить
-          </button>
         </div>
       </div>
 

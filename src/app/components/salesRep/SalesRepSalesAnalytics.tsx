@@ -375,12 +375,6 @@ export function SalesRepSalesAnalytics() {
             Период: {formatDate(analytics.period.startDate)} - {formatDate(analytics.period.endDate)}
           </p>
         </div>
-        <button
-          onClick={() => loadAnalytics(startDate, endDate)}
-          className="px-4 py-2 border border-foreground/30 rounded-md hover:bg-accent transition-colors text-sm font-medium self-start sm:self-auto"
-        >
-          Обновить
-        </button>
       </div>
 
       {/* Фильтры дат */}
@@ -430,36 +424,36 @@ export function SalesRepSalesAnalytics() {
 
       {/* Основные метрики */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div className="bg-card border border-foreground/30 rounded-lg p-4">
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <ShoppingCart className="w-5 h-5 text-primary" />
-            <span className="text-xs text-muted-foreground">Продаж</span>
+            <ShoppingCart className="w-5 h-5 text-white" />
+            <span className="text-xs text-gray-300">Продаж</span>
           </div>
-          <div className="text-2xl font-semibold">{analytics.summary.totalSales}</div>
+          <div className="text-2xl font-semibold text-white">{analytics.summary.totalSales}</div>
         </div>
 
-        <div className="bg-card border border-foreground/30 rounded-lg p-4">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 border border-green-400 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <DollarSign className="w-5 h-5 text-green-600" />
-            <span className="text-xs text-muted-foreground">Выручка</span>
+            <DollarSign className="w-5 h-5 text-white" />
+            <span className="text-xs text-green-50">Выручка</span>
           </div>
-          <div className="text-xl font-semibold">{formatCurrency(analytics.summary.totalRevenue)}</div>
+          <div className="text-xl font-semibold text-white">{formatCurrency(analytics.summary.totalRevenue)}</div>
         </div>
 
-        <div className="bg-card border border-foreground/30 rounded-lg p-4">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 border border-blue-400 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <Package className="w-5 h-5 text-blue-600" />
-            <span className="text-xs text-muted-foreground">Товаров</span>
+            <Package className="w-5 h-5 text-white" />
+            <span className="text-xs text-blue-50">Товаров</span>
           </div>
-          <div className="text-2xl font-semibold">{analytics.summary.totalQuantity}</div>
+          <div className="text-2xl font-semibold text-white">{analytics.summary.totalQuantity}</div>
         </div>
 
-        <div className="bg-card border border-foreground/30 rounded-lg p-4">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 border border-purple-400 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <TrendingUp className="w-5 h-5 text-purple-600" />
-            <span className="text-xs text-muted-foreground">Средний чек</span>
+            <TrendingUp className="w-5 h-5 text-white" />
+            <span className="text-xs text-purple-50">Средний чек</span>
           </div>
-          <div className="text-xl font-semibold">{formatCurrency(analytics.summary.averageSale)}</div>
+          <div className="text-xl font-semibold text-white">{formatCurrency(analytics.summary.averageSale)}</div>
         </div>
       </div>
 
