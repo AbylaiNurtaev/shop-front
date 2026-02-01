@@ -876,6 +876,16 @@ export function SalesRepsList() {
             </div>
           </div>
         )}
+
+        {/* Модальное окно продаж товара */}
+        {selectedProductIdForSales && selectedSalesRep && (
+          <ProductSalesModal
+            isOpen={isProductSalesModalOpen}
+            onClose={handleCloseProductSalesModal}
+            productId={selectedProductIdForSales}
+            salesRepresentativeId={selectedSalesRep.id}
+          />
+        )}
       </div>
     );
   }
@@ -1017,16 +1027,6 @@ export function SalesRepsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Модальное окно продаж товара */}
-      {selectedProductIdForSales && selectedSalesRep && (
-        <ProductSalesModal
-          isOpen={isProductSalesModalOpen}
-          onClose={handleCloseProductSalesModal}
-          productId={selectedProductIdForSales}
-          salesRepresentativeId={selectedSalesRep.id}
-        />
-      )}
 
     </div>
   );

@@ -59,33 +59,34 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
 
   // Для Дс: 4 элемента в нижней навигации (3 основных + бургер-меню)
   const distributorMainItems = [
-    { id: 'stores', label: 'Магазины', icon: Store },
-    { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
+    { id: 'salesReps', label: 'ТП', icon: Users },
     { id: 'products', label: 'Товары', icon: Package },
+    { id: 'stores', label: 'Магазины', icon: Store },
   ];
 
   const distributorMenuItems = [
-    { id: 'salesReps', label: 'ТП', icon: Users },
-    { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
-    { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
+    { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
+    { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
     { id: 'forecast', label: 'Прогноз спроса (AI)', icon: Brain },
     { id: 'history', label: 'История', icon: History },
+    { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
+    { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   // Для ТП: 4 элемента в нижней навигации (3 основных + бургер-меню)
   const salesRepMainItems = [
-    { id: 'analytics', label: 'Аналитика', icon: Brain },
+    { id: 'plan', label: 'План продаж', icon: Calendar },
     { id: 'stores', label: 'Магазины', icon: Store },
-    { id: 'inventory', label: 'Остатки', icon: BarChart3 },
+    { id: 'analytics', label: 'Аналитика', icon: Brain },
   ];
 
   const salesRepMenuItems = [
-    { id: 'history', label: 'История', icon: History },
     { id: 'productGroups', label: 'Группы товаров', icon: FolderTree },
-    { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
+    { id: 'inventory', label: 'Контроль остатков', icon: BarChart3 },
     { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
-    { id: 'plan', label: 'План', icon: Calendar },
+    { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
+    { id: 'history', label: 'История', icon: History },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
@@ -156,15 +157,15 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
             className="md:hidden fixed inset-0 bg-black/50 z-40"
             onClick={() => setIsMenuOpen(false)}
           />
-          <div className="md:hidden fixed bottom-20 left-0 right-0 bg-white border-t-2 border-gray-200 z-50 shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="md:hidden fixed bottom-20 left-0 right-0 bg-card border-t-2 border-border z-50 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Меню</h3>
+                <h3 className="text-lg font-semibold text-foreground">Меню</h3>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5 text-foreground" />
                 </button>
               </div>
               <div className="space-y-1">
@@ -179,8 +180,8 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                         setIsMenuOpen(false);
                       }}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground hover:bg-accent'
                         }`}
                     >
                       <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
@@ -191,13 +192,13 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                 {/* Кнопка выхода в бургер-меню для Дс, ТП, владельца магазина и бренда */}
                 {!shouldShowLogoutInNav && (
                   <>
-                    <div className="border-t border-gray-200 my-2" />
+                    <div className="border-t border-border my-2" />
                     <button
                       onClick={() => {
                         onLogout();
                         setIsMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-red-600 hover:bg-red-50"
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-destructive hover:bg-destructive/10"
                     >
                       <LogOut className="w-5 h-5" strokeWidth={2} />
                       <span className="font-medium">Выход</span>
@@ -212,7 +213,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
 
       {/* Нижняя навигация */}
       {!isHidden && (
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-200 z-50 shadow-2xl pb-safe">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border z-50 shadow-2xl pb-safe">
         <div className={`grid ${gridColsClass} gap-1 px-2 py-2 safe-area-inset-bottom`}>
           {mainItems.map((item) => {
             const Icon = item.icon;
@@ -222,8 +223,8 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${isActive
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-gray-600 active:bg-gray-100'
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'text-foreground active:bg-accent'
                   }`}
               >
                 <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
@@ -239,8 +240,8 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${burgerMenuItems.some(item => item.id === currentView && !mainItems.some(mainItem => mainItem.id === currentView))
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-gray-600 active:bg-gray-100'
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'text-foreground active:bg-accent'
                 }`}
             >
               <Menu className="w-6 h-6" strokeWidth={burgerMenuItems.some(item => item.id === currentView && !mainItems.some(mainItem => mainItem.id === currentView)) ? 2.5 : 2} />
@@ -254,7 +255,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
           {shouldShowLogoutInNav && (
             <button
               onClick={onLogout}
-              className="flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-gray-600 active:bg-gray-100 transition-all"
+              className="flex flex-col items-center gap-1 px-2 py-3 rounded-xl text-foreground active:bg-accent transition-all"
             >
               <LogOut className="w-6 h-6" strokeWidth={2} />
               <span className="text-xs font-medium leading-tight">Выход</span>

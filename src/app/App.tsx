@@ -198,6 +198,70 @@ export default function App() {
     return btoa(unescape(encodeURIComponent(value)));
   };
 
+  // Функция для загрузки ФИО в зависимости от роли
+  const loadUserFullName = async (role: UserRole, userId: string, storeId?: string): Promise<{ firstName?: string; lastName?: string; middleName?: string }> => {
+    try {
+      if (role === 'store' && storeId) {
+        // Для владельца магазина загружаем из настроек магазина
+        const storeSettingsResponse = await api.get<{
+          firstName?: string;
+          lastName?: string;
+          middleName?: string;
+        }>('/stores/me/settings');
+        return {
+          firstName: storeSettingsResponse.data.firstName,
+          lastName: storeSettingsResponse.data.lastName,
+          middleName: storeSettingsResponse.data.middleName,
+        };
+      } else if (role === 'salesRep') {
+        // Для ТП загружаем из специального API
+        const salesRepResponse = await api.get<{
+          firstName?: string;
+          lastName?: string;
+          middleName?: string;
+        }>('/sales-reps/me');
+        return {
+          firstName: salesRepResponse.data.firstName,
+          lastName: salesRepResponse.data.lastName,
+          middleName: salesRepResponse.data.middleName,
+        };
+      } else if (role === 'distributor') {
+        // Для дистрибьютора загружаем name и разбиваем на ФИО
+        const distributorResponse = await api.get<{ name?: string }>('/distributors/me');
+        if (distributorResponse.data.name) {
+          const nameParts = distributorResponse.data.name.trim().split(/\s+/);
+          return {
+            lastName: nameParts[0] || undefined,
+            firstName: nameParts[1] || undefined,
+            middleName: nameParts[2] || undefined,
+          };
+        }
+      } else if (role === 'brand') {
+        // Для бренда загружаем contactName и разбиваем на ФИО
+        const brandResponse = await api.get<{ contactName?: string }>('/brands/me');
+        if (brandResponse.data.contactName) {
+          const nameParts = brandResponse.data.contactName.trim().split(/\s+/);
+          return {
+            lastName: nameParts[0] || undefined,
+            firstName: nameParts[1] || undefined,
+            middleName: nameParts[2] || undefined,
+          };
+        }
+      }
+      // Для остальных ролей (storeSeller, admin) используем данные из /users/{userId}
+      const userResponse = await api.get<ApiUser>(`/users/${userId}`);
+      return {
+        firstName: userResponse.data.firstName,
+        lastName: userResponse.data.lastName,
+        middleName: undefined,
+      };
+    } catch (error) {
+      console.warn('Не удалось загрузить ФИО пользователя', error);
+      // Возвращаем пустые значения при ошибке
+      return {};
+    }
+  };
+
   const mapApiProduct = (apiProduct: ApiProduct, overrides: Partial<Product> = {}): Product => {
     const createdBy = overrides.createdBy ?? 'brand';
     return {
@@ -243,21 +307,37 @@ export default function App() {
       try {
         const userResponse = await api.get<ApiUser>(`/users/${storedUserId}`);
         if (!isActive) return;
+        
+        // Загружаем настройки пользователя (включая валюту)
+        let userCurrency = 'KZT';
+        try {
+          const settingsResponse = await api.get<{ currency?: string }>('/users/me/settings');
+          userCurrency = settingsResponse.data.currency || 'KZT';
+        } catch (error) {
+          console.warn('Не удалось загрузить настройки пользователя, используем значение по умолчанию', error);
+        }
+        
         const role = mapApiRoleToUserRole(
           userResponse.data.role ?? localStorage.getItem('userRole') ?? undefined
         );
+        
+        // Загружаем ФИО в зависимости от роли
+        const fullNameData = await loadUserFullName(role, userResponse.data.id, userResponse.data.storeId);
+        
         setUser({
           id: userResponse.data.id,
           email: userResponse.data.email,
           role,
           profileComplete: true,
-          firstName: userResponse.data.firstName,
-          lastName: userResponse.data.lastName,
+          firstName: fullNameData.firstName || userResponse.data.firstName,
+          lastName: fullNameData.lastName || userResponse.data.lastName,
+          middleName: fullNameData.middleName,
           storeId: userResponse.data.storeId,
           brandId: userResponse.data.brandId ?? localStorage.getItem('brandId') ?? undefined,
           brandName: userResponse.data.brandName,
           distributorId: userResponse.data.distributorId,
           isActive: userResponse.data.isActive,
+          currency: userCurrency,
         });
         setUserId(userResponse.data.id);
         localStorage.setItem('userId', userResponse.data.id);
@@ -310,18 +390,33 @@ export default function App() {
       }
 
       const role = mapApiRoleToUserRole(authedUser.role);
+      
+      // Загружаем настройки пользователя (включая валюту)
+      let userCurrency = 'KZT';
+      try {
+        const settingsResponse = await api.get<{ currency?: string }>('/users/me/settings');
+        userCurrency = settingsResponse.data.currency || 'KZT';
+      } catch (error) {
+        console.warn('Не удалось загрузить настройки пользователя, используем значение по умолчанию', error);
+      }
+      
+      // Загружаем ФИО в зависимости от роли
+      const fullNameData = await loadUserFullName(role, authedUser.id, authedUser.storeId);
+      
       setUser({
         id: authedUser.id,
         email: authedUser.email,
         role,
         profileComplete: true,
-        firstName: authedUser.firstName,
-        lastName: authedUser.lastName,
+        firstName: fullNameData.firstName || authedUser.firstName,
+        lastName: fullNameData.lastName || authedUser.lastName,
+        middleName: fullNameData.middleName,
         storeId: authedUser.storeId,
         brandId: authedUser.brandId,
         brandName: authedUser.brandName,
         distributorId: authedUser.distributorId,
         isActive: authedUser.isActive,
+        currency: userCurrency,
       });
       setUserId(authedUser.id);
       localStorage.setItem('userId', authedUser.id);
@@ -457,6 +552,8 @@ export default function App() {
       await api.post('/brands', {
         name: profile.name,
         country: profile.country,
+        city: profile.city,
+        phone: profile.phone,
         categoryId: profile.categoryId,
         email: profile.email,
         password: profile.password,
@@ -758,24 +855,34 @@ export default function App() {
     }
   };
 
-  const handleUpdateQuantity = async (product: Product, newQuantity: number) => {
+  const handleUpdateQuantity = (product: Product, newQuantity: number) => {
     if (!product.offerId) {
       toast.error('Нет оффера для обновления количества.');
       return;
     }
-    try {
-      const response = await api.put<ApiOffer>(`/offers/${product.offerId}`, {
-        quantity: newQuantity,
-        isAvailable: product.isAvailable ?? true,
-      });
+    // Обновляем UI сразу (оптимистичное обновление)
+    setOffers((prev) => prev.map((offer) => (
+      offer.id === product.offerId ? { ...offer, quantity: newQuantity } : offer
+    )));
+    
+    // Выполняем запрос в фоне без ожидания
+    api.put<ApiOffer>(`/offers/${product.offerId}`, {
+      quantity: newQuantity,
+      isAvailable: product.isAvailable ?? true,
+    }).then((response) => {
       const updatedOffer = response.data;
+      // Синхронизируем с ответом сервера на случай, если там другие данные
       setOffers((prev) => prev.map((offer) => (
         offer.id === updatedOffer.id ? { ...offer, ...updatedOffer } : offer
       )));
-    } catch (error) {
+    }).catch((error) => {
       console.error('Ошибка обновления количества', error);
       toast.error('Не удалось обновить количество.');
-    }
+      // Откатываем изменения при ошибке
+      setOffers((prev) => prev.map((offer) => (
+        offer.id === product.offerId ? { ...offer, quantity: product.quantity } : offer
+      )));
+    });
   };
 
   // Category handlers
@@ -1157,7 +1264,7 @@ export default function App() {
           onLogout={handleLogout}
           firstName={user.firstName}
           lastName={user.lastName}
-          middleName={undefined}
+          middleName={user.middleName}
           userRole={user.role}
         />
 

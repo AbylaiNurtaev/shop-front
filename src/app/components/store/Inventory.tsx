@@ -87,26 +87,23 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
     setEditUnitsPerBoxValue(product.unitsPerBox);
   };
 
-  const handleSave = async (product: Product) => {
+  const handleSave = (product: Product) => {
     if (editUnitsPerBoxValue < 1) {
       toast.error('Единиц в упаковке должно быть не менее 1');
       return;
     }
-    try {
-      // Сохраняем остаток
-      onUpdateQuantity(product, editValue);
-      // Сохраняем единицы в упаковке
-      await api.put(`/products/${product.id}`, {
-        unitsPerPack: editUnitsPerBoxValue,
-      });
-      setEditingId(null);
-      toast.success('Изменения сохранены');
-      // Перезагружаем страницу для обновления данных
-      window.location.reload();
-    } catch (error: any) {
+    // Обновляем UI сразу
+    onUpdateQuantity(product, editValue);
+    setEditingId(null);
+    toast.success('Изменения сохранены');
+
+    // Выполняем запросы в фоне без ожидания
+    api.put(`/products/${product.id}`, {
+      unitsPerPack: editUnitsPerBoxValue,
+    }).catch((error: any) => {
       console.error('Ошибка обновления единиц в упаковке', error);
       toast.error(error?.response?.data?.message || 'Не удалось обновить единицы в упаковке');
-    }
+    });
   };
 
   const handleCancel = () => {
@@ -265,16 +262,16 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* ========== MOBILE LAYOUT ========== */}
       <div className="md:hidden">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="bg-card border-b border-border sticky top-0 z-20 shadow-sm">
           <div className="p-4">
             <div className="flex items-center justify-between mb-1">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Управление складом</h1>
-                <p className="text-sm text-gray-600">Быстрое изменение остатков</p>
+                <h1 className="text-2xl font-bold text-foreground">Управление складом</h1>
+                <p className="text-sm text-muted-foreground">Быстрое изменение остатков</p>
               </div>
               <input
                 ref={fileInputRef}
@@ -305,16 +302,16 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
         </div>
 
         {/* Stats Cards */}
-        <div className="p-4 bg-white border-b border-gray-200">
+        <div className="p-4 bg-card border-b border-border">
           <div className="space-y-3">
             {/* Total Stock */}
-            <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-2xl p-5">
+            <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border-2 border-green-200 dark:border-green-700 rounded-2xl p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-1">Всего единиц</p>
-                  <p className="text-4xl font-black text-green-900">{totalStock.toLocaleString()}</p>
+                  <p className="text-xs font-bold text-green-700 dark:text-green-300 uppercase tracking-wide mb-1">Всего единиц</p>
+                  <p className="text-4xl font-black text-green-900 dark:text-green-100">{totalStock.toLocaleString()}</p>
                 </div>
-                <div className="w-16 h-16 bg-green-200 rounded-2xl flex items-center justify-center">
+                <div className="w-16 h-16 bg-green-200 dark:bg-green-700 rounded-2xl flex items-center justify-center">
                   <span className="text-3xl">📦</span>
                 </div>
               </div>
@@ -322,34 +319,34 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
 
             {/* Low Stock + Out of Stock + Expiring in row */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-2xl p-4">
-                <p className="text-xs font-bold text-orange-700 uppercase tracking-wide mb-1">Мало</p>
-                <p className="text-3xl font-black text-orange-900">{lowStockCount}</p>
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border-2 border-orange-200 dark:border-orange-700 rounded-2xl p-4">
+                <p className="text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">Мало</p>
+                <p className="text-3xl font-black text-orange-900 dark:text-orange-100">{lowStockCount}</p>
                 <span className="text-lg mt-1 block">⚡</span>
               </div>
 
-              <div className="bg-gradient-to-br from-red-50 to-red-100 border-2 border-red-200 rounded-2xl p-4">
-                <p className="text-xs font-bold text-red-700 uppercase tracking-wide mb-1">Нет</p>
-                <p className="text-3xl font-black text-red-900">{outOfStockCount}</p>
+              <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 border-2 border-red-200 dark:border-red-700 rounded-2xl p-4">
+                <p className="text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide mb-1">Нет</p>
+                <p className="text-3xl font-black text-red-900 dark:text-red-100">{outOfStockCount}</p>
                 <span className="text-lg mt-1 block">⚠️</span>
               </div>
             </div>
 
             {/* Expiring Products */}
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 rounded-2xl p-4">
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-2 border-purple-200 dark:border-purple-700 rounded-2xl p-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-purple-700 uppercase tracking-wide">Срок годности</p>
+                <p className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Срок годности</p>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setExpiryView('soon')}
-                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'soon' ? 'bg-purple-200 text-purple-900 font-medium' : 'text-purple-600'
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'soon' ? 'bg-purple-200 dark:bg-purple-700 text-purple-900 dark:text-purple-100 font-medium' : 'text-purple-600 dark:text-purple-400'
                       }`}
                   >
                     Скоро
                   </button>
                   <button
                     onClick={() => setExpiryView('expired')}
-                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'expired' ? 'bg-red-200 text-red-900 font-medium' : 'text-red-600'
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'expired' ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100 font-medium' : 'text-red-600 dark:text-red-400'
                       }`}
                   >
                     Просрочено
@@ -358,14 +355,14 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-purple-600 mb-1">
+                  <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">
                     {expiryView === 'soon' ? 'Истекает скоро' : 'Просрочено'}
                   </p>
-                  <p className="text-3xl font-black text-purple-900">
+                  <p className="text-3xl font-black text-purple-900 dark:text-purple-100">
                     {expiryView === 'soon' ? expiringSoonCount : expiredCount}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-200 dark:bg-purple-700 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">⏰</span>
                 </div>
               </div>
@@ -374,15 +371,15 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
         </div>
 
         {/* Search */}
-        <div className="p-4 bg-white border-b border-gray-200">
+        <div className="p-4 bg-card border-b border-border">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             <input
               type="search"
               placeholder="Поиск товаров"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-14 pl-12 pr-4 bg-gray-50 border border-gray-300 rounded-xl text-base placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full h-14 pl-12 pr-4 bg-input-background border border-border rounded-xl text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
         </div>
@@ -392,9 +389,9 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
           {filteredProducts.map((product) => {
             const isEditing = editingId === product.id;
             const statusColor =
-              product.quantity === 0 ? 'border-red-300 bg-red-50' :
-                product.quantity < 20 ? 'border-orange-300 bg-orange-50' :
-                  'border-green-300 bg-green-50';
+              product.quantity === 0 ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30' :
+                product.quantity < 20 ? 'border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/30' :
+                  'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30';
 
             return (
               <div
@@ -403,21 +400,21 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               >
                 {/* Product Info */}
                 <div className="mb-5">
-                  <h3 className="font-bold text-lg text-gray-900 mb-2 leading-tight">{product.name}</h3>
-                  <p className="text-sm text-gray-600 font-mono mb-1">Артикул: {product.sku}</p>
-                  <p className="text-xs text-gray-500">{getCategoryName(product.categoryId)}</p>
+                  <h3 className="font-bold text-lg text-foreground mb-2 leading-tight">{product.name}</h3>
+                  <p className="text-sm text-muted-foreground font-mono mb-1">Артикул: {product.sku}</p>
+                  <p className="text-xs text-muted-foreground">{getCategoryName(product.categoryId)}</p>
                 </div>
 
                 {isEditing ? (
                   /* Edit Mode */
                   <div className="space-y-4">
-                    <div className="bg-white rounded-2xl p-4 border-2 border-blue-500 shadow-md">
-                      <p className="text-xs font-bold text-blue-600 uppercase text-center mb-3">Новое количество</p>
+                    <div className="bg-card rounded-2xl p-4 border-2 border-primary shadow-md">
+                      <p className="text-xs font-bold text-primary uppercase text-center mb-3">Новое количество</p>
                       <div className="flex items-center gap-3">
                         <button
                           type="button"
                           onClick={() => setEditValue(Math.max(0, editValue - 1))}
-                          className="w-14 h-14 flex items-center justify-center bg-gray-100 rounded-xl active:scale-95 active:bg-gray-200 transition-all font-bold text-xl"
+                          className="w-14 h-14 flex items-center justify-center bg-muted rounded-xl active:scale-95 active:bg-accent transition-all font-bold text-xl"
                         >
                           <Minus className="w-6 h-6" />
                         </button>
@@ -425,26 +422,26 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                           type="number"
                           value={editValue}
                           onChange={(e) => setEditValue(Math.max(0, parseInt(e.target.value) || 0))}
-                          className="flex-1 h-14 text-center text-3xl font-black bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-w-[120px]"
+                          className="flex-1 h-14 text-center text-3xl font-black bg-input-background border-2 border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent max-w-[120px]"
                           min="0"
                           style={{ maxWidth: '120px' }}
                         />
                         <button
                           type="button"
                           onClick={() => setEditValue(editValue + 1)}
-                          className="w-14 h-14 flex items-center justify-center bg-gray-100 rounded-xl active:scale-95 active:bg-gray-200 transition-all font-bold text-xl"
+                          className="w-14 h-14 flex items-center justify-center bg-muted rounded-xl active:scale-95 active:bg-accent transition-all font-bold text-xl"
                         >
                           <Plus className="w-6 h-6" />
                         </button>
                       </div>
                     </div>
-                    <div className="bg-white rounded-2xl p-4 border-2 border-blue-500 shadow-md">
-                      <p className="text-xs font-bold text-blue-600 uppercase text-center mb-3">Единиц в упаковке</p>
+                    <div className="bg-card rounded-2xl p-4 border-2 border-primary shadow-md">
+                      <p className="text-xs font-bold text-primary uppercase text-center mb-3">Единиц в упаковке</p>
                       <div className="flex items-center gap-3">
                         <button
                           type="button"
                           onClick={() => setEditUnitsPerBoxValue(Math.max(1, editUnitsPerBoxValue - 1))}
-                          className="w-14 h-14 flex items-center justify-center bg-gray-100 rounded-xl active:scale-95 active:bg-gray-200 transition-all font-bold text-xl"
+                          className="w-14 h-14 flex items-center justify-center bg-muted rounded-xl active:scale-95 active:bg-accent transition-all font-bold text-xl"
                         >
                           <Minus className="w-6 h-6" />
                         </button>
@@ -452,14 +449,14 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                           type="number"
                           value={editUnitsPerBoxValue}
                           onChange={(e) => setEditUnitsPerBoxValue(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="flex-1 h-14 text-center text-3xl font-black bg-gray-50 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent max-w-[120px]"
+                          className="flex-1 h-14 text-center text-3xl font-black bg-input-background border-2 border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent max-w-[120px]"
                           min="1"
                           style={{ maxWidth: '120px' }}
                         />
                         <button
                           type="button"
                           onClick={() => setEditUnitsPerBoxValue(editUnitsPerBoxValue + 1)}
-                          className="w-14 h-14 flex items-center justify-center bg-gray-100 rounded-xl active:scale-95 active:bg-gray-200 transition-all font-bold text-xl"
+                          className="w-14 h-14 flex items-center justify-center bg-muted rounded-xl active:scale-95 active:bg-accent transition-all font-bold text-xl"
                         >
                           <Plus className="w-6 h-6" />
                         </button>
@@ -468,13 +465,13 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         onClick={handleCancel}
-                        className="h-14 border-2 border-gray-300 bg-white rounded-xl font-bold text-gray-700 active:scale-98 transition-transform"
+                        className="h-14 border-2 border-border bg-card rounded-xl font-bold text-foreground active:scale-98 transition-transform"
                       >
                         Отмена
                       </button>
                       <button
                         onClick={() => handleSave(product)}
-                        className="h-14 bg-blue-600 text-white rounded-xl font-bold active:scale-98 transition-transform shadow-sm"
+                        className="h-14 bg-primary text-primary-foreground rounded-xl font-bold active:scale-98 transition-transform shadow-sm"
                       >
                         Сохранить
                       </button>
@@ -483,27 +480,27 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                 ) : (
                   /* View Mode */
                   <div className="space-y-4">
-                    <div className="bg-white rounded-2xl p-5 border-2 border-gray-200 shadow-sm">
-                      <p className="text-xs font-bold text-gray-500 uppercase mb-2">Текущий остаток</p>
-                      <p className="text-4xl font-black text-gray-900">{product.quantity} <span className="text-xl text-gray-500">шт</span></p>
-                      <p className="text-xs text-gray-500 mt-2">Упаковка: {product.unitsPerBox} шт</p>
+                    <div className="bg-card rounded-2xl p-5 border-2 border-border shadow-sm">
+                      <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Текущий остаток</p>
+                      <p className="text-4xl font-black text-foreground">{product.quantity} <span className="text-xl text-muted-foreground">шт</span></p>
+                      <p className="text-xs text-muted-foreground mt-2">Упаковка: {product.unitsPerBox} шт</p>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <button
                         onClick={() => handleQuickAdjust(product, product.quantity, -product.unitsPerBox)}
-                        className="h-14 bg-white border-2 border-gray-300 rounded-xl font-bold text-base active:scale-95 transition-transform"
+                        className="h-14 bg-card border-2 border-border rounded-xl font-bold text-base text-foreground active:scale-95 transition-transform"
                       >
                         −{product.unitsPerBox}
                       </button>
                       <button
                         onClick={() => handleEdit(product)}
-                        className="h-14 bg-blue-600 text-white rounded-xl font-bold active:scale-95 transition-transform shadow-sm"
+                        className="h-14 bg-primary text-primary-foreground rounded-xl font-bold active:scale-95 transition-transform shadow-sm"
                       >
                         Изменить
                       </button>
                       <button
                         onClick={() => handleQuickAdjust(product, product.quantity, product.unitsPerBox)}
-                        className="h-14 bg-white border-2 border-gray-300 rounded-xl font-bold text-base active:scale-95 transition-transform"
+                        className="h-14 bg-card border-2 border-border rounded-xl font-bold text-base text-foreground active:scale-95 transition-transform"
                       >
                         +{product.unitsPerBox}
                       </button>
@@ -521,8 +518,8 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
         {/* Desktop Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-semibold">Управление складом</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-2xl font-semibold text-foreground">Управление складом</h2>
+            <p className="text-sm text-muted-foreground mt-1">
               Быстрое редактирование остатков и контроль запасов
             </p>
           </div>
@@ -555,56 +552,56 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
         {/* Stats Cards - Desktop */}
         <div className="mb-6">
           <div className="grid grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-2xl p-4">
+            <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 border border-green-200 dark:border-green-700 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-green-700 font-medium mb-1">Всего единиц</p>
-                  <p className="text-3xl font-bold text-green-900">{totalStock.toLocaleString()}</p>
+                  <p className="text-xs text-green-700 dark:text-green-300 font-medium mb-1">Всего единиц</p>
+                  <p className="text-3xl font-bold text-green-900 dark:text-green-100">{totalStock.toLocaleString()}</p>
                 </div>
-                <div className="w-12 h-12 bg-green-200 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-green-200 dark:bg-green-700 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">📦</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-2xl p-4">
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 border border-orange-200 dark:border-orange-700 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-orange-700 font-medium mb-1">Мало</p>
-                  <p className="text-3xl font-bold text-orange-900">{lowStockCount}</p>
+                  <p className="text-xs text-orange-700 dark:text-orange-300 font-medium mb-1">Мало</p>
+                  <p className="text-3xl font-bold text-orange-900 dark:text-orange-100">{lowStockCount}</p>
                 </div>
-                <div className="w-12 h-12 bg-orange-200 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-orange-200 dark:bg-orange-700 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">⚡</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-2xl p-4">
+            <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 border border-red-200 dark:border-red-700 rounded-2xl p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-red-700 font-medium mb-1">Нет в наличии</p>
-                  <p className="text-3xl font-bold text-red-900">{outOfStockCount}</p>
+                  <p className="text-xs text-red-700 dark:text-red-300 font-medium mb-1">Нет в наличии</p>
+                  <p className="text-3xl font-bold text-red-900 dark:text-red-100">{outOfStockCount}</p>
                 </div>
-                <div className="w-12 h-12 bg-red-200 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-red-200 dark:bg-red-700 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">⚠️</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-2xl p-4">
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border border-purple-200 dark:border-purple-700 rounded-2xl p-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-purple-700 font-medium">Срок годности</p>
+                <p className="text-xs text-purple-700 dark:text-purple-300 font-medium">Срок годности</p>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setExpiryView('soon')}
-                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'soon' ? 'bg-purple-200 text-purple-900 font-medium' : 'text-purple-600'
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'soon' ? 'bg-purple-200 dark:bg-purple-700 text-purple-900 dark:text-purple-100 font-medium' : 'text-purple-600 dark:text-purple-400'
                       }`}
                   >
                     Скоро
                   </button>
                   <button
                     onClick={() => setExpiryView('expired')}
-                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'expired' ? 'bg-red-200 text-red-900 font-medium' : 'text-red-600'
+                    className={`text-xs px-2 py-0.5 rounded transition-colors ${expiryView === 'expired' ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100 font-medium' : 'text-red-600 dark:text-red-400'
                       }`}
                   >
                     Просрочено
@@ -613,14 +610,14 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-purple-600 mb-1">
+                  <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">
                     {expiryView === 'soon' ? 'Истекает скоро' : 'Просрочено'}
                   </p>
-                  <p className="text-3xl font-bold text-purple-900">
+                  <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">
                     {expiryView === 'soon' ? expiringSoonCount : expiredCount}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-200 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-200 dark:bg-purple-700 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">⏰</span>
                 </div>
               </div>
@@ -631,50 +628,50 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
         {/* Search */}
         <div className="mb-4">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             <input
               type="search"
               placeholder="Поиск товаров..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-12 pl-12 pr-4 bg-gray-50 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full h-12 pl-12 pr-4 bg-input-background border border-border rounded-xl text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
         </div>
 
         {/* Desktop Table */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Название</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Артикул</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Категория</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Ед/упак</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Остаток</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium">Действия</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Название</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Артикул</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Категория</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Ед/упак</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Остаток</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Действия</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-border">
                 {filteredProducts.map((product) => {
                   const isEditing = editingId === product.id;
                   return (
-                    <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-medium">{product.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500 font-mono">{product.sku}</td>
-                      <td className="px-4 py-3 text-sm">{getCategoryName(product.categoryId)}</td>
+                    <tr key={product.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-foreground">{product.name}</td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{product.sku}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{getCategoryName(product.categoryId)}</td>
                       <td className="px-4 py-3 w-32">
                         {isEditing ? (
                           <input
                             type="number"
                             value={editUnitsPerBoxValue}
                             onChange={(e) => setEditUnitsPerBoxValue(Math.max(1, parseInt(e.target.value) || 1))}
-                            className="w-20 px-2 py-1 bg-gray-50 border border-gray-300 rounded text-sm"
+                            className="w-20 px-2 py-1 bg-input-background border border-border rounded text-sm text-foreground"
                             min="1"
                           />
                         ) : (
-                          <span className="text-sm">{product.unitsPerBox}</span>
+                          <span className="text-sm text-foreground">{product.unitsPerBox}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 w-32">
@@ -683,26 +680,26 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                             type="number"
                             value={editValue}
                             onChange={(e) => setEditValue(parseInt(e.target.value) || 0)}
-                            className="w-24 max-w-24 px-2 py-1 bg-gray-50 border border-gray-300 rounded"
+                            className="w-24 max-w-24 px-2 py-1 bg-input-background border border-border rounded text-foreground"
                             min="0"
                             style={{ maxWidth: '96px', boxSizing: 'border-box' }}
                           />
                         ) : (
-                          <span className="font-medium">{product.quantity}</span>
+                          <span className="font-medium text-foreground">{product.quantity}</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         {isEditing ? (
                           <div className="flex gap-2">
-                            <button onClick={() => handleSave(product)} className="px-3 py-1 text-sm bg-blue-600 text-white rounded">
+                            <button onClick={() => handleSave(product)} className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded">
                               Сохранить
                             </button>
-                            <button onClick={handleCancel} className="px-3 py-1 text-sm border border-gray-300 rounded">
+                            <button onClick={handleCancel} className="px-3 py-1 text-sm border border-border bg-card text-foreground rounded">
                               Отмена
                             </button>
                           </div>
                         ) : (
-                          <button onClick={() => handleEdit(product)} className="px-3 py-1 text-sm border border-gray-300 rounded">
+                          <button onClick={() => handleEdit(product)} className="px-3 py-1 text-sm border border-border bg-card text-foreground rounded">
                             Изменить
                           </button>
                         )}
@@ -719,9 +716,9 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
       {/* Modal для результатов обработки накладной */}
       {showResultModal && invoiceResult && (
         <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-          <div className="bg-white rounded-t-2xl md:rounded-xl max-w-4xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto flex flex-col">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between z-10">
-              <h3 className="text-lg md:text-xl font-semibold flex items-center gap-2">
+          <div className="bg-card rounded-t-2xl md:rounded-xl max-w-4xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="sticky top-0 bg-card border-b border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between z-10">
+              <h3 className="text-lg md:text-xl font-semibold flex items-center gap-2 text-foreground">
                 <FileText className="w-4 h-4 md:w-5 md:h-5" />
                 <span className="hidden sm:inline">Результаты обработки накладной</span>
                 <span className="sm:hidden">Накладная</span>
@@ -733,28 +730,28 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                   setSelectedItems(new Set());
                   setEditedQuantities({});
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-foreground" />
               </button>
             </div>
 
             <div className="p-4 md:p-6 space-y-4 md:space-y-6 flex-1 overflow-y-auto pb-20 md:pb-6">
               {/* Информация о накладной */}
               {invoiceResult.invoiceInfo && (
-                <div className="bg-gray-50 rounded-lg p-3 md:p-4 space-y-2">
+                <div className="bg-muted rounded-lg p-3 md:p-4 space-y-2">
                   {invoiceResult.invoiceInfo.invoiceNumber && (
-                    <div className="text-xs md:text-sm">
+                    <div className="text-xs md:text-sm text-foreground">
                       <span className="font-medium">Номер накладной:</span> {invoiceResult.invoiceInfo.invoiceNumber}
                     </div>
                   )}
                   {invoiceResult.invoiceInfo.date && (
-                    <div className="text-xs md:text-sm">
+                    <div className="text-xs md:text-sm text-foreground">
                       <span className="font-medium">Дата:</span> {invoiceResult.invoiceInfo.date}
                     </div>
                   )}
                   {invoiceResult.invoiceInfo.supplier && (
-                    <div className="text-xs md:text-sm">
+                    <div className="text-xs md:text-sm text-foreground">
                       <span className="font-medium">Поставщик:</span> {invoiceResult.invoiceInfo.supplier}
                     </div>
                   )}
@@ -763,41 +760,41 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
 
               {/* Сводка */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 md:p-4">
+                <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-1 md:gap-2 mb-1">
-                    <FileText className="w-4 h-4 md:w-5 md:h-5 text-blue-600" />
-                    <span className="text-xs md:text-sm font-medium text-blue-700">Всего</span>
+                    <FileText className="w-4 h-4 md:w-5 md:h-5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs md:text-sm font-medium text-blue-700 dark:text-blue-300">Всего</span>
                   </div>
-                  <p className="text-xl md:text-2xl font-bold text-blue-900">{invoiceResult.summary.total}</p>
+                  <p className="text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100">{invoiceResult.summary.total}</p>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 md:p-4">
+                <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-1 md:gap-2 mb-1">
-                    <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600" />
-                    <span className="text-xs md:text-sm font-medium text-green-700">Найдено</span>
+                    <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600 dark:text-green-400" />
+                    <span className="text-xs md:text-sm font-medium text-green-700 dark:text-green-300">Найдено</span>
                   </div>
-                  <p className="text-xl md:text-2xl font-bold text-green-900">{invoiceResult.summary.found}</p>
+                  <p className="text-xl md:text-2xl font-bold text-green-900 dark:text-green-100">{invoiceResult.summary.found}</p>
                 </div>
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 md:p-4">
+                <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-1 md:gap-2 mb-1">
-                    <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-orange-600" />
-                    <span className="text-xs md:text-sm font-medium text-orange-700">Не найдено</span>
+                    <AlertCircle className="w-4 h-4 md:w-5 md:h-5 text-orange-600 dark:text-orange-400" />
+                    <span className="text-xs md:text-sm font-medium text-orange-700 dark:text-orange-300">Не найдено</span>
                   </div>
-                  <p className="text-xl md:text-2xl font-bold text-orange-900">{invoiceResult.summary.notFound}</p>
+                  <p className="text-xl md:text-2xl font-bold text-orange-900 dark:text-orange-100">{invoiceResult.summary.notFound}</p>
                 </div>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 md:p-4">
+                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-3 md:p-4">
                   <div className="flex items-center gap-1 md:gap-2 mb-1">
-                    <X className="w-4 h-4 md:w-5 md:h-5 text-red-600" />
-                    <span className="text-xs md:text-sm font-medium text-red-700">Ошибки</span>
+                    <X className="w-4 h-4 md:w-5 md:h-5 text-red-600 dark:text-red-400" />
+                    <span className="text-xs md:text-sm font-medium text-red-700 dark:text-red-300">Ошибки</span>
                   </div>
-                  <p className="text-xl md:text-2xl font-bold text-red-900">{invoiceResult.summary.errors}</p>
+                  <p className="text-xl md:text-2xl font-bold text-red-900 dark:text-red-100">{invoiceResult.summary.errors}</p>
                 </div>
               </div>
 
               {/* Найденные товары с возможностью редактирования */}
               {invoiceResult.found.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base text-foreground">
+                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                     Найденные товары ({invoiceResult.found.length})
                   </h4>
                   <div className="space-y-3 max-h-[50vh] md:max-h-96 overflow-y-auto">
@@ -810,10 +807,10 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                         <div
                           key={idx}
                           className={`border-2 rounded-lg p-3 md:p-4 ${item.error
-                            ? 'bg-red-50 border-red-200'
+                            ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700'
                             : canSelect && isSelected
-                              ? 'bg-green-50 border-green-300'
-                              : 'bg-gray-50 border-gray-200'
+                              ? 'bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700'
+                              : 'bg-muted border-border'
                             }`}
                         >
                           <div className="flex items-start gap-2 md:gap-3">
@@ -822,47 +819,47 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => handleToggleItem(item.product.id)}
-                                className="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-blue-500 flex-shrink-0"
+                                className="mt-1 w-5 h-5 text-primary rounded focus:ring-ring flex-shrink-0"
                               />
                             )}
                             <div className="flex-1 min-w-0">
                               <div className="mb-2">
-                                <div className="font-medium text-gray-900 text-sm md:text-base break-words">{item.product.name}</div>
-                                <div className="text-xs md:text-sm text-gray-600 mt-1 flex flex-wrap gap-x-2">
+                                <div className="font-medium text-foreground text-sm md:text-base break-words">{item.product.name}</div>
+                                <div className="text-xs md:text-sm text-muted-foreground mt-1 flex flex-wrap gap-x-2">
                                   <span>Артикул: {item.product.sku}</span>
                                   {item.product.brandName && (
                                     <span>Бренд: {item.product.brandName}</span>
                                   )}
                                 </div>
                                 {item.originalItem.productName !== item.product.name && (
-                                  <div className="text-xs text-gray-500 mt-1">
+                                  <div className="text-xs text-muted-foreground mt-1">
                                     Найдено как: "{item.originalItem.productName}"
                                   </div>
                                 )}
                               </div>
                               {item.error && (
-                                <div className="text-xs md:text-sm text-red-700 mb-2 bg-red-100 px-2 py-1 rounded">
+                                <div className="text-xs md:text-sm text-red-700 dark:text-red-300 mb-2 bg-red-100 dark:bg-red-900/50 px-2 py-1 rounded">
                                   ⚠️ {item.error}
                                 </div>
                               )}
                               <div className="space-y-2 md:space-y-0 md:flex md:flex-wrap md:items-center md:gap-3 md:gap-y-2 mt-3">
-                                <div className="text-xs md:text-sm text-gray-600">
+                                <div className="text-xs md:text-sm text-muted-foreground">
                                   <span className="font-medium hidden md:inline">Текущий: </span>{item.currentQuantity} шт
                                 </div>
-                                <div className="text-xs md:text-sm text-gray-600">
+                                <div className="text-xs md:text-sm text-muted-foreground">
                                   <span className="font-medium hidden md:inline">В накладной: </span>
                                   {item.originalItem.quantity} {item.originalItem.unit || 'шт'}
                                 </div>
                                 {canSelect && (
                                   <div className="flex flex-col md:flex-row md:items-center gap-2">
-                                    <span className="text-xs md:text-sm font-medium text-gray-700 hidden md:inline">Добавить: </span>
+                                    <span className="text-xs md:text-sm font-medium text-foreground hidden md:inline">Добавить: </span>
                                     <div className="flex items-center gap-2">
                                       <button
                                         type="button"
                                         onClick={() => handleQuantityChange(item.product.id, editedQty - 1)}
-                                        className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-50 active:scale-95 transition-transform"
+                                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:bg-muted active:scale-95 transition-transform"
                                       >
-                                        <Minus className="w-4 h-4" />
+                                        <Minus className="w-4 h-4 text-foreground" />
                                       </button>
                                       <input
                                         type="number"
@@ -870,18 +867,18 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                                         onChange={(e) =>
                                           handleQuantityChange(item.product.id, parseInt(e.target.value) || 0)
                                         }
-                                        className="w-16 md:w-20 px-2 py-1 text-center text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-16 md:w-20 px-2 py-1 text-center text-sm border border-border bg-input-background text-foreground rounded focus:outline-none focus:ring-2 focus:ring-ring"
                                         min="0"
                                       />
                                       <button
                                         type="button"
                                         onClick={() => handleQuantityChange(item.product.id, editedQty + 1)}
-                                        className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded hover:bg-gray-50 active:scale-95 transition-transform"
+                                        className="w-8 h-8 flex items-center justify-center bg-card border border-border rounded hover:bg-muted active:scale-95 transition-transform"
                                       >
-                                        <Plus className="w-4 h-4" />
+                                        <Plus className="w-4 h-4 text-foreground" />
                                       </button>
                                     </div>
-                                    <span className="text-xs md:text-sm text-gray-500">
+                                    <span className="text-xs md:text-sm text-muted-foreground">
                                       → Будет: <span className="font-semibold">{item.currentQuantity + editedQty}</span> шт
                                     </span>
                                   </div>
@@ -899,15 +896,15 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               {/* Не найденные товары */}
               {invoiceResult.notFound.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base">
-                    <AlertCircle className="w-4 h-4 text-orange-600" />
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base text-foreground">
+                    <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                     Товары не найдены в базе ({invoiceResult.notFound.length})
                   </h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {invoiceResult.notFound.map((item, idx) => (
-                      <div key={idx} className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-xs md:text-sm">
-                        <div className="font-medium break-words">{item.productName || 'Не указано название'}</div>
-                        <div className="text-gray-600 mt-1 flex flex-wrap gap-x-2">
+                      <div key={idx} className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3 text-xs md:text-sm">
+                        <div className="font-medium break-words text-foreground">{item.productName || 'Не указано название'}</div>
+                        <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-2">
                           <span>Количество: <span className="font-semibold">{item.quantity}</span> {item.unit || 'шт'}</span>
                           {item.sku && <span>Артикул: {item.sku}</span>}
                           {item.brand && <span>Бренд: {item.brand}</span>}
@@ -921,19 +918,19 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               {/* Ошибки */}
               {invoiceResult.errors.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base">
-                    <X className="w-4 h-4 text-red-600" />
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm md:text-base text-foreground">
+                    <X className="w-4 h-4 text-red-600 dark:text-red-400" />
                     Ошибки обработки ({invoiceResult.errors.length})
                   </h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {invoiceResult.errors.map((error, idx) => (
-                      <div key={idx} className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs md:text-sm">
-                        <div className="font-medium text-red-700 break-words">{error.error}</div>
+                      <div key={idx} className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-3 text-xs md:text-sm">
+                        <div className="font-medium text-red-700 dark:text-red-300 break-words">{error.error}</div>
                         {error.item.productName && (
-                          <div className="text-gray-600 mt-1">Товар: {error.item.productName}</div>
+                          <div className="text-muted-foreground mt-1">Товар: {error.item.productName}</div>
                         )}
                         {error.item.quantity && (
-                          <div className="text-gray-600">Количество: {error.item.quantity}</div>
+                          <div className="text-muted-foreground">Количество: {error.item.quantity}</div>
                         )}
                       </div>
                     ))}
@@ -942,7 +939,7 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               )}
 
               {/* Кнопки действий */}
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 md:p-0 md:relative md:bg-transparent md:border-t md:pt-4 -mx-4 md:mx-0 -mb-4 md:mb-0 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 shadow-lg md:shadow-none">
+              <div className="sticky bottom-0 bg-card border-t border-border p-4 md:p-0 md:relative md:bg-transparent md:border-t md:pt-4 -mx-4 md:mx-0 -mb-4 md:mb-0 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 shadow-lg md:shadow-none">
                 <button
                   onClick={() => {
                     setShowResultModal(false);
@@ -950,7 +947,7 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                     setSelectedItems(new Set());
                     setEditedQuantities({});
                   }}
-                  className="w-full sm:w-auto px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 active:scale-98 transition-all text-sm md:text-base"
+                  className="w-full sm:w-auto px-6 py-2.5 border border-border bg-card text-foreground rounded-lg hover:bg-muted active:scale-98 transition-all text-sm md:text-base"
                   disabled={isConfirming}
                 >
                   Отмена
@@ -958,7 +955,7 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
                 <button
                   onClick={handleConfirmInvoice}
                   disabled={isConfirming || selectedItems.size === 0}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 text-sm md:text-base active:scale-98"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 text-sm md:text-base active:scale-98"
                 >
                   {isConfirming ? (
                     <>

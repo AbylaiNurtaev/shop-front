@@ -1,6 +1,17 @@
-import { User, LogOut, Bell, Building2, FolderTree, Menu, Settings } from 'lucide-react';
+import { User, LogOut, Bell, Building2, FolderTree, Menu, Settings, Check, CheckCheck, Sun, Moon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useState, React } from 'react';
+import { useState, React, useEffect } from 'react';
+import api from '../api/axios';
+import { toast } from 'sonner';
+import { useTheme } from '../hooks/useTheme';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from './ui/popover';
+import { Button } from './ui/button';
+import { ScrollArea } from './ui/scroll-area';
+import { Badge } from './ui/badge';
 
 interface TopBarProps {
   userEmail: string;
@@ -12,10 +23,44 @@ interface TopBarProps {
   userRole?: 'store' | 'storeSeller' | 'brand' | 'admin' | 'distributor' | 'salesRep';
 }
 
+interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  metadata?: {
+    brandId?: string;
+    distributorId?: string;
+    requestId?: string;
+    brandName?: string;
+    [key: string]: any;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface NotificationsResponse {
+  items: Notification[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+interface UnreadCountResponse {
+  count: number;
+}
+
 export function TopBar({ userEmail, role, onLogout, firstName, lastName, middleName, userRole }: TopBarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
   // Функция для получения названия роли на русском
   const getRoleName = (role: string | undefined): string => {
@@ -38,8 +83,86 @@ export function TopBar({ userEmail, role, onLogout, firstName, lastName, middleN
     }
   };
 
-  // Формируем ФИО
-  const fullName = [lastName, firstName, middleName].filter(Boolean).join(' ') || userEmail;
+  // Формируем ФИО (всегда показываем ФИО, даже если оно не заполнено полностью)
+  const fullName = [lastName, firstName, middleName].filter(Boolean).join(' ') || 'Пользователь';
+
+  // Загрузка количества непрочитанных уведомлений
+  const loadUnreadCount = async () => {
+    try {
+      const response = await api.get<UnreadCountResponse>('/notifications/unread-count');
+      setUnreadCount(response.data.count || 0);
+    } catch (error) {
+      console.error('Ошибка загрузки количества уведомлений', error);
+    }
+  };
+
+  // Загрузка уведомлений
+  const loadNotifications = async () => {
+    setIsLoadingNotifications(true);
+    try {
+      const response = await api.get<NotificationsResponse>('/notifications', {
+        params: {
+          limit: 50,
+          offset: 0,
+        },
+      });
+      setNotifications(response.data.items || []);
+    } catch (error) {
+      console.error('Ошибка загрузки уведомлений', error);
+      toast.error('Не удалось загрузить уведомления');
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+
+  // Отметить уведомление как прочитанное
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await api.put(`/notifications/${notificationId}/read`);
+      setNotifications((prev) =>
+        prev.map((notif) =>
+          notif.id === notificationId ? { ...notif, isRead: true } : notif
+        )
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Ошибка отметки уведомления', error);
+      toast.error('Не удалось отметить уведомление как прочитанное');
+    }
+  };
+
+  // Отметить все уведомления как прочитанные
+  const markAllAsRead = async () => {
+    try {
+      await api.put('/notifications/read-all');
+      setNotifications((prev) =>
+        prev.map((notif) => ({ ...notif, isRead: true }))
+      );
+      setUnreadCount(0);
+      toast.success('Все уведомления отмечены как прочитанные');
+    } catch (error) {
+      console.error('Ошибка отметки всех уведомлений', error);
+      toast.error('Не удалось отметить все уведомления как прочитанные');
+    }
+  };
+
+  // Открытие попапа уведомлений
+  const handleNotificationsOpenChange = (open: boolean) => {
+    setIsNotificationsOpen(open);
+    if (open) {
+      loadNotifications();
+    } else {
+      // Обновляем количество непрочитанных при закрытии
+      loadUnreadCount();
+    }
+  };
+
+  // Загрузка количества непрочитанных при монтировании и периодически
+  useEffect(() => {
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, 30000); // Обновление каждые 30 секунд
+    return () => clearInterval(interval);
+  }, []);
 
   // Получаем путь к настройкам
   const getSettingsPath = () => {
@@ -106,13 +229,121 @@ export function TopBar({ userEmail, role, onLogout, firstName, lastName, middleN
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Элемент 1: Уведомления */}
-          <button className="p-2 hover:bg-accent rounded-md transition-colors relative">
-            <Bell className="w-5 h-5 text-muted-foreground" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
+          {/* Элемент 1: Переключатель темы */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 hover:bg-accent rounded-md transition-colors"
+            title={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'}
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <Moon className="w-5 h-5 text-muted-foreground" />
+            )}
           </button>
 
-          {/* Элемент 2: Информация о пользователе */}
+          {/* Элемент 2: Уведомления */}
+          <Popover open={isNotificationsOpen} onOpenChange={handleNotificationsOpenChange}>
+            <PopoverTrigger asChild>
+              <button
+                className="p-2 hover:bg-accent rounded-md transition-colors relative"
+                title="Уведомления"
+              >
+                <Bell className="w-5 h-5 text-muted-foreground" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-destructive text-destructive-foreground text-[10px] font-medium rounded-full flex items-center justify-center px-1">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent 
+              className="w-96 p-0" 
+              align="end"
+              sideOffset={8}
+            >
+              <div className="flex flex-col max-h-[80vh]">
+                <div className="flex items-center justify-between p-4 border-b">
+                  <h3 className="font-semibold text-lg">Уведомления</h3>
+                  {notifications.some((n) => !n.isRead) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={markAllAsRead}
+                      className="flex items-center gap-2"
+                    >
+                      <CheckCheck className="w-4 h-4" />
+                      Отметить все
+                    </Button>
+                  )}
+                </div>
+                <ScrollArea className="flex-1 max-h-[60vh]">
+                  <div className="p-2">
+                    {isLoadingNotifications ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-muted-foreground">Загрузка...</div>
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-muted-foreground">Нет уведомлений</div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`p-4 rounded-lg border transition-colors ${
+                              notification.isRead
+                                ? 'bg-card border-border'
+                                : 'bg-accent/50 border-primary/20'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-medium text-sm">{notification.title}</h4>
+                                  {!notification.isRead && (
+                                    <Badge variant="default" className="h-4 px-1.5 text-[10px]">
+                                      Новое
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  {notification.message}
+                                </p>
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(notification.createdAt).toLocaleString('ru-RU', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </div>
+                              </div>
+                              {!notification.isRead && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => markAsRead(notification.id)}
+                                  className="flex-shrink-0"
+                                  title="Отметить как прочитанное"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Элемент 3: Информация о пользователе */}
           <button
             onClick={() => navigate(getSettingsPath())}
             className="flex items-center gap-3 pl-3 border-l border-border hover:opacity-80 transition-opacity cursor-pointer"
@@ -128,10 +359,10 @@ export function TopBar({ userEmail, role, onLogout, firstName, lastName, middleN
             </div>
           </button>
 
-          {/* Элемент 3: Разделитель */}
+          {/* Элемент 4: Разделитель */}
           <div className="w-px h-8 bg-border"></div>
 
-          {/* Элемент 4: Бургер-меню */}
+          {/* Элемент 5: Бургер-меню */}
           <div className="relative">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -184,6 +415,7 @@ export function TopBar({ userEmail, role, onLogout, firstName, lastName, middleN
           </div>
         </div>
       </header>
+
     </>
   );
 }

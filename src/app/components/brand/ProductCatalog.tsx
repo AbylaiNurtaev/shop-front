@@ -20,6 +20,7 @@ export function ProductCatalog({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [productsList, setProductsList] = useState<Product[]>(products);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
 
   // Обновляем список продуктов при изменении пропсов
   React.useEffect(() => {
@@ -61,6 +62,39 @@ export function ProductCatalog({
       prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
     );
     // Также обновляем в родительском компоненте, если нужно
+  };
+
+  const handleMultiplePaymentSuccess = (updatedProducts: Product[]) => {
+    setProductsList((prev) => {
+      const updatedMap = new Map(updatedProducts.map(p => [p.id, p]));
+      return prev.map((p) => updatedMap.get(p.id) || p);
+    });
+    setSelectedProducts(new Set());
+  };
+
+  const toggleProductSelection = (productId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedProducts((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleMultiplePaymentClick = () => {
+    const productsToPay = productsList.filter(p => selectedProducts.has(p.id));
+    if (productsToPay.length > 0) {
+      setSelectedProduct(productsToPay[0]); // Для обратной совместимости, но модалка будет обрабатывать несколько
+      setIsPaymentModalOpen(true);
+    }
+  };
+
+  const getSelectedProducts = (): Product[] => {
+    return productsList.filter(p => selectedProducts.has(p.id));
   };
 
   const filteredProducts = productsList.filter((product) =>
@@ -169,6 +203,13 @@ export function ProductCatalog({
                 className="bg-card border border-border rounded-2xl p-4 shadow-sm transition-shadow cursor-pointer hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40"
               >
                 <div className="flex items-start gap-3 mb-4">
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.has(product.id)}
+                    onChange={() => {}}
+                    onClick={(e) => toggleProductSelection(product.id, e)}
+                    className="w-5 h-5 mt-1 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-base mb-1.5 leading-snug">{product.name}</h3>
                     <p className="text-sm text-muted-foreground font-mono">Арт: {product.sku}</p>
@@ -213,6 +254,20 @@ export function ProductCatalog({
             <table className="w-full">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
+                  <th className="text-left px-4 py-3 text-sm font-medium w-12">
+                    <input
+                      type="checkbox"
+                      checked={filteredProducts.length > 0 && filteredProducts.every(p => selectedProducts.has(p.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+                        } else {
+                          setSelectedProducts(new Set());
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                    />
+                  </th>
                   <th className="text-left px-4 py-3 text-sm font-medium">Товар</th>
                   <th className="text-left px-4 py-3 text-sm font-medium">Артикул</th>
                   <th className="text-left px-4 py-3 text-sm font-medium">Категория</th>
@@ -228,6 +283,15 @@ export function ProductCatalog({
                     onClick={() => onEditProduct(product)}
                     className="hover:bg-muted/30 transition-colors cursor-pointer"
                   >
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.has(product.id)}
+                        onChange={() => {}}
+                        onClick={(e) => toggleProductSelection(product.id, e)}
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium">{product.name}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{product.sku}</td>
                     <td className="px-4 py-3 text-sm">{getCategoryName(product.categoryId)}</td>
@@ -263,13 +327,41 @@ export function ProductCatalog({
       {selectedProduct && (
         <PaymentModal
           product={selectedProduct}
+          products={getSelectedProducts()}
           isOpen={isPaymentModalOpen}
           onClose={() => {
             setIsPaymentModalOpen(false);
             setSelectedProduct(null);
           }}
           onPaymentSuccess={handlePaymentSuccess}
+          onMultiplePaymentSuccess={handleMultiplePaymentSuccess}
         />
+      )}
+
+      {/* Fixed Payment Button - Mobile */}
+      {selectedProducts.size > 0 && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border p-4 shadow-lg">
+          <button
+            onClick={handleMultiplePaymentClick}
+            className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3.5 font-medium shadow-sm active:scale-98 transition-transform"
+          >
+            <CreditCard className="w-5 h-5" />
+            Оплатить ({selectedProducts.size})
+          </button>
+        </div>
+      )}
+
+      {/* Fixed Payment Button - Desktop */}
+      {selectedProducts.size > 0 && (
+        <div className="hidden md:flex fixed bottom-6 right-6 z-30">
+          <button
+            onClick={handleMultiplePaymentClick}
+            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl px-6 py-3.5 font-medium shadow-lg hover:opacity-90 transition-opacity"
+          >
+            <CreditCard className="w-5 h-5" />
+            Оплатить выбранные ({selectedProducts.size})
+          </button>
+        </div>
       )}
     </div>
   );

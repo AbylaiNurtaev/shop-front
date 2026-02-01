@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Store, MapPin, Phone, Mail, Loader2, Trash2, Plus, Users, User } from 'lucide-react';
+import { Store, MapPin, Phone, Mail, Loader2, Trash2, Plus, Users, User, ExternalLink } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 import {
@@ -30,6 +30,11 @@ interface Store {
   email?: string;
   description?: string;
   owner?: StoreOwner;
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  phoneNumber?: string;
+  location?: string;
 }
 
 interface SalesRep {
@@ -37,6 +42,7 @@ interface SalesRep {
   firstName: string;
   lastName: string;
   phone?: string;
+  phoneNumber?: string;
   email?: string;
 }
 
@@ -261,6 +267,12 @@ export function StoresList() {
                   <span className="break-all">{store.email}</span>
                 </div>
               )}
+              {store.phoneNumber && (
+                <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground mb-2">
+                  <User className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
+                  <span className="break-all">{store.phoneNumber}</span>
+                </div>
+              )}
               {store.description && (
                 <p className="text-xs md:text-sm text-muted-foreground mt-2 line-clamp-2">{store.description}</p>
               )}
@@ -340,22 +352,37 @@ export function StoresList() {
                   <h3 className="text-sm sm:text-base font-semibold">Информация о магазине</h3>
                 </div>
                 <div className="space-y-2.5 sm:space-y-3">
-                  {selectedStore.address && (
-                    <div className="flex items-start gap-2 text-xs sm:text-sm">
-                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-muted-foreground block mb-0.5">Адрес: </span>
-                        <span className="break-words">{selectedStore.address}</span>
-                      </div>
+                  {(selectedStore.city || selectedStore.address) && (
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-muted-foreground">Адрес: </span>
+                      <span className="break-words">
+                        {selectedStore.city && `${selectedStore.city}, `}
+                        {selectedStore.address}
+                      </span>
                     </div>
                   )}
                   {selectedStore.phone && (
                     <div className="flex items-center gap-2 text-xs sm:text-sm">
                       <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-muted-foreground">Телефон: </span>
-                        <span className="break-all font-medium">{selectedStore.phone}</span>
-                      </div>
+                      <span className="text-muted-foreground">Телефон: </span>
+                      <span className="break-all font-medium">{selectedStore.phone}</span>
+                    </div>
+                  )}
+                  {selectedStore.location && (
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-muted-foreground">2ГИС: </span>
+                      <a
+                        href={selectedStore.location}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline inline-flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span>Открыть на карте</span>
+                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                      </a>
                     </div>
                   )}
                 </div>
@@ -363,35 +390,35 @@ export function StoresList() {
             )}
 
             {/* Информация о владельце магазина */}
-            {selectedStore?.owner && (
+            {(selectedStore?.owner || selectedStore?.firstName || selectedStore?.phoneNumber) && (
               <div className="border border-border rounded-md p-3 sm:p-4 bg-muted/30">
                 <div className="flex items-center gap-2 mb-3">
                   <User className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0" />
                   <h3 className="text-sm sm:text-base font-semibold">Владелец магазина</h3>
                 </div>
                 <div className="space-y-2.5 sm:space-y-3">
-                  {selectedStore.owner.firstName && (
+                  {(selectedStore.firstName || selectedStore.owner?.firstName) && (
                     <div className="text-xs sm:text-sm">
                       <span className="text-muted-foreground">Имя: </span>
-                      <span className="font-medium">{selectedStore.owner.firstName}</span>
+                      <span className="font-medium">
+                        {[selectedStore.lastName, selectedStore.firstName, selectedStore.middleName]
+                          .filter(Boolean)
+                          .join(' ') || selectedStore.owner?.firstName || ''}
+                      </span>
                     </div>
                   )}
-                  {selectedStore.owner.email && (
-                    <div className="flex items-start gap-2 text-xs sm:text-sm">
-                      <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-muted-foreground">Email: </span>
-                        <span className="break-all">{selectedStore.owner.email}</span>
-                      </div>
+                  {(selectedStore.owner?.email) && (
+                    <div className="flex items-center gap-2 text-xs sm:text-sm">
+                      <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-muted-foreground">Email: </span>
+                      <span className="break-all">{selectedStore.owner.email}</span>
                     </div>
                   )}
-                  {selectedStore.owner.phoneNumber && (
+                  {(selectedStore.phoneNumber || selectedStore.owner?.phoneNumber) && (
                     <div className="flex items-center gap-2 text-xs sm:text-sm">
                       <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-muted-foreground">Телефон: </span>
-                        <span className="break-all font-medium">{selectedStore.owner.phoneNumber}</span>
-                      </div>
+                      <span className="text-muted-foreground">Телефон: </span>
+                      <span className="break-all font-medium">{selectedStore.phoneNumber || selectedStore.owner?.phoneNumber}</span>
                     </div>
                   )}
                 </div>
@@ -428,6 +455,12 @@ export function StoresList() {
                           {rep.email && (
                             <div className="text-xs text-muted-foreground truncate mt-0.5">{rep.email}</div>
                           )}
+                          {(rep.phoneNumber || rep.phone) && (
+                            <div className="text-xs text-muted-foreground truncate mt-0.5 flex items-center gap-1">
+                              <Phone className="w-3 h-3 flex-shrink-0" />
+                              <span>{rep.phoneNumber || rep.phone}</span>
+                            </div>
+                          )}
                         </div>
                         <Checkbox
                           checked={isAssigned}
@@ -442,7 +475,7 @@ export function StoresList() {
               )}
             </div>
           </div>
-          <DialogFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-0 pt-3 sm:pt-0 border-t border-border sm:border-t-0">
+          <DialogFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 sm:pt-0 border-t border-border sm:border-t-0">
             <div className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
               Привязано: <span className="font-medium">{assignedCount}</span>
             </div>

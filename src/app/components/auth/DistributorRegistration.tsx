@@ -115,6 +115,23 @@ export function DistributorRegistration({ onComplete, onBack }: DistributorRegis
     }
   };
 
+  // Функция для проверки корпоративной почты
+  const isCorporateEmail = (email: string): boolean => {
+    const publicEmailDomains = [
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.ru',
+      'yandex.ru', 'yandex.com', 'rambler.ru', 'inbox.ru', 'bk.ru',
+      'list.ru', 'live.com', 'msn.com', 'aol.com', 'icloud.com',
+      'protonmail.com', 'proton.me', 'gmx.com', 'zoho.com', 'mail.com',
+      'qq.com', '163.com', 'sina.com', 'rediffmail.com', 'cox.net',
+      'verizon.net', 'comcast.net', 'att.net', 'sbcglobal.net'
+    ];
+    
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (!domain) return false;
+    
+    return !publicEmailDomains.includes(domain);
+  };
+
   const handleSendVerificationCode = async () => {
     if (!formData.email) {
       setVerificationError('Пожалуйста, введите email');
@@ -124,6 +141,11 @@ export function DistributorRegistration({ onComplete, onBack }: DistributorRegis
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setVerificationError('Некорректный формат email');
+      return;
+    }
+
+    if (!isCorporateEmail(formData.email)) {
+      setVerificationError('Пожалуйста, используйте корпоративную почту. Публичные почтовые сервисы (Gmail, Yahoo, Mail.ru и т.д.) не допускаются.');
       return;
     }
 

@@ -118,9 +118,23 @@ export function StoreRegistration({ onComplete, onBack }: StoreRegistrationProps
     logoUrl: undefined,
   });
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    onComplete(formData);
+  const [emailError, setEmailError] = useState<string | undefined>(undefined);
+
+  // Функция для проверки корпоративной почты
+  const isCorporateEmail = (email: string): boolean => {
+    const publicEmailDomains = [
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.ru',
+      'yandex.ru', 'yandex.com', 'rambler.ru', 'inbox.ru', 'bk.ru',
+      'list.ru', 'live.com', 'msn.com', 'aol.com', 'icloud.com',
+      'protonmail.com', 'proton.me', 'gmx.com', 'zoho.com', 'mail.com',
+      'qq.com', '163.com', 'sina.com', 'rediffmail.com', 'cox.net',
+      'verizon.net', 'comcast.net', 'att.net', 'sbcglobal.net'
+    ];
+    
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (!domain) return false;
+    
+    return !publicEmailDomains.includes(domain);
   };
 
   const updateField = (field: keyof StoreProfile, value: string) => {
@@ -131,6 +145,33 @@ export function StoreRegistration({ onComplete, onBack }: StoreRegistrationProps
     const formatted = formatPhoneNumber(e.target.value);
     updateField('phone', formatted);
     updateField('phoneNumber', formatted);
+  };
+
+  const handleEmailChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const email = e.target.value;
+    updateField('email', email);
+    setEmailError(undefined);
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    
+    // Валидация корпоративной почты
+    if (formData.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setEmailError('Некорректный формат email');
+        return;
+      }
+      
+      if (!isCorporateEmail(formData.email)) {
+        setEmailError('Пожалуйста, используйте корпоративную почту. Публичные почтовые сервисы (Gmail, Yahoo, Mail.ru и т.д.) не допускаются.');
+        return;
+      }
+    }
+    
+    setEmailError(undefined);
+    onComplete(formData);
   };
 
   const isKazakhstan = formData.country === 'Казахстан';
@@ -224,11 +265,16 @@ export function StoreRegistration({ onComplete, onBack }: StoreRegistrationProps
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => updateField('email', e.target.value)}
-                  className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  onChange={handleEmailChange}
+                  className={`w-full px-3 py-2 bg-input-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring ${
+                    emailError ? 'border-destructive' : 'border-border'
+                  }`}
                   placeholder="store@example.com"
                   required
                 />
+                {emailError && (
+                  <p className="mt-2 text-xs text-destructive">{emailError}</p>
+                )}
               </div>
 
               <div className="md:col-span-2">

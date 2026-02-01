@@ -58,11 +58,27 @@ export function DistributorProducts() {
   const [isSaving, setIsSaving] = useState(false);
   const [isCategoriesLoaded, setIsCategoriesLoaded] = useState(false);
   
+  // Получаем валюту из настроек через API
+  const [userCurrency, setUserCurrency] = useState<string>('KZT');
+  
+  useEffect(() => {
+    const loadCurrency = async () => {
+      try {
+        const settingsResponse = await api.get<{ currency?: string }>('/users/me/settings');
+        setUserCurrency(settingsResponse.data.currency || 'KZT');
+      } catch (error) {
+        console.warn('Не удалось загрузить валюту, используем значение по умолчанию', error);
+        setUserCurrency('KZT');
+      }
+    };
+    loadCurrency();
+  }, []);
+  
   // Состояние для редактирования прямо в таблице
-  const [editingValues, setEditingValues] = useState<Record<string, { costPrice: string; costCurrency: string }>>({});
+  const [editingValues, setEditingValues] = useState<Record<string, { costPrice: string }>>({});
   
   // Оригинальные значения для отслеживания изменений
-  const [originalValues, setOriginalValues] = useState<Record<string, { costPrice?: number; costCurrency?: string }>>({});
+  const [originalValues, setOriginalValues] = useState<Record<string, { costPrice?: number }>>({});
 
   useEffect(() => {
     const loadData = async () => {
@@ -124,7 +140,7 @@ export function DistributorProducts() {
           sku,
           brandName,
           categoryName,
-          costPrice: costPrice ?? undefined,
+          costPrice: costPrice !== undefined && costPrice !== null ? Math.round(costPrice) : undefined,
           costCurrency: costCurrency ?? undefined,
           hasCostPrice,
         };
@@ -134,7 +150,6 @@ export function DistributorProducts() {
           ...prev,
           [productId]: {
             costPrice: product.costPrice,
-            costCurrency: product.costCurrency,
           },
         }));
 
@@ -143,7 +158,6 @@ export function DistributorProducts() {
           ...prev,
           [productId]: {
             costPrice: product.costPrice?.toString() || '',
-            costCurrency: product.costCurrency || 'KZT',
           },
         }));
 
@@ -177,24 +191,17 @@ export function DistributorProducts() {
   };
 
   const handlePriceChange = (productId: string, value: string) => {
+    // Округляем до целого числа при вводе
+    const numValue = value === '' ? '' : Math.round(parseFloat(value) || 0).toString();
     setEditingValues((prev) => ({
       ...prev,
       [productId]: {
         ...prev[productId],
-        costPrice: value,
+        costPrice: numValue,
       },
     }));
   };
 
-  const handleCurrencyChange = (productId: string, value: string) => {
-    setEditingValues((prev) => ({
-      ...prev,
-      [productId]: {
-        ...prev[productId],
-        costCurrency: value,
-      },
-    }));
-  };
 
   const hasChanges = () => {
     return Object.keys(editingValues).some((productId) => {
@@ -203,13 +210,10 @@ export function DistributorProducts() {
       
       if (!edited) return false;
       
-      const editedPrice = edited.costPrice.trim() === '' ? null : parseFloat(edited.costPrice);
+      const editedPrice = edited.costPrice.trim() === '' ? null : parseInt(edited.costPrice, 10);
       const originalPrice = original?.costPrice ?? null;
       
-      const editedCurrency = edited.costCurrency || 'KZT';
-      const originalCurrency = original?.costCurrency || 'KZT';
-      
-      return editedPrice !== originalPrice || editedCurrency !== originalCurrency;
+      return editedPrice !== originalPrice;
     });
   };
 
@@ -225,14 +229,11 @@ export function DistributorProducts() {
       
       if (!edited) return;
       
-      const editedPrice = edited.costPrice.trim() === '' ? null : parseFloat(edited.costPrice);
+      const editedPrice = edited.costPrice.trim() === '' ? null : parseInt(edited.costPrice, 10);
       const originalPrice = original?.costPrice ?? null;
       
-      const editedCurrency = edited.costCurrency || 'KZT';
-      const originalCurrency = original?.costCurrency || 'KZT';
-      
       // Проверяем, есть ли изменения
-      if (editedPrice !== originalPrice || editedCurrency !== originalCurrency) {
+      if (editedPrice !== originalPrice) {
         if (editedPrice === null || isNaN(editedPrice)) {
           // Удаляем себестоимость
           savePromises.push(
@@ -242,11 +243,12 @@ export function DistributorProducts() {
             })
           );
         } else {
-          // Сохраняем/обновляем себестоимость
+          // Сохраняем/обновляем себестоимость (округляем до целого числа)
+          const roundedPrice = Math.round(editedPrice);
           savePromises.push(
             api.put(`/distributors/me/products/${productId}/cost-price`, {
-              costPrice: editedPrice,
-              costCurrency: editedCurrency,
+              costPrice: roundedPrice,
+              costCurrency: userCurrency,
             }).catch((error) => {
               console.error(`Ошибка сохранения себестоимости для ${productId}`, error);
               throw error;
@@ -327,7 +329,6 @@ export function DistributorProducts() {
                 {filteredProducts.map((product) => {
                   const editingValue = editingValues[product.productId] || {
                     costPrice: product.costPrice?.toString() || '',
-                    costCurrency: product.costCurrency || 'KZT',
                   };
 
                   return (
@@ -337,26 +338,17 @@ export function DistributorProducts() {
                       <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm text-muted-foreground break-words">{product.brandName || '—'}</td>
                       <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm text-muted-foreground break-words">{product.categoryName || '—'}</td>
                       <td className="px-4 md:px-4 py-3 md:py-3">
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <div className="flex items-center gap-2">
                           <input
                             type="number"
-                            step="0.01"
+                            step="1"
                             min="0"
                             value={editingValue.costPrice}
                             onChange={(e) => handlePriceChange(product.productId, e.target.value)}
-                            placeholder="0.00"
+                            placeholder="0"
                             className="w-full sm:w-28 md:w-32 px-2 md:px-3 py-1.5 md:py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-xs md:text-sm"
                           />
-                          <select
-                            value={editingValue.costCurrency}
-                            onChange={(e) => handleCurrencyChange(product.productId, e.target.value)}
-                            className="w-full sm:w-auto px-2 md:px-3 py-1.5 md:py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-xs md:text-sm"
-                          >
-                            <option value="RUB">RUB (₽)</option>
-                            <option value="USD">USD ($)</option>
-                            <option value="EUR">EUR (€)</option>
-                            <option value="KZT">KZT (₸)</option>
-                          </select>
+                          <span className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">{userCurrency}</span>
                         </div>
                       </td>
                     </tr>

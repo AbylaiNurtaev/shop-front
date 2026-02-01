@@ -36,26 +36,26 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
   ];
 
   const distributorMenuItems = [
-    { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'salesReps', label: 'ТП', icon: Users },
     { id: 'products', label: 'Товары', icon: Package },
-    { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
-    { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
-    { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
-    { id: 'forecast', label: 'Прогноз спроса (AI)', icon: Brain },
+    { id: 'stores', label: 'Магазины', icon: Store },
     { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
+    { id: 'analytics', label: 'Аналитика', icon: BarChart3 },
+    { id: 'forecast', label: 'Прогноз спроса (AI)', icon: Brain },
     { id: 'history', label: 'История', icon: History },
+    { id: 'requests', label: 'Запросы от брендов', icon: MessageCircle },
+    { id: 'aiFAQ', label: 'AI-FAQ и обучение', icon: MessageCircle },
   ];
 
   const salesRepMenuItems = [
-    { id: 'analytics', label: 'AI-аналитика', icon: Brain },
-    { id: 'history', label: 'История', icon: History },
+    { id: 'plan', label: 'План продаж', icon: Calendar },
     { id: 'stores', label: 'Магазины', icon: Store },
+    { id: 'analytics', label: 'AI-аналитика', icon: Brain },
     { id: 'productGroups', label: 'Группы товаров', icon: FolderTreeIcon },
     { id: 'inventory', label: 'Контроль остатков', icon: BarChart3 },
-    { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
     { id: 'poorlySelling', label: 'Низкие продажи', icon: TrendingDown },
-    { id: 'plan', label: 'План', icon: Calendar },
+    { id: 'expiring', label: 'Истекающий срок', icon: AlertTriangle },
+    { id: 'history', label: 'История', icon: History },
   ];
 
   const menuItems =

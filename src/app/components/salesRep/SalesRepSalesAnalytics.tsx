@@ -424,34 +424,34 @@ export function SalesRepSalesAnalytics() {
 
       {/* Основные метрики */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700 rounded-lg p-4 shadow-lg">
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-gray-800 dark:to-gray-700 border border-gray-700 dark:border-gray-600 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <ShoppingCart className="w-5 h-5 text-white" />
-            <span className="text-xs text-gray-300">Продаж</span>
+            <span className="text-xs text-gray-300 dark:text-gray-200">Продаж</span>
           </div>
           <div className="text-2xl font-semibold text-white">{analytics.summary.totalSales}</div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 border border-green-400 rounded-lg p-4 shadow-lg">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 border border-green-400 dark:border-green-500 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <DollarSign className="w-5 h-5 text-white" />
-            <span className="text-xs text-green-50">Выручка</span>
+            <span className="text-xs text-green-50 dark:text-green-100">Выручка</span>
           </div>
           <div className="text-xl font-semibold text-white">{formatCurrency(analytics.summary.totalRevenue)}</div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 border border-blue-400 rounded-lg p-4 shadow-lg">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 border border-blue-400 dark:border-blue-500 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <Package className="w-5 h-5 text-white" />
-            <span className="text-xs text-blue-50">Товаров</span>
+            <span className="text-xs text-blue-50 dark:text-blue-100">Товаров</span>
           </div>
           <div className="text-2xl font-semibold text-white">{analytics.summary.totalQuantity}</div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 border border-purple-400 rounded-lg p-4 shadow-lg">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 border border-purple-400 dark:border-purple-500 rounded-lg p-4 shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <TrendingUp className="w-5 h-5 text-white" />
-            <span className="text-xs text-purple-50">Средний чек</span>
+            <span className="text-xs text-purple-50 dark:text-purple-100">Средний чек</span>
           </div>
           <div className="text-xl font-semibold text-white">{formatCurrency(analytics.summary.averageSale)}</div>
         </div>
@@ -508,17 +508,32 @@ export function SalesRepSalesAnalytics() {
                   bottom: periodView === 'daily' ? (isMobile ? 20 : 30) : (isMobile ? 30 : 20)
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke="hsl(var(--muted-foreground))"
+                  opacity={0.3}
+                />
                 <XAxis
                   dataKey="name"
                   angle={0}
                   textAnchor="middle"
                   height={periodView === 'daily' ? (isMobile ? 30 : 40) : (isMobile ? 40 : 25)}
                   interval={periodView === 'daily' && chartData.length > 14 && !isMobile ? Math.floor(chartData.length / 14) : 0}
-                  tick={{ fontSize: isMobile ? 9 : 12 }}
+                  tick={{ 
+                    fontSize: isMobile ? 9 : 12,
+                    fill: 'hsl(var(--muted-foreground))'
+                  }}
+                  stroke="hsl(var(--muted-foreground))"
                   minTickGap={isMobile ? 3 : 10}
                 />
-                <YAxis tick={{ fontSize: isMobile ? 9 : 12 }} width={isMobile ? 40 : 60} />
+                <YAxis 
+                  tick={{ 
+                    fontSize: isMobile ? 9 : 12,
+                    fill: 'hsl(var(--muted-foreground))'
+                  }} 
+                  stroke="hsl(var(--muted-foreground))"
+                  width={isMobile ? 40 : 60} 
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar
                   dataKey="revenue"

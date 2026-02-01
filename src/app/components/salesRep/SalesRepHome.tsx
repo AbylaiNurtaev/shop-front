@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Store, MapPin, Package, TrendingUp, AlertCircle, Clock, Loader2 } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { useSalesRepNotifications } from '../../hooks/useSalesRepNotifications';
 
 interface Store {
   id: string;
@@ -16,6 +17,9 @@ interface Store {
 export function SalesRepHome() {
   const [stores, setStores] = useState<Store[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Инициализируем хук для проверки уведомлений
+  useSalesRepNotifications();
 
   useEffect(() => {
     loadStores();

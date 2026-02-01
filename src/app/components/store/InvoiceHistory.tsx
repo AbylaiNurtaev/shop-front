@@ -174,24 +174,24 @@ export function InvoiceHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Mobile Layout */}
       <div className="md:hidden">
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="bg-card border-b border-border sticky top-0 z-20 shadow-sm">
           <div className="p-4">
-            <h1 className="text-2xl font-bold text-gray-900">История накладных</h1>
-            <p className="text-sm text-gray-600 mt-1">Просмотр всех обработанных накладных</p>
+            <h1 className="text-2xl font-bold text-foreground">История накладных</h1>
+            <p className="text-sm text-muted-foreground mt-1">Просмотр всех обработанных накладных</p>
           </div>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : invoices.length === 0 ? (
           <div className="p-4 text-center py-20">
-            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Нет накладных в истории</p>
+            <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Нет накладных в истории</p>
           </div>
         ) : (
           <>
@@ -199,57 +199,57 @@ export function InvoiceHistory() {
               {invoices.map((invoice) => (
                 <div
                   key={invoice.id}
-                  className="bg-white border-2 border-gray-200 rounded-2xl p-5 shadow-sm"
+                  className="bg-card border-2 border-border rounded-2xl p-5 shadow-sm"
                 >
                   <div className="flex items-start gap-4">
                     {invoice.imageUrl && (
                       <img
                         src={invoice.imageUrl}
                         alt="Накладная"
-                        className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                        className="w-20 h-20 object-cover rounded-lg border border-border"
                       />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-lg text-gray-900 truncate">
+                          <h3 className="font-bold text-lg text-foreground truncate">
                             {invoice.invoiceInfo.invoiceNumber || 'Накладная без номера'}
                           </h3>
                           {invoice.invoiceInfo.supplier && (
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-sm text-muted-foreground mt-1">
                               {invoice.invoiceInfo.supplier}
                             </p>
                           )}
                         </div>
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           invoice.status === 'PROCESSED' 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-gray-100 text-gray-700'
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
+                            : 'bg-muted text-muted-foreground'
                         }`}>
                           {invoice.status === 'PROCESSED' ? 'Обработана' : invoice.status}
                         </span>
                       </div>
                       
-                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
                         <Calendar className="w-4 h-4" />
                         <span>{formatDate(invoice.createdAt)}</span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 mb-3">
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-2">
-                          <div className="text-xs text-green-700 font-medium">Найдено</div>
-                          <div className="text-lg font-bold text-green-900">{invoice.summary.found}</div>
+                        <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-2">
+                          <div className="text-xs text-green-700 dark:text-green-300 font-medium">Найдено</div>
+                          <div className="text-lg font-bold text-green-900 dark:text-green-100">{invoice.summary.found}</div>
                         </div>
-                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-2">
-                          <div className="text-xs text-orange-700 font-medium">Не найдено</div>
-                          <div className="text-lg font-bold text-orange-900">{invoice.summary.notFound}</div>
+                        <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-2">
+                          <div className="text-xs text-orange-700 dark:text-orange-300 font-medium">Не найдено</div>
+                          <div className="text-lg font-bold text-orange-900 dark:text-orange-100">{invoice.summary.notFound}</div>
                         </div>
                       </div>
 
                       <button
                         onClick={() => fetchInvoiceDetail(invoice.id)}
                         disabled={loadingDetail}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
                       >
                         <Eye className="w-4 h-4" />
                         <span>Подробнее</span>
@@ -262,22 +262,22 @@ export function InvoiceHistory() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 flex items-center justify-between">
+              <div className="fixed bottom-20 left-0 right-0 bg-card border-t border-border p-4 flex items-center justify-between">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Назад</span>
                 </button>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   Страница {page} из {totalPages}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>Вперед</span>
                   <ChevronRight className="w-4 h-4" />
@@ -291,75 +291,75 @@ export function InvoiceHistory() {
       {/* Desktop Layout */}
       <div className="hidden md:block">
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold">История накладных</h2>
-          <p className="text-sm text-gray-500 mt-1">Просмотр всех обработанных накладных</p>
+          <h2 className="text-2xl font-semibold text-foreground">История накладных</h2>
+          <p className="text-sm text-muted-foreground mt-1">Просмотр всех обработанных накладных</p>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : invoices.length === 0 ? (
           <div className="text-center py-20">
-            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Нет накладных в истории</p>
+            <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Нет накладных в истории</p>
           </div>
         ) : (
           <>
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-muted border-b border-border">
                     <tr>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Изображение</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Номер накладной</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Поставщик</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Дата</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Статус</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Найдено</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Не найдено</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Действия</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Изображение</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Номер накладной</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Поставщик</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Дата</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Статус</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Найдено</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Не найдено</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Действия</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-border">
                     {invoices.map((invoice) => (
-                      <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={invoice.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-4 py-3">
                           {invoice.imageUrl && (
                             <img
                               src={invoice.imageUrl}
                               alt="Накладная"
-                              className="w-16 h-16 object-cover rounded border border-gray-200"
+                              className="w-16 h-16 object-cover rounded border border-border"
                             />
                           )}
                         </td>
-                        <td className="px-4 py-3 font-medium">
+                        <td className="px-4 py-3 font-medium text-foreground">
                           {invoice.invoiceInfo.invoiceNumber || '—'}
                         </td>
-                        <td className="px-4 py-3 text-sm">{invoice.invoiceInfo.supplier || '—'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-foreground">{invoice.invoiceInfo.supplier || '—'}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">
                           {formatDate(invoice.createdAt)}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             invoice.status === 'PROCESSED' 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-gray-100 text-gray-700'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' 
+                              : 'bg-muted text-muted-foreground'
                           }`}>
                             {invoice.status === 'PROCESSED' ? 'Обработана' : invoice.status}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-green-700 font-medium">{invoice.summary.found}</span>
+                          <span className="text-green-700 dark:text-green-300 font-medium">{invoice.summary.found}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-orange-700 font-medium">{invoice.summary.notFound}</span>
+                          <span className="text-orange-700 dark:text-orange-300 font-medium">{invoice.summary.notFound}</span>
                         </td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => fetchInvoiceDetail(invoice.id)}
                             disabled={loadingDetail}
-                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                            className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50 transition-colors"
                           >
                             Подробнее
                           </button>
@@ -377,18 +377,18 @@ export function InvoiceHistory() {
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Назад
                 </button>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   Страница {page} из {totalPages}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Вперед
                   <ChevronRight className="w-4 h-4" />
@@ -402,9 +402,9 @@ export function InvoiceHistory() {
       {/* Detail Modal */}
       {showDetailModal && selectedInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
-          <div className="bg-white rounded-t-2xl md:rounded-xl max-w-4xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto flex flex-col">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between z-10">
-              <h3 className="text-lg md:text-xl font-semibold flex items-center gap-2">
+          <div className="bg-card rounded-t-2xl md:rounded-xl max-w-4xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="sticky top-0 bg-card border-b border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between z-10">
+              <h3 className="text-lg md:text-xl font-semibold flex items-center gap-2 text-foreground">
                 <FileText className="w-4 h-4 md:w-5 md:h-5" />
                 <span>Детали накладной</span>
               </h3>
@@ -413,9 +413,9 @@ export function InvoiceHistory() {
                   setShowDetailModal(false);
                   setSelectedInvoice(null);
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-foreground" />
               </button>
             </div>
 
@@ -426,37 +426,37 @@ export function InvoiceHistory() {
                   <img
                     src={selectedInvoice.imageUrl}
                     alt="Накладная"
-                    className="w-full max-w-md mx-auto rounded-lg border border-gray-200"
+                    className="w-full max-w-md mx-auto rounded-lg border border-border"
                   />
                 </div>
               )}
 
               {/* Информация о накладной */}
               {selectedInvoice.invoiceInfo && (
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <h4 className="font-semibold mb-3">Информация о накладной</h4>
+                <div className="bg-muted rounded-lg p-4 space-y-2">
+                  <h4 className="font-semibold mb-3 text-foreground">Информация о накладной</h4>
                   {selectedInvoice.invoiceInfo.invoiceNumber && (
-                    <div className="text-sm">
+                    <div className="text-sm text-foreground">
                       <span className="font-medium">Номер накладной:</span> {selectedInvoice.invoiceInfo.invoiceNumber}
                     </div>
                   )}
                   {selectedInvoice.invoiceInfo.date && (
-                    <div className="text-sm">
+                    <div className="text-sm text-foreground">
                       <span className="font-medium">Дата:</span> {selectedInvoice.invoiceInfo.date}
                     </div>
                   )}
                   {selectedInvoice.invoiceInfo.supplier && (
-                    <div className="text-sm">
+                    <div className="text-sm text-foreground">
                       <span className="font-medium">Поставщик:</span> {selectedInvoice.invoiceInfo.supplier}
                     </div>
                   )}
                   {selectedInvoice.originalSize && (
-                    <div className="text-sm">
+                    <div className="text-sm text-foreground">
                       <span className="font-medium">Размер оригинала:</span> {formatFileSize(selectedInvoice.originalSize)}
                     </div>
                   )}
                   {selectedInvoice.compressedSize && (
-                    <div className="text-sm">
+                    <div className="text-sm text-foreground">
                       <span className="font-medium">Размер сжатого:</span> {formatFileSize(selectedInvoice.compressedSize)}
                     </div>
                   )}
@@ -466,33 +466,33 @@ export function InvoiceHistory() {
               {/* Сводка */}
               {selectedInvoice.summary && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <FileText className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-700">Всего</span>
+                      <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Всего</span>
                     </div>
-                    <p className="text-2xl font-bold text-blue-900">{selectedInvoice.summary.total || 0}</p>
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{selectedInvoice.summary.total || 0}</p>
                   </div>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span className="text-sm font-medium text-green-700">Найдено</span>
+                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <span className="text-sm font-medium text-green-700 dark:text-green-300">Найдено</span>
                     </div>
-                    <p className="text-2xl font-bold text-green-900">{selectedInvoice.summary.found || 0}</p>
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">{selectedInvoice.summary.found || 0}</p>
                   </div>
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <AlertCircle className="w-5 h-5 text-orange-600" />
-                      <span className="text-sm font-medium text-orange-700">Не найдено</span>
+                      <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                      <span className="text-sm font-medium text-orange-700 dark:text-orange-300">Не найдено</span>
                     </div>
-                    <p className="text-2xl font-bold text-orange-900">{selectedInvoice.summary.notFound || 0}</p>
+                    <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">{selectedInvoice.summary.notFound || 0}</p>
                   </div>
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <X className="w-5 h-5 text-red-600" />
-                      <span className="text-sm font-medium text-red-700">Ошибки</span>
+                      <X className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      <span className="text-sm font-medium text-red-700 dark:text-red-300">Ошибки</span>
                     </div>
-                    <p className="text-2xl font-bold text-red-900">{selectedInvoice.summary.errors || 0}</p>
+                    <p className="text-2xl font-bold text-red-900 dark:text-red-100">{selectedInvoice.summary.errors || 0}</p>
                   </div>
                 </div>
               )}
@@ -500,24 +500,24 @@ export function InvoiceHistory() {
               {/* Найденные товары */}
               {selectedInvoice.analysisResults?.found && selectedInvoice.analysisResults.found.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-foreground">
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                     Найденные товары ({selectedInvoice.analysisResults.found.length})
                   </h4>
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {(selectedInvoice.analysisResults.found || []).map((item, idx) => (
                       <div
                         key={idx}
-                        className="border-2 rounded-lg p-4 bg-green-50 border-green-200"
+                        className="border-2 rounded-lg p-4 bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700"
                       >
-                        <div className="font-medium text-gray-900">{item.product?.name || 'Неизвестный товар'}</div>
-                        <div className="text-sm text-gray-600 mt-1">
+                        <div className="font-medium text-foreground">{item.product?.name || 'Неизвестный товар'}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
                           <span>Артикул: {item.product?.sku || '—'}</span>
                           {item.product?.brandName && (
                             <span className="ml-2">Бренд: {item.product.brandName}</span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600 mt-2">
+                        <div className="text-sm text-muted-foreground mt-2">
                           <span>Текущий остаток: {item.currentQuantity || 0} шт</span>
                           <span className="ml-2">Добавлено: {item.quantity || 0} шт</span>
                           <span className="ml-2">Новый остаток: {item.newQuantity || 0} шт</span>
@@ -531,15 +531,15 @@ export function InvoiceHistory() {
               {/* Не найденные товары */}
               {selectedInvoice.analysisResults?.notFound && selectedInvoice.analysisResults.notFound.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-orange-600" />
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-foreground">
+                    <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                     Товары не найдены ({selectedInvoice.analysisResults.notFound.length})
                   </h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {(selectedInvoice.analysisResults.notFound || []).map((item, idx) => (
-                      <div key={idx} className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
-                        <div className="font-medium break-words">{item.productName || 'Не указано название'}</div>
-                        <div className="text-gray-600 mt-1">
+                      <div key={idx} className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3 text-sm">
+                        <div className="font-medium break-words text-foreground">{item.productName || 'Не указано название'}</div>
+                        <div className="text-muted-foreground mt-1">
                           <span>Количество: {item.quantity} {item.unit || 'шт'}</span>
                           {item.sku && <span className="ml-2">Артикул: {item.sku}</span>}
                           {item.brand && <span className="ml-2">Бренд: {item.brand}</span>}
@@ -553,19 +553,19 @@ export function InvoiceHistory() {
               {/* Ошибки */}
               {selectedInvoice.analysisResults?.errors && selectedInvoice.analysisResults.errors.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <X className="w-5 h-5 text-red-600" />
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-foreground">
+                    <X className="w-5 h-5 text-red-600 dark:text-red-400" />
                     Ошибки обработки ({selectedInvoice.analysisResults.errors.length})
                   </h4>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {(selectedInvoice.analysisResults.errors || []).map((error, idx) => (
-                      <div key={idx} className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
-                        <div className="font-medium text-red-700 break-words">{error.error}</div>
+                      <div key={idx} className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg p-3 text-sm">
+                        <div className="font-medium text-red-700 dark:text-red-300 break-words">{error.error}</div>
                         {error.item.productName && (
-                          <div className="text-gray-600 mt-1">Товар: {error.item.productName}</div>
+                          <div className="text-muted-foreground mt-1">Товар: {error.item.productName}</div>
                         )}
                         {error.item.quantity && (
-                          <div className="text-gray-600">Количество: {error.item.quantity}</div>
+                          <div className="text-muted-foreground">Количество: {error.item.quantity}</div>
                         )}
                       </div>
                     ))}

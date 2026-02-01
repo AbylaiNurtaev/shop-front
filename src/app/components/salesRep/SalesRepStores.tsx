@@ -10,6 +10,20 @@ interface StoreOwner {
   phoneNumber?: string;
 }
 
+interface StoreProduct {
+  id: string;
+  name: string;
+  sku?: string;
+  brandName?: string;
+  packageInfo?: string;
+  images?: string[];
+  offerId?: string;
+  price?: number;
+  currency?: string;
+  quantity?: number;
+  isAvailable?: boolean;
+}
+
 interface Store {
   id: string;
   name: string;
@@ -18,6 +32,8 @@ interface Store {
   phone?: string;
   email?: string;
   productCount?: number;
+  productsCount?: number;
+  products?: StoreProduct[];
   owner?: StoreOwner;
   // Поля владельца могут быть напрямую в объекте магазина
   firstName?: string;
@@ -250,10 +266,10 @@ export function SalesRepStores() {
                       </a>
                     </div>
                   )}
-                  {store.productCount !== undefined && (
+                  {(store.productCount !== undefined || store.productsCount !== undefined) && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Package className="w-4 h-4 flex-shrink-0" />
-                      <span>Товаров: <span className="font-semibold">{store.productCount}</span></span>
+                      <span>Товаров: <span className="font-semibold">{store.productsCount ?? store.productCount ?? 0}</span></span>
                     </div>
                   )}
                 </div>
@@ -405,15 +421,99 @@ export function SalesRepStores() {
                 </div>
               )}
 
+              {/* Товары в магазине */}
+              {selectedStore.products && selectedStore.products.length > 0 && (
+                <div className="pt-3 border-t border-border">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-base md:text-lg font-semibold">Мои товары в магазине</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Всего товаров: {selectedStore.productsCount ?? selectedStore.products.length}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {selectedStore.products.map((product) => (
+                      <div
+                        key={product.id}
+                        className="bg-gradient-to-br from-muted/30 to-muted/10 border border-border rounded-lg p-3 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start gap-3">
+                          {product.images && product.images.length > 0 && (
+                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-white border border-border flex-shrink-0">
+                              <img
+                                src={product.images[0]}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <h4 className="font-semibold text-sm md:text-base text-foreground truncate">
+                                {product.name}
+                              </h4>
+                              {product.isAvailable !== undefined && (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${product.isAvailable
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-red-100 text-red-700'
+                                    }`}
+                                >
+                                  {product.isAvailable ? 'В наличии' : 'Нет в наличии'}
+                                </span>
+                              )}
+                            </div>
+                            {product.brandName && (
+                              <p className="text-xs text-muted-foreground mb-1">Бренд: {product.brandName}</p>
+                            )}
+                            {product.sku && (
+                              <p className="text-xs text-muted-foreground mb-1">SKU: {product.sku}</p>
+                            )}
+                            <div className="flex items-center gap-4 mt-2 flex-wrap">
+                              {product.price !== undefined && product.currency && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground">Цена:</span>
+                                  <span className="text-sm font-semibold text-foreground">
+                                    {product.price} {product.currency}
+                                  </span>
+                                </div>
+                              )}
+                              {product.quantity !== undefined && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground">Количество:</span>
+                                  <span className="text-sm font-semibold text-foreground">{product.quantity}</span>
+                                </div>
+                              )}
+                            </div>
+                            {product.packageInfo && (
+                              <p className="text-xs text-muted-foreground mt-1">Упаковка: {product.packageInfo}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Дополнительная информация */}
-              {selectedStore.productCount !== undefined && (
+              {(selectedStore.productCount !== undefined || selectedStore.productsCount !== undefined) && (!selectedStore.products || selectedStore.products.length === 0) && (
                 <div className="flex items-center gap-3 pt-3 border-t border-border">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Package className="w-5 h-5 text-primary" />
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Товаров в магазине</p>
-                    <p className="text-base md:text-lg font-semibold text-foreground">{selectedStore.productCount}</p>
+                    <p className="text-base md:text-lg font-semibold text-foreground">
+                      {selectedStore.productsCount ?? selectedStore.productCount ?? 0}
+                    </p>
                   </div>
                 </div>
               )}

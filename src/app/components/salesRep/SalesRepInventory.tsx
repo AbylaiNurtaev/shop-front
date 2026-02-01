@@ -69,8 +69,14 @@ export function SalesRepInventory() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   useEffect(() => {
-    loadCategories();
-    loadInventory();
+    const initialize = async () => {
+      const categoriesList = await loadCategories();
+      // Загружаем инвентарь после категорий, чтобы использовать категории для поиска названий
+      if (categoriesList) {
+        await loadInventory(categoriesList);
+      }
+    };
+    initialize();
   }, []);
 
   useEffect(() => {
@@ -81,17 +87,20 @@ export function SalesRepInventory() {
     loadInventory();
   }, [storeFilter]);
 
-  const loadCategories = async () => {
+  const loadCategories = async (): Promise<ApiCategory[] | null> => {
     try {
       const response = await api.get<{ items?: ApiCategory[] }>('/categories');
       const items = response.data?.items || response.data || [];
-      setCategories(Array.isArray(items) ? items : []);
+      const categoriesList = Array.isArray(items) ? items : [];
+      setCategories(categoriesList);
+      return categoriesList;
     } catch (error) {
       console.error('Ошибка загрузки категорий', error);
+      return null;
     }
   };
 
-  const loadInventory = async () => {
+  const loadInventory = async (categoriesToUse?: ApiCategory[]) => {
     setIsLoading(true);
     try {
       const params: Record<string, string | number> = {};
@@ -101,6 +110,7 @@ export function SalesRepInventory() {
       const response = await api.get<{ items?: ApiInventoryItem[] }>('/sales-reps/stock-control', { params });
       console.log('GET /sales-reps/stock-control response', response.data);
       const items = response.data?.items || response.data || [];
+      const categoriesList = categoriesToUse ?? categories;
       const mappedItems = (Array.isArray(items) ? items : [])
         .map((item) => {
           const productName = item.productName ?? item.product?.name ?? '';
@@ -115,7 +125,9 @@ export function SalesRepInventory() {
           const minStock = item.minStock ?? item.threshold ?? 0;
           const maxStock = item.maxStock ?? 0;
           const categoryId = item.categoryId ?? item.product?.categoryId ?? item.product?.category?.id;
-          const categoryName = item.categoryName ?? item.product?.category?.name;
+          // Находим название категории по categoryId из загруженного списка категорий
+          const categoryName = item.categoryName ?? item.product?.category?.name ?? 
+            (categoryId ? categoriesList.find(cat => cat.id === categoryId)?.name : undefined);
           let status: InventoryItem['status'] =
             item.status ?? (item.lowStock ? 'low' : 'normal');
 

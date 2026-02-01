@@ -126,6 +126,8 @@ type ApiBrand = {
   id: string;
   name: string;
   country?: string;
+  city?: string;
+  phone?: string;
   categoryId?: string;
   logoUrl?: string;
   contactName?: string;
@@ -169,6 +171,7 @@ export function AccountSettings({
     name?: string;
     id?: string;
     phoneNumber?: string;
+    currency?: string;
   }>({
     isActive: true,
   });
@@ -191,12 +194,16 @@ export function AccountSettings({
     name?: string;
     id?: string;
     phoneNumber?: string;
+    currency?: string;
   }>({
     isActive: true,
+    currency: 'KZT',
   });
   const [initialBrandForm, setInitialBrandForm] = useState({
     name: '',
     country: '',
+    city: '',
+    phone: '',
     categoryId: '',
     logoUrl: '',
     contactName: '',
@@ -204,6 +211,8 @@ export function AccountSettings({
   const [brandForm, setBrandForm] = useState({
     name: '',
     country: '',
+    city: '',
+    phone: '',
     categoryId: '',
     logoUrl: '',
     contactName: '',
@@ -236,6 +245,18 @@ export function AccountSettings({
     let isActive = true;
     const loadProfile = async () => {
       try {
+        // Загружаем настройки пользователя (включая валюту) через новый API
+        let userSettings: { currency?: string } = {};
+        try {
+          const settingsResponse = await api.get<{ currency?: string }>('/users/me/settings');
+          if (isActive) {
+            userSettings = settingsResponse.data;
+          }
+        } catch (error) {
+          console.warn('Не удалось загрузить настройки пользователя, используем значение по умолчанию', error);
+          userSettings = { currency: 'KZT' };
+        }
+
         // Для продавца магазина (кассира) используем POS API
         if (role === 'storeSeller') {
           try {
@@ -247,6 +268,7 @@ export function AccountSettings({
             const initialData = {
               email: userResponse.data.email,
               name: posResponse.data.name || '',
+              currency: userSettings.currency || 'KZT',
             };
 
             setInitialUserForm(initialData);
@@ -254,7 +276,7 @@ export function AccountSettings({
           } catch (error) {
             console.error('Ошибка загрузки профиля кассира', error);
             // Если не удалось получить данные кассира, просто показываем пустое поле имени
-            const initialData = { name: '' };
+            const initialData = { name: '', currency: userSettings.currency || 'KZT' };
             setInitialUserForm(initialData);
             setUserForm(initialData);
           } finally {
@@ -275,6 +297,7 @@ export function AccountSettings({
             lastName: salesRepResponse.data.lastName || '',
             middleName: salesRepResponse.data.middleName || '',
             phoneNumber: salesRepResponse.data.phoneNumber || '',
+            currency: userSettings.currency || 'KZT',
           };
           setInitialUserForm(initialData);
           setUserForm(initialData);
@@ -296,6 +319,7 @@ export function AccountSettings({
             id: distributorResponse.data.id,
             email: userResponse.data.email,
             name: distributorResponse.data.name,
+            currency: userSettings.currency || 'KZT',
           };
           setInitialUserForm(initialData);
           setUserForm(initialData);
@@ -321,6 +345,8 @@ export function AccountSettings({
           const initialBrandData = {
             name: brandResponse.data.name || '',
             country: brandResponse.data.country || '',
+            city: brandResponse.data.city || '',
+            phone: brandResponse.data.phone || '',
             categoryId: brandResponse.data.categoryId || '',
             logoUrl: brandResponse.data.logoUrl || '',
             contactName: brandResponse.data.contactName || '',
@@ -330,6 +356,7 @@ export function AccountSettings({
 
           const initialUserData = {
             email: userResponse.data.email,
+            currency: userSettings.currency || 'KZT',
           };
           setInitialUserForm(initialUserData);
           setUserForm(initialUserData);
@@ -341,6 +368,7 @@ export function AccountSettings({
         if (!isActive) return;
         const initialUser = {
           isActive: userResponse.data.isActive ?? true,
+          currency: userSettings.currency || 'KZT',
         };
         setInitialUserForm(initialUser);
         setUserForm(initialUser);
@@ -478,9 +506,26 @@ export function AccountSettings({
           console.error('Не удалось обновить данные пользователя после обновления кассира', error);
         }
 
+        // Сохраняем валюту
+        if (userForm.currency) {
+          localStorage.setItem(`currency_${userId}`, userForm.currency);
+        }
+
+        // Сохраняем валюту через API
+        if (userForm.currency) {
+          try {
+            await api.put('/users/me/settings', {
+              currency: userForm.currency,
+            });
+          } catch (error) {
+            console.error('Ошибка сохранения валюты', error);
+          }
+        }
+
         setInitialUserForm((prev) => ({
           ...prev,
           name: userForm.name,
+          currency: userForm.currency,
         }));
 
         toast.success('Имя кассира успешно обновлено');
@@ -505,6 +550,17 @@ export function AccountSettings({
           phoneNumber?: string;
         }>('/sales-reps/me');
 
+        // Сохраняем валюту через API
+        if (userForm.currency) {
+          try {
+            await api.put('/users/me/settings', {
+              currency: userForm.currency,
+            });
+          } catch (error) {
+            console.error('Ошибка сохранения валюты', error);
+          }
+        }
+
         // Обновляем начальные значения
         const updatedData = {
           email: salesRepResponse.data.email,
@@ -512,6 +568,7 @@ export function AccountSettings({
           lastName: salesRepResponse.data.lastName || '',
           middleName: salesRepResponse.data.middleName || '',
           phoneNumber: salesRepResponse.data.phoneNumber || '',
+          currency: userForm.currency || 'KZT',
         };
         setInitialUserForm(updatedData);
         setUserForm(updatedData);
@@ -524,6 +581,7 @@ export function AccountSettings({
           profileComplete: true,
           firstName: salesRepResponse.data.firstName,
           lastName: salesRepResponse.data.lastName || '',
+          currency: userForm.currency || 'KZT',
         };
 
         onUserUpdated(updatedUserData);
@@ -543,11 +601,23 @@ export function AccountSettings({
         // Получаем обновленные данные пользователя для email
         const userResponse = await api.get<ApiUser>(`/users/${userId}`);
 
+        // Сохраняем валюту через API
+        if (userForm.currency) {
+          try {
+            await api.put('/users/me/settings', {
+              currency: userForm.currency,
+            });
+          } catch (error) {
+            console.error('Ошибка сохранения валюты', error);
+          }
+        }
+
         // Обновляем начальные значения
         setInitialUserForm({
           id: distributorResponse.data.id,
           email: userResponse.data.email,
           name: distributorResponse.data.name,
+          currency: userForm.currency || 'KZT',
         });
 
         // Обновляем данные пользователя в App.tsx
@@ -559,6 +629,7 @@ export function AccountSettings({
           firstName: distributorResponse.data.name,
           lastName: '',
           distributorId: distributorResponse.data.id,
+          currency: userForm.currency || 'KZT',
         };
 
         onUserUpdated(updatedUserData);
@@ -572,8 +643,20 @@ export function AccountSettings({
         return;
       }
 
+      // Сохраняем валюту через API
+      if (userForm.currency) {
+        try {
+          await api.put('/users/me/settings', {
+            currency: userForm.currency,
+          });
+        } catch (error) {
+          console.error('Ошибка сохранения валюты', error);
+        }
+      }
+
       await api.put(`/users/${userId}`, {
         isActive: userForm.isActive,
+        currency: userForm.currency,
       });
       const updatedUser = await api.get<ApiUser>(`/users/${userId}`);
       const updatedUserData: User = {
@@ -584,6 +667,7 @@ export function AccountSettings({
         firstName: updatedUser.data.firstName,
         lastName: updatedUser.data.lastName,
         isActive: updatedUser.data.isActive,
+        currency: userForm.currency || 'KZT',
       };
 
       if (role === 'store' && updatedUser.data.storeId) {
@@ -593,6 +677,7 @@ export function AccountSettings({
       // Обновляем начальные значения
       setInitialUserForm({
         isActive: updatedUser.data.isActive ?? true,
+        currency: userForm.currency || 'KZT',
       });
 
       onUserUpdated(updatedUserData);
@@ -611,6 +696,8 @@ export function AccountSettings({
       const updateData: {
         name?: string;
         country?: string;
+        city?: string;
+        phone?: string;
         categoryId?: string;
         logoUrl?: string;
         contactName?: string;
@@ -622,6 +709,12 @@ export function AccountSettings({
       if (brandForm.country !== undefined) {
         updateData.country = brandForm.country;
       }
+      if (brandForm.city !== undefined) {
+        updateData.city = brandForm.city;
+      }
+      if (brandForm.phone !== undefined) {
+        updateData.phone = brandForm.phone;
+      }
       if (brandForm.categoryId !== undefined) {
         updateData.categoryId = brandForm.categoryId;
       }
@@ -630,6 +723,17 @@ export function AccountSettings({
       }
       if (brandForm.contactName !== undefined) {
         updateData.contactName = brandForm.contactName;
+      }
+
+      // Сохраняем валюту через API
+      if (userForm.currency) {
+        try {
+          await api.put('/users/me/settings', {
+            currency: userForm.currency,
+          });
+        } catch (error) {
+          console.error('Ошибка сохранения валюты', error);
+        }
       }
 
       await api.put('/brands/me/settings', updateData);
@@ -644,6 +748,8 @@ export function AccountSettings({
       const updatedBrandData = {
         name: brandResponse.data.name || '',
         country: brandResponse.data.country || '',
+        city: brandResponse.data.city || '',
+        phone: brandResponse.data.phone || '',
         categoryId: brandResponse.data.categoryId || '',
         logoUrl: brandResponse.data.logoUrl || '',
         contactName: brandResponse.data.contactName || '',
@@ -660,6 +766,7 @@ export function AccountSettings({
         lastName: userResponse.data.lastName,
         brandId: brandResponse.data.id,
         brandName: brandResponse.data.name,
+        currency: userForm.currency || 'KZT',
       };
 
       onUserUpdated(updatedUserData);
@@ -836,16 +943,17 @@ export function AccountSettings({
         userForm.firstName !== initialUserForm.firstName ||
         userForm.lastName !== initialUserForm.lastName ||
         userForm.middleName !== initialUserForm.middleName ||
-        userForm.phoneNumber !== initialUserForm.phoneNumber
+        userForm.phoneNumber !== initialUserForm.phoneNumber ||
+        userForm.currency !== initialUserForm.currency
       );
     }
     if (role === 'distributor') {
-      return userForm.name !== initialUserForm.name;
+      return userForm.name !== initialUserForm.name || userForm.currency !== initialUserForm.currency;
     }
     if (role === 'storeSeller') {
-      return userForm.name !== initialUserForm.name;
+      return userForm.name !== initialUserForm.name || userForm.currency !== initialUserForm.currency;
     }
-    return userForm.isActive !== initialUserForm.isActive;
+    return userForm.isActive !== initialUserForm.isActive || userForm.currency !== initialUserForm.currency;
   }, [userForm, initialUserForm, role]);
 
   // Проверяем, изменились ли данные бренда
@@ -854,11 +962,13 @@ export function AccountSettings({
     return (
       brandForm.name !== initialBrandForm.name ||
       brandForm.country !== initialBrandForm.country ||
+      brandForm.city !== initialBrandForm.city ||
+      brandForm.phone !== initialBrandForm.phone ||
       brandForm.categoryId !== initialBrandForm.categoryId ||
       brandForm.logoUrl !== initialBrandForm.logoUrl ||
       brandForm.contactName !== initialBrandForm.contactName
     );
-  }, [brandForm, initialBrandForm]);
+  }, [brandForm, initialBrandForm, role]);
 
   // Проверяем, изменились ли данные магазина
   const isStoreFormChanged = useMemo(() => {
@@ -930,7 +1040,7 @@ export function AccountSettings({
   };
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-500">Загрузка профиля...</div>;
+    return <div className="p-4 text-sm text-muted-foreground">Загрузка профиля...</div>;
   }
 
   // Функция для получения названия роли на русском
@@ -971,70 +1081,70 @@ export function AccountSettings({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-0">
+    <div className="min-h-screen bg-background p-4 md:p-0">
       <div className="mb-6">
-        <h2 className="text-2xl font-semibold">Настройки аккаунта</h2>
-        <div className="mt-4 p-4 bg-white border border-gray-200 rounded-lg">
-          <div className="text-lg font-semibold">{getFullName()}</div>
-          <div className="text-sm text-gray-500 mt-1">{getRoleName(role)}</div>
+        <h2 className="text-2xl font-semibold text-foreground">Настройки аккаунта</h2>
+        <div className="mt-4 p-4 bg-card border border-border rounded-lg">
+          <div className="text-lg font-semibold text-foreground">{getFullName()}</div>
+          <div className="text-sm text-muted-foreground mt-1">{getRoleName(role)}</div>
         </div>
       </div>
 
       {role === 'salesRep' && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+        <div className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-4 mt-6">
           <div>
-            <h3 className="text-xl font-semibold">Данные ТП</h3>
-            <p className="text-sm text-gray-500">Обновите информацию о себе</p>
+            <h3 className="text-xl font-semibold text-foreground">Данные ТП</h3>
+            <p className="text-sm text-muted-foreground">Обновите информацию о себе</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Email</label>
+              <label className="block text-sm font-medium mb-1 text-foreground">Email</label>
               <input
                 type="email"
                 value={userForm.email || ''}
                 disabled
-                className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
               />
-              <p className="text-xs text-gray-500 mt-1">Email нельзя изменить</p>
+              <p className="text-xs text-muted-foreground mt-1">Email нельзя изменить</p>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="block text-sm font-medium mb-1 text-foreground">
                 Имя <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={userForm.firstName || ''}
                 onChange={(e) => setUserForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                 placeholder="Введите ваше имя"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="block text-sm font-medium mb-1 text-foreground">
                 Фамилия <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={userForm.lastName || ''}
                 onChange={(e) => setUserForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                 placeholder="Введите вашу фамилию"
                 required
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Отчество</label>
+              <label className="block text-sm font-medium mb-1 text-foreground">Отчество</label>
               <input
                 type="text"
                 value={userForm.middleName || ''}
                 onChange={(e) => setUserForm((prev) => ({ ...prev, middleName: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                 placeholder="Введите ваше отчество (необязательно)"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Номер телефона</label>
+              <label className="block text-sm font-medium mb-1 text-foreground">Номер телефона</label>
               <input
                 type="tel"
                 value={userForm.phoneNumber || ''}
@@ -1042,9 +1152,22 @@ export function AccountSettings({
                   const formatted = formatPhoneNumber(e.target.value);
                   setUserForm((prev) => ({ ...prev, phoneNumber: formatted }));
                 }}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                 placeholder="+7 (900) 123-45-67"
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1 text-foreground">Валюта</label>
+              <select
+                value={userForm.currency || 'KZT'}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, currency: e.target.value }))}
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+              >
+                <option value="KZT">KZT (₸)</option>
+                <option value="RUB">RUB (₽)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
             </div>
           </div>
 
@@ -1053,8 +1176,8 @@ export function AccountSettings({
               onClick={handleUpdateUser}
               disabled={!isUserFormChanged || isSavingUser}
               className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isUserFormChanged && !isSavingUser
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
                 }`}
             >
               {isSavingUser ? (
@@ -1071,144 +1194,257 @@ export function AccountSettings({
       )}
 
       {role === 'brand' && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
-          <div>
-            <h3 className="text-xl font-semibold">Данные бренда</h3>
-            <p className="text-sm text-gray-500">Обновите информацию о бренде</p>
-          </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Email</label>
-              <input
-                type="email"
-                value={userForm.email || ''}
-                disabled
-                className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-500 mt-1">Email нельзя изменить</p>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Название бренда</label>
-              <input
-                type="text"
-                value={brandForm.name}
-                onChange={(e) => setBrandForm((prev) => ({ ...prev, name: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
-                placeholder="Введите название бренда"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Страна</label>
-              <select
-                value={brandForm.country}
-                onChange={(e) => setBrandForm((prev) => ({ ...prev, country: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
-              >
-                <option value="">Выберите страну</option>
-                {COUNTRIES.map((country) => (
-                  <option key={country} value={country}>
-                    {country}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Категория</label>
-              <select
-                value={brandForm.categoryId}
-                onChange={(e) => setBrandForm((prev) => ({ ...prev, categoryId: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
-              >
-                <option value="">Выберите категорию</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Контактное лицо</label>
-              <input
-                type="text"
-                value={brandForm.contactName}
-                onChange={(e) => setBrandForm((prev) => ({ ...prev, contactName: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
-                placeholder="Введите имя контактного лица"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Логотип</label>
-              {brandForm.logoUrl && (
-                <div className="mb-2">
-                  <img
-                    src={brandForm.logoUrl}
-                    alt="Логотип бренда"
-                    className="w-32 h-32 object-contain border border-gray-200 rounded-lg"
-                  />
-                </div>
-              )}
-              <label className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm ${isLogoUploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'
-                }`}>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="hidden"
-                  onChange={async (event) => {
-                    const file = event.target.files?.[0];
-                    if (!file) return;
-                    setIsLogoUploading(true);
-                    try {
-                      const uploadedUrl = await uploadPhoto(file);
-                      if (uploadedUrl) {
-                        setBrandForm((prev) => ({ ...prev, logoUrl: uploadedUrl }));
-                      }
-                    } catch (error) {
-                      console.error('Ошибка загрузки логотипа', error);
-                      toast.error('Не удалось загрузить логотип.');
-                    } finally {
-                      setIsLogoUploading(false);
-                      event.target.value = '';
-                    }
-                  }}
-                  disabled={isLogoUploading}
-                />
-                {isLogoUploading ? 'Загрузка...' : brandForm.logoUrl ? 'Изменить логотип' : 'Загрузить логотип'}
-              </label>
+        <div className="bg-gradient-to-br from-card to-muted border border-border rounded-2xl shadow-lg overflow-hidden mt-6">
+          {/* Заголовок с логотипом */}
+          <div className="bg-gradient-to-r from-primary/10 to-primary/5 border-b border-border p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+              <div className="flex-1">
+                <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Данные бренда</h3>
+                <p className="text-sm md:text-base text-muted-foreground">Обновите информацию о вашем бренде</p>
+              </div>
+              {/* Логотип справа */}
+              <div className="flex-shrink-0">
+                {brandForm.logoUrl ? (
+                  <div className="relative group">
+                    <div className="w-32 h-32 md:w-40 md:h-40 rounded-2xl border-4 border-card shadow-xl overflow-hidden bg-card">
+                      <img
+                        src={brandForm.logoUrl}
+                        alt="Логотип бренда"
+                        className="w-full h-full object-contain p-2"
+                      />
+                    </div>
+                    <label className={`absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${isLogoUploading ? 'opacity-100 cursor-not-allowed' : ''}`}>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          setIsLogoUploading(true);
+                          try {
+                            const uploadedUrl = await uploadPhoto(file);
+                            if (uploadedUrl) {
+                              setBrandForm((prev) => ({ ...prev, logoUrl: uploadedUrl }));
+                            }
+                          } catch (error) {
+                            console.error('Ошибка загрузки логотипа', error);
+                            toast.error('Не удалось загрузить логотип.');
+                          } finally {
+                            setIsLogoUploading(false);
+                            event.target.value = '';
+                          }
+                        }}
+                        disabled={isLogoUploading}
+                      />
+                      <span className="text-white text-sm font-medium px-4 py-2 bg-primary rounded-lg">
+                        {isLogoUploading ? 'Загрузка...' : 'Изменить'}
+                      </span>
+                    </label>
+                  </div>
+                ) : (
+                  <label className={`flex flex-col items-center justify-center w-32 h-32 md:w-40 md:h-40 rounded-2xl border-2 border-dashed border-border bg-muted hover:bg-accent transition-colors cursor-pointer ${isLogoUploading ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        setIsLogoUploading(true);
+                        try {
+                          const uploadedUrl = await uploadPhoto(file);
+                          if (uploadedUrl) {
+                            setBrandForm((prev) => ({ ...prev, logoUrl: uploadedUrl }));
+                          }
+                        } catch (error) {
+                          console.error('Ошибка загрузки логотипа', error);
+                          toast.error('Не удалось загрузить логотип.');
+                        } finally {
+                          setIsLogoUploading(false);
+                          event.target.value = '';
+                        }
+                      }}
+                      disabled={isLogoUploading}
+                    />
+                    <div className="text-center">
+                      <div className="text-3xl mb-2">📷</div>
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {isLogoUploading ? 'Загрузка...' : 'Загрузить логотип'}
+                      </span>
+                    </div>
+                  </label>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handleUpdateBrand}
-              disabled={!isBrandFormChanged || isSavingBrand}
-              className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isBrandFormChanged && !isSavingBrand
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          {/* Форма с данными */}
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Email */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">Email</label>
+                <input
+                  type="email"
+                  value={userForm.email || ''}
+                  disabled
+                  className="w-full h-12 px-4 bg-muted border border-border rounded-xl cursor-not-allowed text-muted-foreground"
+                />
+                <p className="text-xs text-muted-foreground mt-1.5">Email нельзя изменить</p>
+              </div>
+
+              {/* Название бренда */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
+                  Название бренда <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={brandForm.name}
+                  onChange={(e) => setBrandForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full h-12 px-4 bg-card border-2 border-border rounded-xl text-foreground focus:border-primary focus:ring-2 focus:ring-ring transition-all"
+                  placeholder="Введите название бренда"
+                />
+              </div>
+
+              {/* Страна и Город */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-2">Страна</label>
+                <select
+                  value={brandForm.country}
+                  onChange={(e) => setBrandForm((prev) => ({ ...prev, country: e.target.value }))}
+                  className="w-full h-12 px-4 bg-card border-2 border-border rounded-xl text-foreground focus:border-primary focus:ring-2 focus:ring-ring transition-all"
+                >
+                  <option value="">Выберите страну</option>
+                  {COUNTRIES.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-2">Город</label>
+                {brandForm.country === 'Казахстан' ? (
+                  <select
+                    value={brandForm.city}
+                    onChange={(e) => setBrandForm((prev) => ({ ...prev, city: e.target.value }))}
+                    className="w-full h-12 px-4 bg-card border-2 border-border rounded-xl text-foreground focus:border-primary focus:ring-2 focus:ring-ring transition-all"
+                  >
+                    <option value="">Выберите город</option>
+                    {KAZAKHSTAN_CITIES.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={brandForm.city}
+                    onChange={(e) => setBrandForm((prev) => ({ ...prev, city: e.target.value }))}
+                    className="w-full h-12 px-4 bg-card border-2 border-border rounded-xl text-foreground focus:border-primary focus:ring-2 focus:ring-ring transition-all"
+                    placeholder="Введите город"
+                  />
+                )}
+              </div>
+
+              {/* Категория */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">Категория</label>
+                <select
+                  value={brandForm.categoryId}
+                  onChange={(e) => setBrandForm((prev) => ({ ...prev, categoryId: e.target.value }))}
+                  className="w-full h-12 px-4 bg-card border-2 border-border rounded-xl text-foreground focus:border-primary focus:ring-2 focus:ring-ring transition-all"
+                >
+                  <option value="">Выберите категорию</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Контактное лицо */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">Контактное лицо</label>
+                <input
+                  type="text"
+                  value={brandForm.contactName}
+                  onChange={(e) => setBrandForm((prev) => ({ ...prev, contactName: e.target.value }))}
+                  className="w-full h-12 px-4 bg-card border-2 border-border rounded-xl text-foreground focus:border-primary focus:ring-2 focus:ring-ring transition-all"
+                  placeholder="Введите имя контактного лица"
+                />
+              </div>
+
+              {/* Номер телефона */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">Номер телефона</label>
+                <input
+                  type="tel"
+                  value={brandForm.phone || ''}
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setBrandForm((prev) => ({ ...prev, phone: formatted }));
+                  }}
+                  className="w-full h-12 px-4 bg-card border-2 border-border rounded-xl text-foreground focus:border-primary focus:ring-2 focus:ring-ring transition-all"
+                  placeholder="+7 (900) 123-45-67"
+                />
+              </div>
+
+              {/* Валюта */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">Валюта</label>
+                <select
+                  value={userForm.currency || 'KZT'}
+                  onChange={(e) => setUserForm((prev) => ({ ...prev, currency: e.target.value }))}
+                  className="w-full h-12 px-4 bg-card border-2 border-border rounded-xl text-foreground focus:border-primary focus:ring-2 focus:ring-ring transition-all"
+                >
+                  <option value="KZT">KZT (₸)</option>
+                  <option value="RUB">RUB (₽)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Кнопка сохранения */}
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-border">
+              <button
+                onClick={handleUpdateBrand}
+                disabled={!isBrandFormChanged || isSavingBrand}
+                className={`px-6 py-3 rounded-xl font-semibold text-base transition-all shadow-lg ${
+                  isBrandFormChanged && !isSavingBrand
+                    ? 'bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:shadow-xl hover:scale-105 active:scale-95'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
                 }`}
-            >
-              {isSavingBrand ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Сохранение...
-                </span>
-              ) : (
-                'Сохранить'
-              )}
-            </button>
+              >
+                {isSavingBrand ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Сохранение...
+                  </span>
+                ) : (
+                  'Сохранить изменения'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {role === 'distributor' && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+        <div className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-4 mt-6">
           <div>
-            <h3 className="text-xl font-semibold">Данные Дс</h3>
-            <p className="text-sm text-gray-500">Обновите информацию о себе</p>
+            <h3 className="text-xl font-semibold text-foreground">Данные Дс</h3>
+            <p className="text-sm text-muted-foreground">Обновите информацию о себе</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">ID Дс</label>
+              <label className="block text-sm font-medium mb-1 text-foreground">ID Дс</label>
               <div className="flex items-center gap-2">
                 <button
                   onClick={async () => {
@@ -1222,38 +1458,51 @@ export function AccountSettings({
                       }
                     }
                   }}
-                  className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
                   title="Копировать ID"
                 >
-                  <Copy className="h-5 w-5 text-gray-600" />
+                  <Copy className="h-5 w-5 text-foreground" />
                 </button>
                 <input
                   type="text"
                   value={userForm.id || ''}
                   readOnly
-                  className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                  className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
                 />
               </div>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Email</label>
+              <label className="block text-sm font-medium mb-1 text-foreground">Email</label>
               <input
                 type="email"
                 value={userForm.email || ''}
                 disabled
-                className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
               />
-              <p className="text-xs text-gray-500 mt-1">Email нельзя изменить</p>
+              <p className="text-xs text-muted-foreground mt-1">Email нельзя изменить</p>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Имя</label>
+              <label className="block text-sm font-medium mb-1 text-foreground">Имя</label>
               <input
                 type="text"
                 value={userForm.name || ''}
                 onChange={(e) => setUserForm((prev) => ({ ...prev, name: e.target.value }))}
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                 placeholder="Введите ваше имя"
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1 text-foreground">Валюта</label>
+              <select
+                value={userForm.currency || 'KZT'}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, currency: e.target.value }))}
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+              >
+                <option value="KZT">KZT (₸)</option>
+                <option value="RUB">RUB (₽)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
             </div>
           </div>
 
@@ -1262,8 +1511,8 @@ export function AccountSettings({
               onClick={handleUpdateUser}
               disabled={!isUserFormChanged || isSavingUser}
               className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isUserFormChanged && !isSavingUser
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
                 }`}
             >
               {isSavingUser ? (
@@ -1280,17 +1529,17 @@ export function AccountSettings({
       )}
 
       {role === 'storeSeller' && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+        <div className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-4 mt-6">
           <div>
-            <h3 className="text-xl font-semibold">Настройки кассира</h3>
-            <p className="text-sm text-gray-500">
+            <h3 className="text-xl font-semibold text-foreground">Настройки кассира</h3>
+            <p className="text-sm text-muted-foreground">
               Обновите отображаемое имя кассира для POS-страницы
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">
+              <label className="block text-sm font-medium mb-1 text-foreground">
                 Имя кассира <span className="text-red-500">*</span>
               </label>
               <input
@@ -1302,47 +1551,60 @@ export function AccountSettings({
                     name: e.target.value,
                   }))
                 }
-                className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                 placeholder="Введите имя, которое будет видно на кассе"
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Это имя будет использоваться на странице кассы (POS).
               </p>
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Email</label>
+              <label className="block text-sm font-medium mb-1 text-foreground">Email</label>
               <input
                 type="email"
                 value={userForm.email || ''}
                 disabled
-                className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
               />
-              <p className="text-xs text-gray-500 mt-1">Email кассира менять нельзя.</p>
+              <p className="text-xs text-muted-foreground mt-1">Email кассира менять нельзя.</p>
             </div>
 
             {storeId && (
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">ID магазина</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">ID магазина</label>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCopyStoreId}
-                    className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                    className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
                     title="Копировать ID"
                     type="button"
                   >
-                    <Copy className="h-5 w-5 text-gray-600" />
+                    <Copy className="h-5 w-5 text-foreground" />
                   </button>
                   <input
                     type="text"
                     value={storeId}
                     readOnly
-                    className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                    className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
                   />
                 </div>
               </div>
             )}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1 text-foreground">Валюта</label>
+              <select
+                value={userForm.currency || 'KZT'}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, currency: e.target.value }))}
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+              >
+                <option value="KZT">KZT (₸)</option>
+                <option value="RUB">RUB (₽)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -1350,8 +1612,8 @@ export function AccountSettings({
               onClick={handleUpdateUser}
               disabled={!isUserFormChanged || isSavingUser}
               className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isUserFormChanged && !isSavingUser
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
                 }`}
             >
               {isSavingUser ? (
@@ -1369,50 +1631,50 @@ export function AccountSettings({
 
       {role === 'store' && storeId && (
         <>
-          <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+          <div className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-4 mt-6">
             <div>
-              <h3 className="text-xl font-semibold">Настройки магазина</h3>
-              <p className="text-sm text-gray-500">Обновите ФИО и номер телефона</p>
+              <h3 className="text-xl font-semibold text-foreground">Настройки магазина</h3>
+              <p className="text-sm text-muted-foreground">Обновите ФИО и номер телефона</p>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-1 text-foreground">
                   Фамилия <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={storeSettingsForm.lastName}
                   onChange={(e) => setStoreSettingsForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                   placeholder="Введите фамилию"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-1 text-foreground">
                   Имя <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={storeSettingsForm.firstName}
                   onChange={(e) => setStoreSettingsForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                   placeholder="Введите имя"
                   required
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Отчество</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">Отчество</label>
                 <input
                   type="text"
                   value={storeSettingsForm.middleName}
                   onChange={(e) => setStoreSettingsForm((prev) => ({ ...prev, middleName: e.target.value }))}
-                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                   placeholder="Введите отчество (необязательно)"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">
+                <label className="block text-sm font-medium mb-1 text-foreground">
                   Номер телефона <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1422,7 +1684,7 @@ export function AccountSettings({
                     const formatted = formatPhoneNumber(e.target.value);
                     setStoreSettingsForm((prev) => ({ ...prev, phoneNumber: formatted }));
                   }}
-                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                   placeholder="+7 (900) 123-45-67"
                   required
                 />
@@ -1434,8 +1696,8 @@ export function AccountSettings({
                 onClick={handleUpdateStoreSettings}
                 disabled={!isStoreSettingsFormChanged || isSavingStoreSettings}
                 className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isStoreSettingsFormChanged && !isSavingStoreSettings
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
                   }`}
               >
                 {isSavingStoreSettings ? (
@@ -1450,80 +1712,80 @@ export function AccountSettings({
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 space-y-4 mt-6">
+          <div className="bg-card border border-border rounded-xl p-4 md:p-6 space-y-4 mt-6">
             <div>
-              <h3 className="text-xl font-semibold">Данные магазина</h3>
-              <p className="text-sm text-gray-500">Обновите информацию магазина</p>
+              <h3 className="text-xl font-semibold text-foreground">Данные магазина</h3>
+              <p className="text-sm text-muted-foreground">Обновите информацию магазина</p>
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">ID магазина</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">ID магазина</label>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCopyStoreId}
-                    className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                    className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
                     title="Копировать ID"
                   >
-                    <Copy className="h-5 w-5 text-gray-600" />
+                    <Copy className="h-5 w-5 text-foreground" />
                   </button>
                   <input
                     type="text"
                     value={storeId}
                     readOnly
-                    className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                    className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
                   />
                 </div>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Email</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">Email</label>
                 <input
                   type="email"
                   value={storeForm.email}
                   disabled
-                  className="w-full h-11 px-3 bg-gray-100 border border-gray-300 rounded-lg cursor-not-allowed"
+                  className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Название</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">Название</label>
                 <input
                   type="text"
                   value={storeForm.name}
                   onChange={(e) => setStoreForm((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Адрес</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">Адрес</label>
                 <input
                   type="text"
                   value={storeForm.address}
                   onChange={(e) => setStoreForm((prev) => ({ ...prev, address: e.target.value }))}
-                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                   placeholder="Улица, дом"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Локация (ссылка в 2ГИС)</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">Локация (ссылка в 2ГИС)</label>
                 <input
                   type="url"
                   value={storeForm.locationLink}
                   onChange={(e) => setStoreForm((prev) => ({ ...prev, locationLink: e.target.value }))}
-                  className="w-full h-11 px-3 bg-gray-50 border border-gray-300 rounded-lg"
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                   placeholder="https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
                   pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
                   title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Описание</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">Описание</label>
                 <textarea
                   value={storeForm.description}
                   onChange={(e) => setStoreForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="w-full min-h-[90px] px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg"
+                  className="w-full min-h-[90px] px-3 py-2 bg-input-background border border-border rounded-lg text-foreground"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Фото магазина</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">Фото магазина</label>
                 {storeForm.photos ? (
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {storeForm.photos
@@ -1533,19 +1795,19 @@ export function AccountSettings({
                       .map((photo, index) => (
                         <div
                           key={`${photo}-${index}`}
-                          className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                          className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted"
                         >
                           <img src={photo} alt={`Фото магазина ${index + 1}`} className="w-full h-full object-cover" />
                         </div>
                       ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">Фото еще не загружены.</p>
+                  <p className="text-sm text-muted-foreground">Фото еще не загружены.</p>
                 )}
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">Загрузка фото магазина</label>
-                <label className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm ${isPhotosUploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'
+                <label className="block text-sm font-medium mb-1 text-foreground">Загрузка фото магазина</label>
+                <label className={`inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm ${isPhotosUploading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-muted'
                   }`}>
                   <input
                     type="file"
@@ -1565,8 +1827,8 @@ export function AccountSettings({
                 onClick={handleUpdateStore}
                 disabled={!isStoreFormChanged || isSavingStore}
                 className={`px-4 py-2 rounded-lg font-semibold cursor-pointer transition-opacity ${isStoreFormChanged && !isSavingStore
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
                   }`}
               >
                 {isSavingStore ? (
@@ -1580,7 +1842,7 @@ export function AccountSettings({
               </button>
               <button
                 onClick={handleDeleteStore}
-                className="px-4 py-2 border border-red-300 text-red-600 rounded-lg font-semibold cursor-pointer hover:bg-red-50 transition-colors"
+                className="px-4 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg font-semibold cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
               >
                 Удалить магазин
               </button>

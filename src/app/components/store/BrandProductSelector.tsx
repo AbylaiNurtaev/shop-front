@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, X, Plus, Check, ChevronDown, Package } from 'lucide-react';
 import { Product, Category } from '../../types';
+import api from '../../api/axios';
 
 interface BrandProductSelectorProps {
   brandProducts: Product[];
@@ -15,9 +16,24 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [initialQuantity, setInitialQuantity] = useState<number>(0);
   const [price, setPrice] = useState<number>(0);
-  const [currency, setCurrency] = useState('KZT');
   const [isAvailable, setIsAvailable] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Получаем валюту из настроек через API
+  const [userCurrency, setUserCurrency] = useState<string>('KZT');
+  
+  useEffect(() => {
+    const loadCurrency = async () => {
+      try {
+        const settingsResponse = await api.get<{ currency?: string }>('/users/me/settings');
+        setUserCurrency(settingsResponse.data.currency || 'KZT');
+      } catch (error) {
+        console.warn('Не удалось загрузить валюту, используем значение по умолчанию', error);
+        setUserCurrency('KZT');
+      }
+    };
+    loadCurrency();
+  }, []);
 
   const getCategoryName = (categoryId: string) => {
     const category = categories.find((c) => c.id === categoryId);
@@ -36,7 +52,7 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
 
   const handleConfirmAdd = () => {
     if (selectedProduct && initialQuantity > 0 && price > 0) {
-      onAddProduct(selectedProduct, initialQuantity, price, currency, isAvailable);
+      onAddProduct(selectedProduct, initialQuantity, price, userCurrency, isAvailable);
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
@@ -432,25 +448,16 @@ export function BrandProductSelector({ brandProducts, categories, onAddProduct, 
                     <label className="block text-sm font-bold text-gray-900 mb-3">
                       Цена <span className="text-red-600">*</span>
                     </label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="flex items-center gap-3">
                       <input
                         type="number"
                         value={price}
                         onChange={(e) => setPrice(Math.max(0, parseInt(e.target.value) || 0))}
                         placeholder="0"
                         min="0"
-                        className="col-span-2 h-12 px-3 bg-gray-50 border-2 border-gray-300 rounded-lg text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="flex-1 h-12 px-3 bg-gray-50 border-2 border-gray-300 rounded-lg text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
-                      <select
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        className="h-12 px-3 bg-gray-50 border-2 border-gray-300 rounded-lg text-base font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="KZT">KZT (₸)</option>
-                        <option value="RUB">RUB</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                      </select>
+                      <span className="text-base font-semibold text-gray-700 whitespace-nowrap">{userCurrency}</span>
                     </div>
                   </div>
 

@@ -12,7 +12,7 @@ interface SalesRepRegistrationProps {
 const formatPhoneNumber = (value: string): string => {
   // Удаляем все нецифровые символы, кроме +
   const cleaned = value.replace(/[^\d+]/g, '');
-  
+
   // Если начинается с +7, форматируем как казахстанский номер
   if (cleaned.startsWith('+7')) {
     const digits = cleaned.slice(2).replace(/\D/g, '').slice(0, 10);
@@ -22,7 +22,7 @@ const formatPhoneNumber = (value: string): string => {
     if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
     return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
   }
-  
+
   // Если начинается с 7 без +, добавляем +
   if (cleaned.startsWith('7') && !cleaned.startsWith('+')) {
     const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
@@ -32,7 +32,7 @@ const formatPhoneNumber = (value: string): string => {
     if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
     return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
   }
-  
+
   // Если начинается с 8, заменяем на +7
   if (cleaned.startsWith('8')) {
     const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
@@ -42,12 +42,12 @@ const formatPhoneNumber = (value: string): string => {
     if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
     return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
   }
-  
+
   // Если начинается с +, но не +7, оставляем как есть
   if (cleaned.startsWith('+')) {
     return cleaned;
   }
-  
+
   // Если ничего не подошло, начинаем с +7
   const digits = cleaned.replace(/\D/g, '').slice(0, 10);
   if (digits.length === 0) return '+7';
@@ -110,6 +110,23 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
     }
   };
 
+  // Функция для проверки корпоративной почты
+  const isCorporateEmail = (email: string): boolean => {
+    const publicEmailDomains = [
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.ru',
+      'yandex.ru', 'yandex.com', 'rambler.ru', 'inbox.ru', 'bk.ru',
+      'list.ru', 'live.com', 'msn.com', 'aol.com', 'icloud.com',
+      'protonmail.com', 'proton.me', 'gmx.com', 'zoho.com', 'mail.com',
+      'qq.com', '163.com', 'sina.com', 'rediffmail.com', 'cox.net',
+      'verizon.net', 'comcast.net', 'att.net', 'sbcglobal.net'
+    ];
+
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (!domain) return false;
+
+    return !publicEmailDomains.includes(domain);
+  };
+
   const handleSendVerificationCode = async () => {
     if (!formData.email) {
       setVerificationError('Пожалуйста, введите email');
@@ -119,6 +136,11 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setVerificationError('Некорректный формат email');
+      return;
+    }
+
+    if (!isCorporateEmail(formData.email)) {
+      setVerificationError('Пожалуйста, используйте корпоративную почту. Публичные почтовые сервисы (Gmail, Yahoo, Mail.ru и т.д.) не допускаются.');
       return;
     }
 

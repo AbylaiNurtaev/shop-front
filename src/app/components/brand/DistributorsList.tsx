@@ -52,7 +52,7 @@ export function DistributorsList() {
   // Фильтры
   const [filters, setFilters] = useState({
     country: 'Казахстан',
-    city: 'Алматы',
+    city: '',
     hasActiveStores: false,
   });
 
@@ -195,19 +195,19 @@ export function DistributorsList() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      
+
       // Получаем brandId из localStorage
       const brandId = localStorage.getItem('brandId');
       if (brandId) {
         params.append('brandId', brandId);
       }
-      
+
       if (filters.country) params.append('country', filters.country);
       if (filters.city) params.append('city', filters.city);
       if (filters.hasActiveStores) params.append('hasActiveStores', 'true');
 
       const response = await api.get<DistributorsResponse>(`/distributors?${params.toString()}`);
-      
+
       // Обрабатываем новый формат ответа с brandId
       if (brandId && response.data.attached !== undefined && response.data.notAttached !== undefined) {
         setAttachedDistributors(response.data.attached?.items || []);

@@ -57,11 +57,11 @@ const actionTypeIcons: Record<ActionType, React.ComponentType<{ className?: stri
 };
 
 const actionTypeColors: Record<ActionType, string> = {
-  ADD_STOCK: 'bg-green-100 text-green-700 border-green-200',
-  REMOVE_STOCK: 'bg-red-100 text-red-700 border-red-200',
-  UPDATE_PRICE: 'bg-blue-100 text-blue-700 border-blue-200',
-  UPDATE_QUANTITY: 'bg-orange-100 text-orange-700 border-orange-200',
-  CONFIRM_INVOICE: 'bg-purple-100 text-purple-700 border-purple-200',
+  ADD_STOCK: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700',
+  REMOVE_STOCK: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700',
+  UPDATE_PRICE: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700',
+  UPDATE_QUANTITY: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700',
+  CONFIRM_INVOICE: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700',
 };
 
 export function ActivityHistory() {
@@ -128,36 +128,36 @@ export function ActivityHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Mobile Layout */}
       <div className="md:hidden">
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+        <div className="bg-card border-b border-border sticky top-0 z-20 shadow-sm">
           <div className="p-4">
-            <h1 className="text-2xl font-bold text-gray-900">История действий</h1>
-            <p className="text-sm text-gray-600 mt-1">Все действия с товарами и складом</p>
+            <h1 className="text-2xl font-bold text-foreground">История действий</h1>
+            <p className="text-sm text-muted-foreground mt-1">Все действия с товарами и складом</p>
           </div>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : !activities || activities.length === 0 ? (
           <div className="p-4 text-center py-20">
-            <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Нет действий в истории</p>
+            <Activity className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Нет действий в истории</p>
           </div>
         ) : (
           <>
             <div className="p-4 space-y-4 pb-24">
               {(activities || []).map((activity, idx) => {
                 const Icon = actionTypeIcons[activity.actionType] || Activity;
-                const colorClass = actionTypeColors[activity.actionType] || 'bg-gray-100 text-gray-700 border-gray-200';
+                const colorClass = actionTypeColors[activity.actionType] || 'bg-muted text-muted-foreground border-border';
 
                 return (
                   <div
                     key={`${activity.actionType}-${activity.timestamp}-${idx}`}
-                    className="bg-white border-2 border-gray-200 rounded-2xl p-5 shadow-sm"
+                    className="bg-card border-2 border-border rounded-2xl p-5 shadow-sm"
                   >
                     <div className="flex items-start gap-4">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${colorClass}`}>
@@ -166,18 +166,18 @@ export function ActivityHistory() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-base text-gray-900">
+                            <h3 className="font-bold text-base text-foreground">
                               {actionTypeLabels[activity.actionType] || 'Неизвестное действие'}
                             </h3>
                           </div>
                         </div>
                         
-                        <p className="text-sm text-gray-700 mb-3">
+                        <p className="text-sm text-foreground mb-3">
                           {getActionDescription(activity)}
                         </p>
 
                         {activity.metadata.productName && (
-                          <div className="text-xs text-gray-500 mb-2 space-y-1">
+                          <div className="text-xs text-muted-foreground mb-2 space-y-1">
                             <div>
                               Товар: <span className="font-medium">{activity.metadata.productName}</span>
                             </div>
@@ -194,7 +194,7 @@ export function ActivityHistory() {
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Calendar className="w-4 h-4" />
                           <span>{formatDate(activity.timestamp)}</span>
                         </div>
@@ -207,22 +207,22 @@ export function ActivityHistory() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 flex items-center justify-between">
+              <div className="fixed bottom-20 left-0 right-0 bg-card border-t border-border p-4 flex items-center justify-between">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Назад</span>
                 </button>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   Страница {page} из {totalPages}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>Вперед</span>
                   <ChevronRight className="w-4 h-4" />
@@ -236,53 +236,53 @@ export function ActivityHistory() {
       {/* Desktop Layout */}
       <div className="hidden md:block">
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold">История действий</h2>
-          <p className="text-sm text-gray-500 mt-1">Все действия с товарами и складом</p>
+          <h2 className="text-2xl font-semibold text-foreground">История действий</h2>
+          <p className="text-sm text-muted-foreground mt-1">Все действия с товарами и складом</p>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : !activities || activities.length === 0 ? (
           <div className="text-center py-20">
-            <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Нет действий в истории</p>
+            <Activity className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Нет действий в истории</p>
           </div>
         ) : (
           <>
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-muted border-b border-border">
                     <tr>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Тип действия</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Описание</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Товар</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Детали</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium">Время</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Тип действия</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Описание</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Товар</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Детали</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Время</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-border">
                     {(activities || []).map((activity, idx) => {
                       const Icon = actionTypeIcons[activity.actionType] || Activity;
-                      const colorClass = actionTypeColors[activity.actionType] || 'bg-gray-100 text-gray-700 border-gray-200';
+                      const colorClass = actionTypeColors[activity.actionType] || 'bg-muted text-muted-foreground border-border';
 
                       return (
-                        <tr key={`${activity.actionType}-${activity.timestamp}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                        <tr key={`${activity.actionType}-${activity.timestamp}-${idx}`} className="hover:bg-muted/50 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${colorClass}`}>
                                 <Icon className="w-4 h-4" />
                               </div>
-                              <span className="font-medium">{actionTypeLabels[activity.actionType] || 'Неизвестное действие'}</span>
+                              <span className="font-medium text-foreground">{actionTypeLabels[activity.actionType] || 'Неизвестное действие'}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm">{getActionDescription(activity)}</td>
-                          <td className="px-4 py-3 text-sm">
+                          <td className="px-4 py-3 text-sm text-foreground">{getActionDescription(activity)}</td>
+                          <td className="px-4 py-3 text-sm text-foreground">
                             {activity.metadata.productName || '—'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-4 py-3 text-sm text-foreground">
                             {activity.actionType === 'UPDATE_QUANTITY' && (
                               <span>
                                 {activity.metadata.oldQuantity || 0} → {activity.metadata.newQuantity || 0} шт.
@@ -294,19 +294,19 @@ export function ActivityHistory() {
                               </span>
                             )}
                             {activity.actionType === 'ADD_STOCK' && (
-                              <span className="text-green-700">
+                              <span className="text-green-700 dark:text-green-300">
                                 +{activity.metadata.quantity || 0} шт.
                                 {activity.metadata.totalQuantity !== undefined && ` (итого: ${activity.metadata.totalQuantity})`}
                               </span>
                             )}
                             {activity.actionType === 'REMOVE_STOCK' && (
-                              <span className="text-red-700">-{activity.metadata.quantity || 0} шт.</span>
+                              <span className="text-red-700 dark:text-red-300">-{activity.metadata.quantity || 0} шт.</span>
                             )}
                             {activity.actionType === 'CONFIRM_INVOICE' && (
                               <span>{activity.metadata.invoiceNumber || activity.metadata.invoiceId || '—'}</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
                             {formatDate(activity.timestamp)}
                           </td>
                         </tr>
@@ -323,18 +323,18 @@ export function ActivityHistory() {
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Назад
                 </button>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   Страница {page} из {totalPages}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-foreground rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Вперед
                   <ChevronRight className="w-4 h-4" />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Mail, Lock, ShoppingBag, Building2, Network, Users } from 'lucide-react';
+import { Store, Mail, Lock, ShoppingBag, Building2, Network, Users, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../../hooks/useTheme';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => void;
@@ -14,6 +15,7 @@ interface LoginProps {
 
 export function Login({ onLogin, onNavigateToRegister, showQuickLogins = true }: LoginProps) {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -37,7 +39,20 @@ export function Login({ onLogin, onNavigateToRegister, showQuickLogins = true }:
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4 relative">
+      {/* Переключатель темы в правом верхнем углу */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-4 right-4 p-2 hover:bg-accent rounded-md transition-colors z-10"
+        title={theme === 'dark' ? 'Переключить на светлую тему' : 'Переключить на тёмную тему'}
+      >
+        {theme === 'dark' ? (
+          <Sun className="w-5 h-5 text-muted-foreground" />
+        ) : (
+          <Moon className="w-5 h-5 text-muted-foreground" />
+        )}
+      </button>
+      
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-lg shadow-sm p-8">
           <div className="flex flex-col items-center mb-8">

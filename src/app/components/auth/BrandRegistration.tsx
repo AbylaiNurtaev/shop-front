@@ -3,6 +3,55 @@ import { ArrowLeft, Upload, Building2, Loader2, Mail, CheckCircle2 } from 'lucid
 import { BrandProfile, Category } from '../../types';
 import api from '../../api/axios';
 
+// Функция для форматирования номера телефона
+const formatPhoneNumber = (value: string): string => {
+  // Удаляем все нецифровые символы, кроме +
+  const cleaned = value.replace(/[^\d+]/g, '');
+
+  // Если начинается с +7, форматируем как казахстанский номер
+  if (cleaned.startsWith('+7')) {
+    const digits = cleaned.slice(2).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+
+  // Если начинается с 7 без +, добавляем +
+  if (cleaned.startsWith('7') && !cleaned.startsWith('+')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+
+  // Если начинается с 8, заменяем на +7
+  if (cleaned.startsWith('8')) {
+    const digits = cleaned.slice(1).replace(/\D/g, '').slice(0, 10);
+    if (digits.length === 0) return '+7';
+    if (digits.length <= 3) return `+7 (${digits}`;
+    if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+  }
+
+  // Если начинается с +, но не +7, оставляем как есть
+  if (cleaned.startsWith('+')) {
+    return cleaned;
+  }
+
+  // Если ничего не подошло, начинаем с +7
+  const digits = cleaned.replace(/\D/g, '').slice(0, 10);
+  if (digits.length === 0) return '+7';
+  if (digits.length <= 3) return `+7 (${digits}`;
+  if (digits.length <= 6) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  if (digits.length <= 8) return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
+};
+
 interface BrandRegistrationProps {
   onComplete: (profile: BrandProfile) => void | Promise<void>;
   onBack: () => void;
@@ -12,6 +61,8 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
   const [formData, setFormData] = useState<BrandProfile>({
     name: '',
     country: 'Казахстан',
+    city: '',
+    phone: '',
     categoryId: '',
     email: '',
     password: '',
@@ -77,6 +128,39 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
     'Другая',
   ];
 
+  const kazakhstanCities = [
+    'Алматы',
+    'Астана',
+    'Шымкент',
+    'Караганда',
+    'Актобе',
+    'Тараз',
+    'Павлодар',
+    'Усть-Каменогорск',
+    'Семей',
+    'Уральск',
+    'Костанай',
+    'Петропавловск',
+    'Кызылорда',
+    'Атырау',
+    'Актау',
+    'Темиртау',
+    'Туркестан',
+    'Кокшетау',
+    'Талдыкорган',
+    'Экибастуз',
+    'Рудный',
+    'Жанаозен',
+    'Жезказган',
+    'Балхаш',
+    'Сарань',
+    'Каскелен',
+    'Кентау',
+    'Риддер',
+    'Жаркент',
+    'Аягоз',
+  ];
+
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -121,6 +205,23 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
     }
   };
 
+  // Функция для проверки корпоративной почты
+  const isCorporateEmail = (email: string): boolean => {
+    const publicEmailDomains = [
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.ru',
+      'yandex.ru', 'yandex.com', 'rambler.ru', 'inbox.ru', 'bk.ru',
+      'list.ru', 'live.com', 'msn.com', 'aol.com', 'icloud.com',
+      'protonmail.com', 'proton.me', 'gmx.com', 'zoho.com', 'mail.com',
+      'qq.com', '163.com', 'sina.com', 'rediffmail.com', 'cox.net',
+      'verizon.net', 'comcast.net', 'att.net', 'sbcglobal.net'
+    ];
+    
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (!domain) return false;
+    
+    return !publicEmailDomains.includes(domain);
+  };
+
   const handleSendVerificationCode = async () => {
     if (!formData.email) {
       setVerificationError('Пожалуйста, введите email');
@@ -130,6 +231,11 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setVerificationError('Некорректный формат email');
+      return;
+    }
+
+    if (!isCorporateEmail(formData.email)) {
+      setVerificationError('Пожалуйста, используйте корпоративную почту. Публичные почтовые сервисы (Gmail, Yahoo, Mail.ru и т.д.) не допускаются.');
       return;
     }
 
@@ -197,7 +303,14 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
   }, [formData.email]);
 
   const updateField = (field: keyof BrandProfile, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      // Если страна изменилась и это не Казахстан, очищаем город
+      if (field === 'country' && value !== 'Казахстан') {
+        updated.city = '';
+      }
+      return updated;
+    });
   };
 
   const handleLogoChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -334,6 +447,42 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {formData.country === 'Казахстан' && (
+                <div>
+                  <label className="block text-sm mb-1.5">
+                    Город
+                  </label>
+                  <select
+                    value={formData.city || ''}
+                    onChange={(e) => updateField('city', e.target.value)}
+                    className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">Выберите город</option>
+                    {kazakhstanCities.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm mb-1.5">
+                  Номер телефона
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone || ''}
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    updateField('phone', formatted);
+                  }}
+                  className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="+7 (900) 123-45-67"
+                />
               </div>
 
               <div className="md:col-span-2">

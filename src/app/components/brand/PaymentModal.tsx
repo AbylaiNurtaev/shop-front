@@ -6,37 +6,66 @@ import { toast } from 'sonner';
 
 interface PaymentModalProps {
   product: Product;
+  products?: Product[];
   isOpen: boolean;
   onClose: () => void;
   onPaymentSuccess: (updatedProduct: Product) => void;
+  onMultiplePaymentSuccess?: (updatedProducts: Product[]) => void;
 }
 
 export function PaymentModal({
   product,
+  products,
   isOpen,
   onClose,
   onPaymentSuccess,
+  onMultiplePaymentSuccess,
 }: PaymentModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!isOpen) return null;
 
+  const productsToPay = products && products.length > 0 ? products : [product];
+  const isMultiplePayment = productsToPay.length > 1;
+
   const handlePayment = async () => {
     setIsProcessing(true);
     try {
-      const response = await api.post(`/products/${product.id}/pay`);
-      
-      // Используем данные из ответа API, если они есть, иначе вычисляем локально
-      const responseData = response.data;
-      const updatedProduct: Product = responseData?.product || {
-        ...product,
-        isPayed: true,
-        paymentDate: new Date().toISOString(),
-        paymentExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // +30 дней
-      };
+      if (isMultiplePayment && onMultiplePaymentSuccess) {
+        // Множественная оплата
+        const paymentPromises = productsToPay.map(p => 
+          api.post(`/products/${p.id}/pay`)
+        );
+        
+        const responses = await Promise.all(paymentPromises);
+        const updatedProducts: Product[] = responses.map((response, index) => {
+          const responseData = response.data;
+          return responseData?.product || {
+            ...productsToPay[index],
+            isPayed: true,
+            paymentDate: new Date().toISOString(),
+            paymentExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          };
+        });
 
-      onPaymentSuccess(updatedProduct);
-      toast.success('Оплата успешно выполнена!');
+        onMultiplePaymentSuccess(updatedProducts);
+        toast.success(`Оплата успешно выполнена для ${productsToPay.length} товаров!`);
+      } else {
+        // Одиночная оплата
+        const response = await api.post(`/products/${product.id}/pay`);
+        
+        const responseData = response.data;
+        const updatedProduct: Product = responseData?.product || {
+          ...product,
+          isPayed: true,
+          paymentDate: new Date().toISOString(),
+          paymentExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+
+        onPaymentSuccess(updatedProduct);
+        toast.success('Оплата успешно выполнена!');
+      }
+      
       onClose();
     } catch (error: any) {
       console.error('Ошибка оплаты:', error);
@@ -56,8 +85,12 @@ export function PaymentModal({
               <CreditCard className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Оплата товара</h2>
-              <p className="text-sm text-muted-foreground">{product.name}</p>
+              <h2 className="text-lg font-semibold">
+                {isMultiplePayment ? `Оплата товаров (${productsToPay.length})` : 'Оплата товара'}
+              </h2>
+              {!isMultiplePayment && (
+                <p className="text-sm text-muted-foreground">{product.name}</p>
+              )}
             </div>
           </div>
           <button
@@ -70,21 +103,43 @@ export function PaymentModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
-          <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Товар:</span>
-              <span className="font-medium">{product.name}</span>
+        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+          {isMultiplePayment ? (
+            <div className="space-y-3">
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-sm font-medium mb-3">Выбранные товары для оплаты:</p>
+                <div className="space-y-2">
+                  {productsToPay.map((p) => (
+                    <div key={p.id} className="flex justify-between items-center py-2 border-b border-border last:border-0">
+                      <div>
+                        <span className="font-medium text-sm">{p.name}</span>
+                        <span className="text-xs text-muted-foreground font-mono ml-2">({p.sku})</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-border">
+                <span className="text-sm font-medium">Срок действия для всех товаров:</span>
+                <span className="font-semibold text-primary">30 дней</span>
+              </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Артикул:</span>
-              <span className="font-mono text-sm">{product.sku}</span>
+          ) : (
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Товар:</span>
+                <span className="font-medium">{product.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Артикул:</span>
+                <span className="font-mono text-sm">{product.sku}</span>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-border">
+                <span className="text-sm font-medium">Срок действия:</span>
+                <span className="font-semibold text-primary">30 дней</span>
+              </div>
             </div>
-            <div className="flex justify-between items-center pt-2 border-t border-border">
-              <span className="text-sm font-medium">Срок действия:</span>
-              <span className="font-semibold text-primary">30 дней</span>
-            </div>
-          </div>
+          )}
 
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
             <p className="text-sm text-blue-900 dark:text-blue-100">

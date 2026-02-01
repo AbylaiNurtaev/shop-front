@@ -14,12 +14,14 @@ export interface User {
   profileComplete: boolean;
   firstName?: string;
   lastName?: string;
+  middleName?: string;
   storeId?: string;
   brandId?: string;
   brandName?: string;
   distributorId?: string;
   isActive?: boolean;
   logoUrl?: string;
+  currency?: string;
 }
 
 export interface StoreProfile {
@@ -44,6 +46,8 @@ export interface BrandProfile {
   // Регистрация бренда (владелец бренда + данные бренда)
   name: string;
   country: string;
+  city?: string;
+  phone?: string;
   categoryId: string;
   email: string;
   password: string;

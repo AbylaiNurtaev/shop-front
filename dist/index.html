@@ -44,8 +44,23 @@
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json" />
-  <script type="module" crossorigin src="/assets/index-8c_CQYI_.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-VShbtdAG.css">
+  
+  <!-- Применение темы до загрузки React для предотвращения мерцания -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+      
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+  <script type="module" crossorigin src="/assets/index-C1k1zzUA.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BugVDuur.css">
 </head>
 
 <body>
