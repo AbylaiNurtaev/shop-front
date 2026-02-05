@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // baseURL: 'http://localhost:3000/api',
-  baseURL: 'https://shop-back-production-a38c.up.railway.app/api',
+  baseURL: 'http://localhost:3000/api',
+  // baseURL: 'https://shop-back-production-a38c.up.railway.app/api',
+  // baseURL: 'https://secure-ambition-production.up.railway.app/api',
   headers: {
     'Content-Type': 'application/json',
   },

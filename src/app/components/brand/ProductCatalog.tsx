@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Search, Plus, Package, CreditCard, ChevronRight } from 'lucide-react';
+import { Search, Plus, Package, CreditCard, ChevronRight, Loader2 } from 'lucide-react';
 import { Product, Category } from '../../types';
 import { PaymentModal } from './PaymentModal';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 interface ProductCatalogProps {
   products: Product[];
   categories: Category[];
   onCreateProduct: () => void;
   onEditProduct: (product: Product) => void;
+  isLoading?: boolean;
 }
 
 export function ProductCatalog({
@@ -15,6 +17,7 @@ export function ProductCatalog({
   categories,
   onCreateProduct,
   onEditProduct,
+  isLoading = false,
 }: ProductCatalogProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -165,7 +168,14 @@ export function ProductCatalog({
       {/* Spacer for fixed elements on mobile */}
       <div className="md:hidden h-[200px]"></div>
 
-      {filteredProducts.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary animate-spin" />
+            <p className="text-sm text-muted-foreground">Загрузка товаров...</p>
+          </div>
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <div className="px-4 py-16 text-center">
           <div className="w-20 h-20 mx-auto mb-4 bg-muted rounded-2xl flex items-center justify-center">
             <Package className="w-10 h-10 text-muted-foreground" />
@@ -363,6 +373,7 @@ export function ProductCatalog({
           </button>
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 }

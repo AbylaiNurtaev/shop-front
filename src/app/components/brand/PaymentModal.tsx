@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, CreditCard, CheckCircle2, Loader2 } from 'lucide-react';
 import { Product } from '../../types';
 import api from '../../api/axios';
@@ -13,6 +13,9 @@ interface PaymentModalProps {
   onMultiplePaymentSuccess?: (updatedProducts: Product[]) => void;
 }
 
+const TIPTOP_PUBLIC_TERMINAL_ID =
+  import.meta.env.VITE_TIP_TOP_PUBLIC_KEY ?? import.meta.env.TIP_TOP_PUBLIC_KEY ?? '';
+
 export function PaymentModal({
   product,
   products,
@@ -23,60 +26,150 @@ export function PaymentModal({
 }: PaymentModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Сброс состояния при закрытии модалки
+  useEffect(() => {
+    if (!isOpen) {
+      setIsProcessing(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const productsToPay = products && products.length > 0 ? products : [product];
   const isMultiplePayment = productsToPay.length > 1;
 
-  const handlePayment = async () => {
+  // Подсчет суммы оплаты
+  // 1000 тенге за один товар, при множественной оплате умножаем на количество
+  const calculateAmount = (): number => {
+    // 1000 тенге за один товар
+    const pricePerProduct = 1000;
+    
+    // При множественной оплате умножаем на количество товаров
+    if (isMultiplePayment) {
+      return pricePerProduct * productsToPay.length;
+    }
+    
+    return pricePerProduct;
+  };
+
+  const activateProducts = async () => {
     setIsProcessing(true);
     try {
       if (isMultiplePayment && onMultiplePaymentSuccess) {
-        // Множественная оплата
-        const paymentPromises = productsToPay.map(p => 
-          api.post(`/products/${p.id}/pay`)
-        );
-        
-        const responses = await Promise.all(paymentPromises);
-        const updatedProducts: Product[] = responses.map((response, index) => {
-          const responseData = response.data;
-          return responseData?.product || {
-            ...productsToPay[index],
-            isPayed: true,
-            paymentDate: new Date().toISOString(),
-            paymentExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          };
+        const productIds = productsToPay.map((p) => p.id);
+        const response = await api.post('/products/pay/multiple', {
+          productIds,
+        });
+
+        const responseData = response.data;
+        const responseItems: any[] =
+          responseData?.items || responseData?.products || [];
+
+        const updatedProducts: Product[] = productsToPay.map((p) => {
+          const updated =
+            responseItems.find((item: any) => item.id === p.id) ||
+            responseData?.product;
+          return (
+            updated || {
+              ...p,
+              isPayed: true,
+              paymentDate: new Date().toISOString(),
+              paymentExpiresAt: new Date(
+                Date.now() + 30 * 24 * 60 * 60 * 1000,
+              ).toISOString(),
+            }
+          );
         });
 
         onMultiplePaymentSuccess(updatedProducts);
-        toast.success(`Оплата успешно выполнена для ${productsToPay.length} товаров!`);
+        toast.success(
+          `Оплата успешно выполнена для ${productsToPay.length} товаров!`,
+        );
       } else {
-        // Одиночная оплата
         const response = await api.post(`/products/${product.id}/pay`);
-        
         const responseData = response.data;
-        const updatedProduct: Product = responseData?.product || {
-          ...product,
-          isPayed: true,
-          paymentDate: new Date().toISOString(),
-          paymentExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        };
+
+        const updatedProduct: Product =
+          responseData?.product ||
+          responseData ||
+          ({
+            ...product,
+            isPayed: true,
+            paymentDate: new Date().toISOString(),
+            paymentExpiresAt: new Date(
+              Date.now() + 30 * 24 * 60 * 60 * 1000,
+            ).toISOString(),
+          } as Product);
 
         onPaymentSuccess(updatedProduct);
         toast.success('Оплата успешно выполнена!');
       }
-      
+
       onClose();
     } catch (error: any) {
-      console.error('Ошибка оплаты:', error);
-      toast.error(error?.response?.data?.message || 'Ошибка при выполнении оплаты');
+      console.error('Ошибка активации оплаченных товаров:', error);
+      toast.error(
+        error?.response?.data?.message ||
+          'Ошибка при активации оплаченных товаров',
+      );
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const launchTipTopWidget = async () => {
+    try {
+      if (typeof window === 'undefined' || !window.tiptop || !window.tiptop.Widget) {
+        toast.error('Платежный виджет временно недоступен. Попробуйте позже.');
+        return;
+      }
+
+      const publicTerminalId =
+        TIPTOP_PUBLIC_TERMINAL_ID || 'test_api_00000000000000000000002';
+
+      const amount = calculateAmount();
+
+      const widget = new window.tiptop.Widget();
+
+      const intentParams: any = {
+        publicTerminalId,
+        description: isMultiplePayment
+          ? `Оплата размещения ${productsToPay.length} товаров`
+          : `Оплата размещения товара "${product.name}"`,
+        paymentSchema: 'Single',
+        currency: 'KZT',
+        amount,
+        externalId: `brand-products-${productsToPay
+          .map((p) => p.id)
+          .join('-')}-${Date.now()}`,
+        emailBehavior: 'Optional',
+      };
+
+      const widgetResult = await widget.start(intentParams);
+      console.log('TipTop widget result', widgetResult);
+
+      // Если виджет завершился без ошибки, считаем платеж успешным и активируем товары на бэке
+      await activateProducts();
+    } catch (error: any) {
+      console.error('Ошибка запуска платежного виджета TipTop:', error);
+      toast.error(error?.message || 'Ошибка при запуске платежного виджета');
+    }
+  };
+
+  const handlePayment = async () => {
+    const canUseWidget =
+      typeof window !== 'undefined' && window.tiptop && window.tiptop.Widget;
+
+    if (canUseWidget) {
+      await launchTipTopWidget();
+      return;
+    }
+    // Фолбек: без виджета просто активируем товары (например, в тестовом окружении)
+    await activateProducts();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/70">
       <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
@@ -115,8 +208,25 @@ export function PaymentModal({
                         <span className="font-medium text-sm">{p.name}</span>
                         <span className="text-xs text-muted-foreground font-mono ml-2">({p.sku})</span>
                       </div>
+                      <span className="text-sm font-medium text-primary">1 000 ₸</span>
                     </div>
                   ))}
+                </div>
+              </div>
+              <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-muted-foreground">Цена за товар:</span>
+                  <span className="text-sm font-medium">1 000 ₸</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-muted-foreground">Количество товаров:</span>
+                  <span className="text-sm font-medium">{productsToPay.length} шт.</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-primary/20">
+                  <span className="text-sm font-semibold">Итого к оплате:</span>
+                  <span className="text-lg font-bold text-primary">
+                    {(productsToPay.length * 1000).toLocaleString('ru-RU')} ₸
+                  </span>
                 </div>
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-border">
@@ -134,6 +244,12 @@ export function PaymentModal({
                 <span className="text-sm text-muted-foreground">Артикул:</span>
                 <span className="font-mono text-sm">{product.sku}</span>
               </div>
+              <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">Сумма к оплате:</span>
+                  <span className="text-lg font-bold text-primary">1 000 ₸</span>
+                </div>
+              </div>
               <div className="flex justify-between items-center pt-2 border-t border-border">
                 <span className="text-sm font-medium">Срок действия:</span>
                 <span className="font-semibold text-primary">30 дней</span>
@@ -143,9 +259,25 @@ export function PaymentModal({
 
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
             <p className="text-sm text-blue-900 dark:text-blue-100">
-              <strong>Внимание:</strong> Эквайринг временно недоступен. 
-              Оплата будет обработана в тестовом режиме.
+              <strong>Внимание:</strong> Оплата будет выполнена через платежную систему TipTop.
+              Стоимость размещения одного товара составляет 1 000 ₸.
+              После нажатия «Оплатить» откроется безопасная форма оплаты карты.
             </p>
+          </div>
+
+          <div className="bg-muted/50 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium">Сумма к оплате:</span>
+              <span className="text-lg font-semibold text-primary">
+                {calculateAmount().toLocaleString('ru-RU')} ₸
+              </span>
+            </div>
+            {isMultiplePayment && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {productsToPay.length} товар(ов) × 1 000 ₸ ={' '}
+                {calculateAmount().toLocaleString('ru-RU')} ₸
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3">
@@ -168,7 +300,7 @@ export function PaymentModal({
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CreditCard className="w-4 h-4" />
                   Оплатить
                 </>
               )}

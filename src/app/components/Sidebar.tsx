@@ -1,4 +1,4 @@
-import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut, Search, FileText } from 'lucide-react';
+import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut, Search, FileText, DollarSign } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
 interface SidebarProps {
@@ -18,12 +18,14 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
     { id: 'inventory', label: 'Склад', icon: BarChart3 },
     { id: 'invoice-history', label: 'История накладных', icon: FileText },
     { id: 'activity-history', label: 'История действий', icon: History },
+    { id: 'expenses', label: 'Расходы', icon: DollarSign },
     { id: 'products', label: 'Товары', icon: Package },
   ];
 
   // Меню для продавца магазина (ограниченный доступ)
   const storeSellerMenuItems = [
     { id: 'pos', label: 'Касса', icon: ShoppingCart },
+    { id: 'sales-history', label: 'История', icon: History },
     { id: 'qr-scanner', label: 'Приход товара', icon: QrCode },
   ];
 

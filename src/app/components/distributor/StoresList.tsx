@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Store, MapPin, Phone, Mail, Loader2, Trash2, Plus, Users, User, ExternalLink } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 import {
   Dialog,
   DialogContent,
@@ -494,6 +495,7 @@ export function StoresList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ScrollToTopButton />
     </div>
   );
 }

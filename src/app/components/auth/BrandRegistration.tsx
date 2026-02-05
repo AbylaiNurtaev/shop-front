@@ -1,7 +1,8 @@
 import React, { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { ArrowLeft, Upload, Building2, Loader2, Mail, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Upload, Building2, Loader2, Mail, CheckCircle2, Phone } from 'lucide-react';
 import { BrandProfile, Category } from '../../types';
 import api from '../../api/axios';
+import { PhoneVerificationModal } from './PhoneVerificationModal';
 
 // Функция для форматирования номера телефона
 const formatPhoneNumber = (value: string): string => {
@@ -55,9 +56,10 @@ const formatPhoneNumber = (value: string): string => {
 interface BrandRegistrationProps {
   onComplete: (profile: BrandProfile) => void | Promise<void>;
   onBack: () => void;
+  isDemo?: boolean;
 }
 
-export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps) {
+export function BrandRegistration({ onComplete, onBack, isDemo = false }: BrandRegistrationProps) {
   const [formData, setFormData] = useState<BrandProfile>({
     name: '',
     country: 'Казахстан',
@@ -78,11 +80,22 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
 
   // Email verification states
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [isSendingCode, setIsSendingCode] = useState(false);
-  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
-  const [verificationError, setVerificationError] = useState<string | undefined>(undefined);
-  const [codeSent, setCodeSent] = useState(false);
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [isSendingEmailCode, setIsSendingEmailCode] = useState(false);
+  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [emailVerificationError, setEmailVerificationError] = useState<string | undefined>(undefined);
+  const [emailCodeCooldown, setEmailCodeCooldown] = useState(0);
+
+  // Phone verification states
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [isSendingPhoneCode, setIsSendingPhoneCode] = useState(false);
+  const [phoneVerificationError, setPhoneVerificationError] = useState<string | undefined>(undefined);
+  const [isPhoneVerificationModalOpen, setIsPhoneVerificationModalOpen] = useState(false);
+  const [phoneCodeCooldown, setPhoneCodeCooldown] = useState(0);
+
+  const EMAIL_COOLDOWN_KEY = 'brand_email_verification_last_sent';
+  const PHONE_COOLDOWN_KEY = 'brand_phone_verification_last_sent';
 
   const defaultBrandCategories: Category[] = [
     { id: 'category_1', name: 'Напитки' },
@@ -181,6 +194,17 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
     void loadCategories();
   }, []);
 
+  // Функция для нормализации номера телефона (убирает пробелы, дефисы, скобки, добавляет + если нет)
+  const normalizePhoneNumber = (phone: string): string => {
+    // Удаляем все нецифровые символы, кроме +
+    let cleaned = phone.replace(/[^\d+]/g, '');
+    // Если не начинается с +, добавляем
+    if (!cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned;
+    }
+    return cleaned;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.logoFile) {
@@ -190,8 +214,12 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
     if (logoError) {
       return;
     }
-    if (!isEmailVerified) {
-      setVerificationError('Пожалуйста, подтвердите ваш email');
+    if (!isDemo && !isEmailVerified) {
+      setEmailVerificationError('Пожалуйста, подтвердите ваш email');
+      return;
+    }
+    if (!isDemo && !isPhoneVerified) {
+      setPhoneVerificationError('Пожалуйста, подтвердите ваш номер телефона');
       return;
     }
 
@@ -215,92 +243,293 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
       'qq.com', '163.com', 'sina.com', 'rediffmail.com', 'cox.net',
       'verizon.net', 'comcast.net', 'att.net', 'sbcglobal.net'
     ];
-    
+
     const domain = email.split('@')[1]?.toLowerCase();
     if (!domain) return false;
-    
+
     return !publicEmailDomains.includes(domain);
   };
 
-  const handleSendVerificationCode = async () => {
+  const handleSendEmailVerificationCode = async () => {
     if (!formData.email) {
-      setVerificationError('Пожалуйста, введите email');
+      setEmailVerificationError('Пожалуйста, введите email');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setVerificationError('Некорректный формат email');
+      setEmailVerificationError('Некорректный формат email');
       return;
     }
 
-    if (!isCorporateEmail(formData.email)) {
-      setVerificationError('Пожалуйста, используйте корпоративную почту. Публичные почтовые сервисы (Gmail, Yahoo, Mail.ru и т.д.) не допускаются.');
+    if (!isDemo && !isCorporateEmail(formData.email)) {
+      setEmailVerificationError('Пожалуйста, используйте корпоративную почту. Публичные почтовые сервисы (Gmail, Yahoo, Mail.ru и т.д.) не допускаются.');
       return;
     }
 
-    setIsSendingCode(true);
-    setVerificationError(undefined);
-    setCodeSent(false);
+    setIsSendingEmailCode(true);
+    setEmailVerificationError(undefined);
+    setEmailCodeSent(false);
     setIsEmailVerified(false);
 
     try {
       await api.post('/auth/verification/send', {
         email: formData.email,
+        ...(isDemo && { demo: true }),
       });
-      setCodeSent(true);
+      setEmailCodeSent(true);
+      setEmailCodeCooldown(60);
+      if (!isDemo) {
+        localStorage.setItem(EMAIL_COOLDOWN_KEY, Date.now().toString());
+      }
     } catch (error: any) {
       const status = error.response?.status;
       const code = error.response?.data?.code;
       const backendError = error.response?.data?.error;
 
       if (status === 409 && code === 'EMAIL_ALREADY_EXISTS') {
-        setVerificationError('Пользователь с таким email уже существует. Попробуйте войти в систему или используйте другой email.');
+        setEmailVerificationError('Пользователь с таким email уже существует. Попробуйте войти в систему или используйте другой email.');
       } else {
         const fallbackMessage = backendError || error.response?.data?.message || 'Не удалось отправить код верификации';
-        setVerificationError(fallbackMessage);
+        setEmailVerificationError(fallbackMessage);
       }
-      setCodeSent(false);
+      setEmailCodeSent(false);
       setIsEmailVerified(false);
     } finally {
-      setIsSendingCode(false);
+      setIsSendingEmailCode(false);
     }
   };
 
-  const handleVerifyCode = async () => {
-    if (!verificationCode || verificationCode.length !== 6) {
-      setVerificationError('Код должен состоять из 6 цифр');
+  const handleSendPhoneVerificationCode = async () => {
+    if (!formData.phone) {
+      setPhoneVerificationError('Пожалуйста, введите номер телефона');
       return;
     }
 
-    setIsVerifyingCode(true);
-    setVerificationError(undefined);
+    const normalizedPhone = normalizePhoneNumber(formData.phone);
+    // Проверяем формат: должен быть 7XXXXXXXXXX (RU/KZ) или 1XXXXXXXXXX (US) - всего 11 цифр
+    const digitsOnly = normalizedPhone.replace(/\D/g, '');
+    if (digitsOnly.length !== 11 || (!digitsOnly.startsWith('7') && !digitsOnly.startsWith('1'))) {
+      setPhoneVerificationError('Некорректный формат номера телефона. Поддерживаются: RU/KZ 7XXXXXXXXXX или US 1XXXXXXXXXX (11 цифр)');
+      return;
+    }
+
+    setIsSendingPhoneCode(true);
+    setPhoneVerificationError(undefined);
+    setIsPhoneVerified(false);
+
+    try {
+      await api.post('/auth/verification/phone/send', {
+        phoneNumber: normalizedPhone,
+        ...(isDemo && { demo: true }),
+      });
+      setIsPhoneVerificationModalOpen(true);
+      setPhoneCodeCooldown(60); // Устанавливаем кулдаун на 60 секунд
+      if (!isDemo) {
+        localStorage.setItem(PHONE_COOLDOWN_KEY, Date.now().toString());
+      }
+    } catch (error: any) {
+      const status = error.response?.status;
+      const code = error.response?.data?.code;
+      const backendError = error.response?.data?.error;
+
+      if (status === 409 && code === 'PHONE_ALREADY_EXISTS') {
+        setPhoneVerificationError('Пользователь с таким номером телефона уже существует. Попробуйте войти в систему или используйте другой номер.');
+      } else {
+        const fallbackMessage = backendError || error.response?.data?.message || 'Не удалось отправить код верификации через WhatsApp';
+        setPhoneVerificationError(fallbackMessage);
+      }
+      setIsPhoneVerified(false);
+    } finally {
+      setIsSendingPhoneCode(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    if (!emailVerificationCode || emailVerificationCode.length !== 6) {
+      setEmailVerificationError('Код должен состоять из 6 цифр');
+      return;
+    }
+
+    setIsVerifyingEmailCode(true);
+    setEmailVerificationError(undefined);
 
     try {
       await api.post('/auth/verification/verify', {
         email: formData.email,
-        code: verificationCode,
+        code: emailVerificationCode,
+        ...(isDemo && { demo: true }),
       });
+
+      // После успешной верификации устанавливаем все состояния
       setIsEmailVerified(true);
-      setVerificationError(undefined);
+      setEmailVerificationError(undefined);
+      setEmailCodeCooldown(0);
+      setEmailCodeSent(false);
+      setEmailVerificationCode('');
+
+      if (!isDemo) {
+        localStorage.removeItem(EMAIL_COOLDOWN_KEY);
+      }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Неверный код верификации';
-      setVerificationError(errorMessage);
+      setEmailVerificationError(errorMessage);
       setIsEmailVerified(false);
     } finally {
-      setIsVerifyingCode(false);
+      setIsVerifyingEmailCode(false);
     }
   };
 
-  // Сброс верификации при изменении email
-  useEffect(() => {
-    if (formData.email) {
-      setIsEmailVerified(false);
-      setCodeSent(false);
-      setVerificationCode('');
-      setVerificationError(undefined);
+  const handlePhoneVerified = () => {
+    setIsPhoneVerified(true);
+    setIsPhoneVerificationModalOpen(false);
+    setPhoneVerificationError(undefined);
+    setPhoneCodeCooldown(0);
+    if (!isDemo) {
+      localStorage.removeItem(PHONE_COOLDOWN_KEY);
     }
-  }, [formData.email]);
+  };
+
+  // Кулдаун для кнопок отправки кода
+  useEffect(() => {
+    if (phoneCodeCooldown > 0) {
+      const timer = setTimeout(() => {
+        setPhoneCodeCooldown((s) => s - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [phoneCodeCooldown]);
+
+  useEffect(() => {
+    if (emailCodeCooldown > 0) {
+      const timer = setTimeout(() => {
+        setEmailCodeCooldown((s) => s - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [emailCodeCooldown]);
+
+  // Восстанавливаем кулдауны из localStorage при монтировании
+  useEffect(() => {
+    if (isDemo) return;
+
+    try {
+      const lastEmailTs = localStorage.getItem(EMAIL_COOLDOWN_KEY);
+      if (lastEmailTs) {
+        const last = parseInt(lastEmailTs, 10);
+        if (!Number.isNaN(last)) {
+          const diff = Math.floor((Date.now() - last) / 1000);
+          const remaining = 60 - diff;
+          if (remaining > 0) {
+            setEmailCodeCooldown(remaining);
+          } else {
+            localStorage.removeItem(EMAIL_COOLDOWN_KEY);
+          }
+        }
+      }
+
+      const lastPhoneTs = localStorage.getItem(PHONE_COOLDOWN_KEY);
+      if (lastPhoneTs) {
+        const last = parseInt(lastPhoneTs, 10);
+        if (!Number.isNaN(last)) {
+          const diff = Math.floor((Date.now() - last) / 1000);
+          const remaining = 60 - diff;
+          if (remaining > 0) {
+            setPhoneCodeCooldown(remaining);
+          } else {
+            localStorage.removeItem(PHONE_COOLDOWN_KEY);
+          }
+        }
+      }
+    } catch {
+      // игнорируем ошибки доступа к localStorage
+    }
+  }, [isDemo]);
+
+  // Автоматическая отправка и подтверждение кода в демо-режиме
+  useEffect(() => {
+    if (isDemo) {
+      // Автоверификация email
+      if (formData.email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (emailRegex.test(formData.email) && !isEmailVerified) {
+          const autoVerifyEmail = async () => {
+            try {
+              setIsSendingEmailCode(true);
+              setEmailVerificationError(undefined);
+
+              await api.post('/auth/verification/send', {
+                email: formData.email,
+                demo: true,
+              });
+              setEmailCodeSent(true);
+
+              await new Promise(resolve => setTimeout(resolve, 500));
+
+              setIsVerifyingEmailCode(true);
+              const demoCode = '000000';
+              setEmailVerificationCode(demoCode);
+              await api.post('/auth/verification/verify', {
+                email: formData.email,
+                code: demoCode,
+                demo: true,
+              });
+              setIsEmailVerified(true);
+              setEmailVerificationError(undefined);
+            } catch (error: any) {
+              console.warn('Демо-режим: ошибка верификации email, но считаем подтвержденным', error);
+              setIsEmailVerified(true);
+              setEmailVerificationError(undefined);
+            } finally {
+              setIsSendingEmailCode(false);
+              setIsVerifyingEmailCode(false);
+            }
+          };
+
+          autoVerifyEmail();
+        }
+      }
+
+      // Автоверификация телефона
+      if (formData.phone) {
+        const normalizedPhone = normalizePhoneNumber(formData.phone);
+        const digitsOnly = normalizedPhone.replace(/\D/g, '');
+        if (digitsOnly.length === 11 && !isPhoneVerified) {
+          const autoVerifyPhone = async () => {
+            try {
+              setIsSendingPhoneCode(true);
+              setPhoneVerificationError(undefined);
+
+              await api.post('/auth/verification/phone/send', {
+                phoneNumber: normalizedPhone,
+                demo: true,
+              });
+
+              await new Promise(resolve => setTimeout(resolve, 500));
+
+              const demoCode = '000000';
+              await api.post('/auth/verification/phone/verify', {
+                phoneNumber: normalizedPhone,
+                code: demoCode,
+                demo: true,
+              });
+              setIsPhoneVerified(true);
+              setPhoneVerificationError(undefined);
+            } catch (error: any) {
+              console.warn('Демо-режим: ошибка верификации телефона, но считаем подтвержденным', error);
+              setIsPhoneVerified(true);
+              setPhoneVerificationError(undefined);
+            } finally {
+              setIsSendingPhoneCode(false);
+            }
+          };
+
+          autoVerifyPhone();
+        }
+      }
+    }
+    // УБРАЛ else блок, который сбрасывал isEmailVerified и isPhoneVerified!
+  }, [formData.email, formData.phone, isDemo, isEmailVerified, isPhoneVerified]);
 
   const updateField = (field: keyof BrandProfile, value: string) => {
     setFormData((prev) => {
@@ -406,8 +635,13 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
               <Building2 className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold">Регистрация бренда</h1>
+              <h1 className="text-xl font-semibold">Регистрация бренда{isDemo ? ' (Демо)' : ''}</h1>
               <p className="text-sm text-muted-foreground">Укажите основные данные бренда</p>
+              {isDemo && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  Демо-режим: можно использовать обычную почту (Gmail, Yahoo и т.д.), подтверждение email не требуется
+                </p>
+              )}
             </div>
           </div>
 
@@ -469,22 +703,6 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm mb-1.5">
-                  Номер телефона
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone || ''}
-                  onChange={(e) => {
-                    const formatted = formatPhoneNumber(e.target.value);
-                    updateField('phone', formatted);
-                  }}
-                  className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="+7 (900) 123-45-67"
-                />
-              </div>
-
               <div className="md:col-span-2">
                 <label className="block text-sm mb-1.5">
                   Email владельца бренда <span className="text-destructive">*</span>
@@ -493,23 +711,31 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => updateField('email', e.target.value)}
+                    onChange={(e) => {
+                      if (!isDemo && isEmailVerified) return;
+                      updateField('email', e.target.value);
+                    }}
                     className="flex-1 px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                     placeholder="owner@example.com"
                     required
-                    disabled={isEmailVerified}
+                    disabled={!isDemo && isEmailVerified}
                   />
-                  {!isEmailVerified && (
+                  {!isDemo && !isEmailVerified && (
                     <button
                       type="button"
-                      onClick={handleSendVerificationCode}
-                      disabled={isSendingCode || !formData.email}
+                      onClick={handleSendEmailVerificationCode}
+                      disabled={isSendingEmailCode || !formData.email || emailCodeCooldown > 0}
                       className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
                     >
-                      {isSendingCode ? (
+                      {isSendingEmailCode ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
                           <span>Отправка...</span>
+                        </>
+                      ) : emailCodeCooldown > 0 ? (
+                        <>
+                          <Mail className="w-4 h-4" />
+                          <span>Повторить ({emailCodeCooldown}с)</span>
                         </>
                       ) : (
                         <>
@@ -519,26 +745,26 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
                       )}
                     </button>
                   )}
-                  {isEmailVerified && (
+                  {!isDemo && isEmailVerified && (
                     <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-600 rounded-md">
                       <CheckCircle2 className="w-4 h-4" />
                       <span className="text-sm font-medium">Подтверждено</span>
                     </div>
                   )}
                 </div>
-                {codeSent && !isEmailVerified && (
+                {!isDemo && emailCodeSent && !isEmailVerified && (
                   <div className="mt-3 space-y-2">
                     <label className="block text-sm mb-1.5">
-                      Код верификации <span className="text-destructive">*</span>
+                      Код верификации email <span className="text-destructive">*</span>
                     </label>
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        value={verificationCode}
+                        value={emailVerificationCode}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                          setVerificationCode(value);
-                          setVerificationError(undefined);
+                          setEmailVerificationCode(value);
+                          setEmailVerificationError(undefined);
                         }}
                         className="flex-1 px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                         placeholder="Введите 6-значный код"
@@ -546,11 +772,11 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
                       />
                       <button
                         type="button"
-                        onClick={handleVerifyCode}
-                        disabled={isVerifyingCode || verificationCode.length !== 6}
+                        onClick={handleVerifyEmailCode}
+                        disabled={isVerifyingEmailCode || emailVerificationCode.length !== 6}
                         className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
                       >
-                        {isVerifyingCode ? (
+                        {isVerifyingEmailCode ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>Проверка...</span>
@@ -565,8 +791,62 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
                     </p>
                   </div>
                 )}
-                {verificationError && (
-                  <p className="mt-2 text-xs text-destructive">{verificationError}</p>
+                {emailVerificationError && (
+                  <p className="mt-2 text-xs text-destructive">{emailVerificationError}</p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm mb-1.5">
+                  Номер телефона владельца бренда <span className="text-destructive">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    value={formData.phone || ''}
+                    onChange={(e) => {
+                      const formatted = formatPhoneNumber(e.target.value);
+                      updateField('phone', formatted);
+                    }}
+                    className="flex-1 px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                    placeholder="+7 (900) 123-45-67"
+                    required
+                    disabled={!isDemo && isPhoneVerified}
+                  />
+                  {!isDemo && !isPhoneVerified && (
+                    <button
+                      type="button"
+                      onClick={handleSendPhoneVerificationCode}
+                      disabled={isSendingPhoneCode || !formData.phone || phoneCodeCooldown > 0}
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+                    >
+                      {isSendingPhoneCode ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Отправка...</span>
+                        </>
+                      ) : phoneCodeCooldown > 0 ? (
+                        <>
+                          <Phone className="w-4 h-4" />
+                          <span>Повторить ({phoneCodeCooldown}с)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Phone className="w-4 h-4" />
+                          <span>Отправить код</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {isPhoneVerified && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-600 rounded-md">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-sm font-medium">Подтверждено</span>
+                    </div>
+                  )}
+                </div>
+                {phoneVerificationError && (
+                  <p className="mt-2 text-xs text-destructive">{phoneVerificationError}</p>
                 )}
               </div>
 
@@ -658,7 +938,7 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !isEmailVerified}
+                disabled={isSubmitting || (!isDemo && (!isEmailVerified || !isPhoneVerified))}
                 className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-md hover:opacity-90 transition-opacity font-medium disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
@@ -674,6 +954,14 @@ export function BrandRegistration({ onComplete, onBack }: BrandRegistrationProps
           </form>
         </div>
       </div>
+
+      <PhoneVerificationModal
+        isOpen={isPhoneVerificationModalOpen}
+        onClose={() => setIsPhoneVerificationModalOpen(false)}
+        phoneNumber={formData.phone}
+        onVerified={handlePhoneVerified}
+        isDemo={isDemo}
+      />
     </div>
   );
 }

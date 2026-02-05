@@ -1,4 +1,4 @@
-import { Package, BarChart3, FolderTree, LogOut, Settings, Store, Users, Building2, MessageCircle, Brain, Network, History, Calendar, QrCode, ShoppingCart, AlertTriangle, TrendingDown, Menu, X, Search, FileText } from 'lucide-react';
+import { Package, BarChart3, FolderTree, LogOut, Settings, Store, Users, Building2, MessageCircle, Brain, Network, History, Calendar, QrCode, ShoppingCart, AlertTriangle, TrendingDown, Menu, X, Search, FileText, DollarSign } from 'lucide-react';
 import { useState, useEffect, React } from 'react';
 
 interface MobileNavProps {
@@ -28,14 +28,15 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
   const storeOwnerMenuItems = [
     { id: 'invoice-history', label: 'История накладных', icon: FileText },
     { id: 'activity-history', label: 'История действий', icon: History },
+    { id: 'expenses', label: 'Расходы', icon: DollarSign },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   // Для продавца: основные элементы в нижней навигации
   const storeSellerMainItems = [
     { id: 'pos', label: 'Касса', icon: ShoppingCart },
+    { id: 'sales-history', label: 'История', icon: History },
     { id: 'qr-scanner', label: 'Приход', icon: QrCode },
-    { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
   // Для продавца: элементы в бургер-меню (настройки)

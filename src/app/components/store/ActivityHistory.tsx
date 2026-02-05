@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, Calendar, Package, Plus, Minus, DollarSign, FileText, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 type ActionType = 'ADD_STOCK' | 'REMOVE_STOCK' | 'UPDATE_PRICE' | 'UPDATE_QUANTITY' | 'CONFIRM_INVOICE';
 
@@ -344,6 +345,7 @@ export function ActivityHistory() {
           </>
         )}
       </div>
+      <ScrollToTopButton />
     </div>
   );
 }

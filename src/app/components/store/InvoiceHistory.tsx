@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Calendar, Package, CheckCircle, AlertCircle, X, Loader2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 interface InvoiceInfo {
   items: Array<{
@@ -401,7 +402,7 @@ export function InvoiceHistory() {
 
       {/* Detail Modal */}
       {showDetailModal && selectedInvoice && (
-        <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-end md:items-center justify-center z-50 p-0 md:p-4">
           <div className="bg-card rounded-t-2xl md:rounded-xl max-w-4xl w-full max-h-[95vh] md:max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="sticky top-0 bg-card border-b border-border px-4 md:px-6 py-3 md:py-4 flex items-center justify-between z-10">
               <h3 className="text-lg md:text-xl font-semibold flex items-center gap-2 text-foreground">
@@ -576,6 +577,7 @@ export function InvoiceHistory() {
           </div>
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 }

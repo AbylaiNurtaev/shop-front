@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Package, Save, Loader2, ArrowUp } from 'lucide-react';
+import { Search, Plus, Package, Save, Loader2 } from 'lucide-react';
 import { Product, Category } from '../../types';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 interface ProductListProps {
   products: Product[];
@@ -14,7 +15,6 @@ interface ProductListProps {
 export function ProductList({ products, categories, onCreateProduct, isLoading = false }: ProductListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Получаем валюту из настроек через API
   const [userCurrency, setUserCurrency] = useState<string>('KZT');
@@ -69,31 +69,6 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
     setOriginalMarkups(initialOriginal);
   }, [products]);
 
-  // Отслеживание прокрутки для показа кнопки "наверх"
-  useEffect(() => {
-    const handleScroll = () => {
-      // Показываем кнопку только на мобильной версии и когда прокрутка больше 300px
-      if (window.innerWidth < 768) {
-        setShowScrollTop(window.scrollY > 300);
-      } else {
-        setShowScrollTop(false);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    // Проверяем при загрузке
-    handleScroll();
-
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-  };
-
   const getCategoryName = (categoryId: string) => {
     const category = categories.find((c) => c.id === categoryId);
     return category?.name || '—';
@@ -103,6 +78,16 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
     if (quantity === 0) return { label: 'Нет в наличии', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300', icon: '⚠️' };
     if (quantity < 20) return { label: 'Мало', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300', icon: '⚡' };
     return { label: 'В наличии', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300', icon: '✓' };
+  };
+
+  // Форматирование числа без лишних нулей
+  const formatPrice = (value: number): string => {
+    // Если число целое, возвращаем без дробной части
+    if (value % 1 === 0) {
+      return value.toLocaleString('ru-RU');
+    }
+    // Иначе форматируем с максимум 2 знаками после запятой, но без лишних нулей
+    return value.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
   };
 
   const handleMarkupChange = (offerId: string, value: string) => {
@@ -371,8 +356,8 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                       {product.costPrice !== undefined && product.costPrice !== null && (
                         <div className="flex items-center justify-between py-2">
                           <span className="text-sm font-medium text-muted-foreground">Себестоимость</span>
-                          <span className="text-sm font-bold text-foreground">
-                            {product.costPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {product.costCurrency || 'KZT'}
+                          <span className="text-xs font-bold text-foreground whitespace-nowrap">
+                            {formatPrice(product.costPrice)} {product.costCurrency || 'KZT'}
                           </span>
                         </div>
                       )}
@@ -395,11 +380,11 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                           </div>
                           <div className="flex items-center justify-between py-2">
                             <span className="text-sm font-medium text-muted-foreground">Цена</span>
-                            <span className="text-sm font-bold text-foreground">
+                            <span className="text-xs font-bold text-foreground whitespace-nowrap">
                               {(() => {
                                 const markup = parseFloat(editingMarkups[product.offerId || `temp-${product.id}`]?.markup || '0') || 0;
                                 const calculatedPrice = product.costPrice + markup;
-                                return calculatedPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                return formatPrice(calculatedPrice);
                               })()} {userCurrency}
                             </span>
                           </div>
@@ -508,8 +493,8 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                       {product.costPrice !== undefined && product.costPrice !== null && (
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">Себестоимость</p>
-                          <p className="text-sm font-medium text-foreground">
-                            {product.costPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {product.costCurrency || 'KZT'}
+                          <p className="text-xs font-medium text-foreground whitespace-nowrap">
+                            {formatPrice(product.costPrice)} {product.costCurrency || 'KZT'}
                           </p>
                         </div>
                       )}
@@ -532,11 +517,11 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">Цена</p>
-                            <p className="text-sm font-medium text-foreground">
+                            <p className="text-xs font-medium text-foreground whitespace-nowrap">
                               {(() => {
                                 const markup = parseFloat(editingMarkups[product.offerId || `temp-${product.id}`]?.markup || '0') || 0;
                                 const calculatedPrice = product.costPrice + markup;
-                                return `${calculatedPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${userCurrency}`;
+                                return `${formatPrice(calculatedPrice)} ${userCurrency}`;
                               })()}
                             </p>
                           </div>
@@ -564,15 +549,15 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                 <table className="w-full">
                   <thead className="bg-muted border-b border-border">
                     <tr>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Название</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Артикул</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Категория</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Остаток</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Упаковка</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Себестоимость</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Наценка</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Цена</th>
-                      <th className="text-left px-4 py-3 text-sm font-medium text-foreground">Источник</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Название</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Артикул</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Категория</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Остаток</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Упаковка</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Себестоимость</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Наценка</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Цена</th>
+                      <th className="text-left px-3 py-2.5 text-xs font-medium text-foreground">Источник</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -583,30 +568,27 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                           key={product.id}
                           className="hover:bg-muted/50 transition-colors"
                         >
-                          <td className="px-4 py-3 font-medium text-foreground">{product.name}</td>
-                          <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{product.sku}</td>
-                          <td className="px-4 py-3 text-sm text-foreground">{getCategoryName(product.categoryId)}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-foreground">{product.quantity}</span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${stockStatus.color}`}>
-                                {stockStatus.label}
-                              </span>
-                            </div>
+                          <td className="px-3 py-2.5 text-xs font-medium text-foreground">{product.name}</td>
+                          <td className="px-3 py-2.5 text-xs text-muted-foreground font-mono">{product.sku}</td>
+                          <td className="px-3 py-2.5 text-xs text-foreground">{getCategoryName(product.categoryId)}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`text-xs font-medium ${product.quantity >= 5 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {product.quantity}
+                            </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-foreground">{product.packageInfo || '—'}</td>
-                          <td className="px-4 py-3 text-sm">
+                          <td className="px-3 py-2.5 text-xs text-foreground">{product.packageInfo || '—'}</td>
+                          <td className="px-3 py-2.5">
                             {product.costPrice !== undefined && product.costPrice !== null ? (
-                              <span className="text-foreground">
-                                {product.costPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {product.costCurrency || 'KZT'}
+                              <span className="text-xs text-foreground whitespace-nowrap">
+                                {formatPrice(product.costPrice)} {product.costCurrency || 'KZT'}
                               </span>
                             ) : (
-                              <span className="text-muted-foreground">—</span>
+                              <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2.5">
                             {(product.offerId || product.storePrice !== undefined) && product.costPrice !== undefined && product.costPrice !== null ? (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5">
                                 <input
                                   type="number"
                                   step="0.01"
@@ -614,29 +596,29 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
                                   value={editingMarkups[product.offerId || `temp-${product.id}`]?.markup || ''}
                                   onChange={(e) => handleMarkupChange(product.offerId || `temp-${product.id}`, e.target.value)}
                                   placeholder="0.00"
-                                  className="w-28 px-3 py-2 bg-input-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                                  className="w-24 px-2 py-1.5 bg-input-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring text-xs"
                                 />
-                                <span className="text-sm text-muted-foreground">{userCurrency}</span>
+                                <span className="text-xs text-muted-foreground">{userCurrency}</span>
                               </div>
                             ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
+                              <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm">
+                          <td className="px-3 py-2.5">
                             {(product.offerId || product.storePrice !== undefined) && product.costPrice !== undefined && product.costPrice !== null ? (
-                              <span className="text-foreground">
+                              <span className="text-xs text-foreground whitespace-nowrap">
                                 {(() => {
                                   const markup = parseFloat(editingMarkups[product.offerId || `temp-${product.id}`]?.markup || '0') || 0;
                                   const calculatedPrice = product.costPrice + markup;
-                                  return `${calculatedPrice.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${userCurrency}`;
+                                  return `${formatPrice(calculatedPrice)} ${userCurrency}`;
                                 })()}
                               </span>
                             ) : (
-                              <span className="text-muted-foreground">—</span>
+                              <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs px-2 py-1 rounded ${product.createdBy === 'brand' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-muted text-muted-foreground'
+                          <td className="px-3 py-2.5">
+                            <span className={`text-xs px-1.5 py-0.5 rounded whitespace-nowrap ${product.createdBy === 'brand' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-muted text-muted-foreground'
                               }`}>
                               {product.brandName ? product.brandName : 'Бренд'}
                             </span>
@@ -676,15 +658,7 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
       )}
 
       {/* Кнопка "наверх" для мобильной версии */}
-      {showScrollTop && (
-        <button
-          onClick={scrollToTop}
-          className="md:hidden fixed bottom-30 right-4 z-40 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 active:bg-primary/80 transition-all duration-200"
-          aria-label="Наверх"
-        >
-          <ArrowUp className="w-6 h-6" />
-        </button>
-      )}
+      <ScrollToTopButton bottomOffset={120} />
     </div>
   );
 }

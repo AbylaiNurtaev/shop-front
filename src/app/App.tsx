@@ -22,12 +22,15 @@ import { TopBar } from './components/TopBar';
 import { MobileNav } from './components/MobileNav';
 import { ProductList } from './components/store/ProductList';
 import { BrandProductSelector } from './components/store/BrandProductSelector';
+import { ProductForm } from './components/store/ProductForm';
 import { Inventory } from './components/store/Inventory';
 import { QRScanner } from './components/store/QRScanner';
 import { POS } from './components/store/POS';
 import { CategoryManagement } from './components/store/CategoryManagement';
 import { InvoiceHistory } from './components/store/InvoiceHistory';
+import { SalesHistory } from './components/store/SalesHistory';
 import { ActivityHistory } from './components/store/ActivityHistory';
+import { Expenses } from './components/store/Expenses';
 import { ProductCatalog } from './components/brand/ProductCatalog';
 import { BrandProductForm } from './components/brand/BrandProductForm';
 import { AccountSettings } from './components/settings/AccountSettings';
@@ -45,6 +48,13 @@ import { DistributorHistory } from './components/distributor/DistributorHistory'
 import { DistributorPoorlySellingProducts } from './components/distributor/DistributorPoorlySellingProducts';
 import { DistributorsList } from './components/brand/DistributorsList';
 import { CategoryRequest } from './components/brand/CategoryRequest';
+import { Footer } from './components/Footer';
+import { LandingPage } from './components/LandingPage';
+import { PrivacyPolicy } from './components/legal/PrivacyPolicy';
+import { TermsOfService } from './components/legal/TermsOfService';
+import { RefundPolicy } from './components/legal/RefundPolicy';
+import { PaymentPolicy } from './components/legal/PaymentPolicy';
+import { Consent } from './components/legal/Consent';
 import { BrandSearchStatistics } from './components/brand/BrandSearchStatistics';
 import { User, UserRole, StoreProfile, BrandProfile, DistributorProfile, Product, Category } from './types';
 import api from './api/axios';
@@ -114,6 +124,10 @@ type ApiProduct = {
   // Цена магазина
   storePrice?: number | null;
   storeCurrency?: string | null;
+  // Поля оплаты
+  isPayed?: boolean;
+  paymentDate?: string;
+  paymentExpiresAt?: string;
   // Дополнительные поля из API
   hasOffer?: boolean;
   offerQuantity?: number | null;
@@ -281,6 +295,10 @@ export default function App() {
       productionDate: apiProduct.productionDate ?? overrides.productionDate,
       allergens: apiProduct.allergens ?? overrides.allergens,
       ageRestrictions: apiProduct.ageRestrictions ?? overrides.ageRestrictions,
+      // Поля оплаты
+      isPayed: apiProduct.isPayed ?? overrides.isPayed,
+      paymentDate: apiProduct.paymentDate ?? overrides.paymentDate,
+      paymentExpiresAt: apiProduct.paymentExpiresAt ?? overrides.paymentExpiresAt,
       offerId: overrides.offerId,
       storeId: overrides.storeId,
       price: overrides.price,
@@ -480,17 +498,33 @@ export default function App() {
 
   const handleStoreRegistration = async (profile: StoreProfile) => {
     try {
+      // Очистка и валидация ФИО
+      const firstName = (profile.firstName || '').trim();
+      const lastName = (profile.lastName || '').trim();
+      const middleName = (profile.middleName || '').trim();
+      
+      if (!firstName) {
+        toast.error('Имя обязательно для заполнения');
+        return;
+      }
+      
+      if (!lastName) {
+        toast.error('Фамилия обязательна для заполнения');
+        return;
+      }
+      
       let logoUrl: string | undefined;
       if (profile.logoFile) {
         logoUrl = await uploadPhoto(profile.logoFile);
       }
 
+      const isDemo = window.location.pathname.includes('/demo');
       const userResponse = await api.post<ApiAuthResponse>('/users', {
         role: 'STORE',
         email: profile.email,
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        middleName: profile.middleName || undefined,
+        firstName: firstName,
+        lastName: lastName,
+        middleName: middleName || undefined,
         password: profile.password,
         isActive: true,
         store: {
@@ -503,6 +537,7 @@ export default function App() {
           photos: logoUrl ? [logoUrl] : undefined,
           phoneNumber: profile.phoneNumber || profile.phone || undefined,
         },
+        ...(isDemo && { demo: true }),
       });
 
       const { user: createdUser, accessToken, refreshToken } = userResponse.data || {};
@@ -549,6 +584,7 @@ export default function App() {
         logoUrl = await uploadPhoto(profile.logoFile);
       }
 
+      const isDemo = window.location.pathname.includes('/demo');
       await api.post('/brands', {
         name: profile.name,
         country: profile.country,
@@ -558,6 +594,7 @@ export default function App() {
         email: profile.email,
         password: profile.password,
         logoUrl,
+        ...(isDemo && { demo: true }),
       });
 
       toast.success('Бренд успешно зарегистрирован. Ожидайте подтверждения и войдите в систему.');
@@ -570,6 +607,7 @@ export default function App() {
 
   const handleDistributorRegistration = async (profile: DistributorProfile) => {
     try {
+      const isDemo = window.location.pathname.includes('/demo');
       const response = await api.post<ApiAuthResponse>('/auth/register-distributor', {
         companyName: profile.companyName,
         country: profile.country,
@@ -577,6 +615,8 @@ export default function App() {
         email: profile.email,
         password: profile.password,
         verificationCode: profile.verificationCode,
+        ...(profile.categoryIds && profile.categoryIds.length > 0 && { categoryIds: profile.categoryIds }),
+        ...(isDemo && { demo: true }),
       });
 
       const { user: createdUser, accessToken, refreshToken } = response.data || {};
@@ -653,27 +693,56 @@ export default function App() {
     quantity: number,
     price: number,
     currency: string,
-    isAvailable: boolean
+    isAvailable: boolean,
+    markup?: number
   ) => {
     if (!storeId) {
       toast.error('Не удалось определить магазин для создания оффера.');
       return;
     }
     try {
-      const offerResponse = await api.post<ApiOffer>('/offers', {
+      let calculatedPrice: number | null = null;
+      
+      // Если указана наценка, вычисляем цену = себестоимость + наценка
+      if (markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0) {
+        try {
+          // Получаем актуальные данные товара с сервера, чтобы узнать себестоимость
+          const productResponse = await api.get<ApiProduct>(`/products/${brandProduct.id}`);
+          const costPrice = productResponse.data.costPrice;
+          
+          if (costPrice !== undefined && costPrice !== null) {
+            calculatedPrice = costPrice + markup;
+            console.log('Вычислена цена с наценкой:', { costPrice, markup, calculatedPrice });
+          } else {
+            console.warn('Себестоимость не найдена для товара', brandProduct.id);
+          }
+        } catch (error) {
+          console.error('Ошибка получения себестоимости товара', error);
+        }
+      }
+      
+      // Если цена не была вычислена, используем 0 (цена будет установлена позже через наценку)
+      const finalPrice = calculatedPrice !== null ? calculatedPrice : 0;
+      
+      const offerPayload = {
         productId: brandProduct.id,
         storeId,
-        price,
+        price: finalPrice,
         currency,
+        isAvailable,
         quantity,
-      });
+      };
+      
+      console.log('Создание Offer с данными:', offerPayload);
+      
+      const offerResponse = await api.post<ApiOffer>('/offers', offerPayload);
       const createdOffer = offerResponse.data;
       const offerDetails = await api.get<ApiOffer>(`/offers/${createdOffer.id}`);
-      const offerPayload = offerDetails.data;
-      const resolvedOffer: ApiOffer = offerPayload.product
-        ? offerPayload
+      const offerData = offerDetails.data;
+      const resolvedOffer: ApiOffer = offerData.product
+        ? offerData
         : {
-          ...offerPayload,
+          ...offerData,
           product: {
             id: brandProduct.id,
             name: brandProduct.name,
@@ -695,6 +764,16 @@ export default function App() {
       setProducts((prev) =>
         prev.some((item) => item.id === brandProduct.id) ? prev : [...prev, brandProduct]
       );
+      
+      // Перезагружаем данные для обновления UI
+      window.location.reload();
+      
+      if (markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0 && calculatedPrice !== null && calculatedPrice > 0) {
+        toast.success('Товар добавлен и цена установлена');
+      } else {
+        toast.success('Товар добавлен. Установите цену через наценку в списке товаров');
+      }
+      
       setShowBrandProductSelector(false);
     } catch (error) {
       console.error('Ошибка создания оффера', error);
@@ -827,6 +906,49 @@ export default function App() {
         images: productData.images,
       });
       setProducts([...products, newProduct]);
+      
+      // Если указана наценка, создаем Offer с ценой = себестоимость + наценка
+      const markup = (productData as any).markup;
+      if (markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0) {
+        try {
+          // Получаем актуальные данные товара с сервера, чтобы узнать себестоимость
+          const productResponse = await api.get<ApiProduct>(`/products/${newProduct.id}`);
+          const costPrice = productResponse.data.costPrice;
+          
+          if (costPrice !== undefined && costPrice !== null) {
+            // Получаем валюту из настроек
+            let userCurrency = 'KZT';
+            try {
+              const settingsResponse = await api.get<{ currency?: string }>('/users/me/settings');
+              userCurrency = settingsResponse.data.currency || 'KZT';
+            } catch (error) {
+              console.warn('Не удалось загрузить валюту, используем значение по умолчанию', error);
+            }
+            
+            // Вычисляем цену: цена = себестоимость + наценка
+            const calculatedPrice = costPrice + markup;
+            
+            // Получаем storeId
+            const storeId = user.storeId || localStorage.getItem('storeId');
+            if (storeId) {
+              await api.post('/offers', {
+                productId: newProduct.id,
+                storeId: storeId,
+                price: calculatedPrice,
+                currency: userCurrency,
+                quantity: productData.quantity ?? 0,
+              });
+              toast.success('Товар создан и цена установлена');
+            }
+          } else {
+            toast.success('Товар создан. Установите цену позже, когда будет известна себестоимость');
+          }
+        } catch (error) {
+          console.error('Ошибка создания Offer с наценкой', error);
+          toast.success('Товар создан, но не удалось установить цену. Установите её позже');
+        }
+      }
+      
       setShowProductForm(false);
       setEditingProduct(null);
     } catch (error) {
@@ -1058,8 +1180,10 @@ export default function App() {
     if (path.startsWith('/store/inventory')) return 'inventory';
     if (path.startsWith('/store/invoice-history')) return 'invoice-history';
     if (path.startsWith('/store/activity-history')) return 'activity-history';
+    if (path.startsWith('/store/expenses')) return 'expenses';
     if (path.startsWith('/store/qr-scanner')) return 'qr-scanner';
     if (path.startsWith('/store/pos')) return 'pos';
+    if (path.startsWith('/store/sales-history')) return 'sales-history';
     if (path.startsWith('/store/settings')) return 'settings';
     if (path.startsWith('/brand/catalog')) return 'catalog';
     if (path.startsWith('/brand/distributors')) return 'distributors';
@@ -1126,7 +1250,9 @@ export default function App() {
       if (view === 'inventory') navigate('/store/inventory');
       if (view === 'invoice-history') navigate('/store/invoice-history');
       if (view === 'activity-history') navigate('/store/activity-history');
+      if (view === 'expenses') navigate('/store/expenses');
       if (view === 'qr-scanner') navigate('/store/qr-scanner');
+      if (view === 'sales-history') navigate('/store/sales-history');
       if (view === 'settings') navigate('/store/settings');
       return;
     }
@@ -1151,7 +1277,9 @@ export default function App() {
       return <div className="p-4 text-sm text-muted-foreground">Восстановление сессии...</div>;
     }
     return (
+      <>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route
           path="/login"
           element={
@@ -1181,16 +1309,35 @@ export default function App() {
           element={<StoreRegistration onComplete={handleStoreRegistration} onBack={() => navigate('/register/role')} />}
         />
         <Route
+          path="/register/store/demo"
+          element={<StoreRegistration isDemo={true} onComplete={handleStoreRegistration} onBack={() => navigate('/register/role')} />}
+        />
+        <Route
           path="/register/brand"
           element={<BrandRegistration onComplete={handleBrandRegistration} onBack={() => navigate('/register/role')} />}
+        />
+        <Route
+          path="/register/brand/demo"
+          element={<BrandRegistration isDemo={true} onComplete={handleBrandRegistration} onBack={() => navigate('/register/role')} />}
         />
         <Route
           path="/register/distributor"
           element={<DistributorRegistration onComplete={handleDistributorRegistration} onBack={() => navigate('/register/role')} />}
         />
         <Route
+          path="/register/distributor/demo"
+          element={<DistributorRegistration isDemo={true} onComplete={handleDistributorRegistration} onBack={() => navigate('/register/role')} />}
+        />
+        <Route
           path="/register/salesrep"
           element={<SalesRepRegistration onComplete={async () => {
+            toast.success('Регистрация успешна! Войдите в систему.');
+            navigate('/login', { replace: true });
+          }} onBack={() => navigate('/register/role')} />}
+        />
+        <Route
+          path="/register/salesrep/demo"
+          element={<SalesRepRegistration isDemo={true} onComplete={async () => {
             toast.success('Регистрация успешна! Войдите в систему.');
             navigate('/login', { replace: true });
           }} onBack={() => navigate('/register/role')} />}
@@ -1234,10 +1381,55 @@ export default function App() {
             }
           }} onBack={() => navigate('/register/role')} />}
         />
+        <Route
+          path="/register/store-seller/demo"
+          element={<StoreSellerRegistration isDemo={true} onComplete={async () => {
+            // После регистрации токены уже сохранены, нужно восстановить сессию
+            const storedUserId = localStorage.getItem('userId');
+            const accessToken = localStorage.getItem('accessToken');
+            if (storedUserId && accessToken) {
+              try {
+                const userResponse = await api.get<ApiUser>(`/users/${storedUserId}`);
+                const role = mapApiRoleToUserRole(userResponse.data.role ?? 'STORE_SELLER');
+                setUser({
+                  id: userResponse.data.id,
+                  email: userResponse.data.email,
+                  role,
+                  profileComplete: true,
+                  firstName: userResponse.data.firstName,
+                  lastName: userResponse.data.lastName,
+                  storeId: userResponse.data.storeId,
+                  isActive: userResponse.data.isActive,
+                });
+                setUserId(userResponse.data.id);
+                if (userResponse.data.storeId) {
+                  setStoreId(userResponse.data.storeId);
+                  localStorage.setItem('storeId', userResponse.data.storeId);
+                  await api.get<ApiStore>(`/stores/${userResponse.data.storeId}`);
+                }
+                localStorage.setItem('userRole', role);
+                navigate('/store/pos', { replace: true });
+              } catch (error) {
+                console.error('Ошибка восстановления сессии', error);
+                toast.success('Регистрация успешна! Войдите в систему.');
+                navigate('/login', { replace: true });
+              }
+            } else {
+              toast.success('Регистрация успешна! Войдите в систему.');
+              navigate('/login', { replace: true });
+            }
+          }} onBack={() => navigate('/register/role')} />}
+        />
         <Route path="/buyer" element={<BuyerHome />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
+        <Route path="/payment-policy" element={<PaymentPolicy />} />
+        <Route path="/consent" element={<Consent />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    );
+    </>
+  );
   }
 
   const uiRole = user.role === 'admin' ? 'admin' : user.role === 'distributor' ? 'distributor' : user.role === 'brand' ? 'brand' : user.role === 'salesRep' ? 'salesRep' : user.role === 'storeSeller' ? 'store' : 'store';
@@ -1315,6 +1507,10 @@ export default function App() {
                       path="/store/activity-history"
                       element={<ActivityHistory />}
                     />
+                    <Route
+                      path="/store/expenses"
+                      element={<Expenses />}
+                    />
                   </>
                 )}
                 {user.role === 'storeSeller' && (
@@ -1326,6 +1522,10 @@ export default function App() {
                     <Route
                       path="/store/qr-scanner"
                       element={<QRScanner />}
+                    />
+                    <Route
+                      path="/store/sales-history"
+                      element={<SalesHistory />}
                     />
                   </>
                 )}
@@ -1390,6 +1590,7 @@ export default function App() {
                       categories={categories}
                       onCreateProduct={handleCreateProduct}
                       onEditProduct={handleEditProduct}
+                      isLoading={isLoadingProducts}
                     />
                   }
                 />
@@ -1435,6 +1636,11 @@ export default function App() {
                 <Route path="/salesrep/*" element={<Navigate to="/salesrep/analytics" replace />} />
               </>
             ) : null}
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
+            <Route path="/payment-policy" element={<PaymentPolicy />} />
+            <Route path="/consent" element={<Consent />} />
             <Route path="/" element={<Navigate to={defaultAuthedPath} replace />} />
             <Route path="*" element={<Navigate to={defaultAuthedPath} replace />} />
           </Routes>
@@ -1477,6 +1683,7 @@ export default function App() {
         <BrandProductSelector
           brandProducts={brandProducts}
           categories={categories}
+          existingProducts={storeProducts}
           onAddProduct={handleAddBrandProduct}
           onClose={() => setShowBrandProductSelector(false)}
         />

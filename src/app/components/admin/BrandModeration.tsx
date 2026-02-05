@@ -18,29 +18,37 @@ export function BrandModeration() {
   const [processingBrandId, setProcessingBrandId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<'approve' | 'reject' | null>(null);
 
-  const loadPendingBrands = async () => {
+  const loadPendingBrands = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       const response = await api.get<{ items: Brand[]; total: number }>('/brands/pending');
       setPendingBrands(response.data?.items ?? []);
     } catch (error) {
       console.error('Ошибка загрузки заявок на бренды', error);
       toast.error('Не удалось загрузить заявки на бренды.');
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
 
-  const loadAllBrands = async () => {
+  const loadAllBrands = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       const response = await api.get<{ items: Brand[]; total: number }>('/brands');
       setAllBrands(response.data?.items ?? []);
     } catch (error) {
       console.error('Ошибка загрузки всех брендов', error);
       toast.error('Не удалось загрузить список брендов.');
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -57,15 +65,29 @@ export function BrandModeration() {
       setProcessingBrandId(brandId);
       setProcessingAction('approve');
       const response = await api.post<Brand>(`/brands/${brandId}/approve`);
-      toast.success(`Бренд "${response.data.name}" одобрен.`);
+      
+      // Оптимистичное обновление - сразу удаляем из списка pending
       if (activeTab === 'pending') {
-        void loadPendingBrands();
+        setPendingBrands((prev) => prev.filter((brand) => brand.id !== brandId));
+      }
+      
+      toast.success(`Бренд "${response.data.name}" одобрен.`);
+      
+      // Перезагружаем данные для синхронизации (без показа индикатора загрузки)
+      if (activeTab === 'pending') {
+        await loadPendingBrands(true);
       } else {
-        void loadAllBrands();
+        await loadAllBrands(true);
       }
     } catch (error) {
       console.error('Ошибка одобрения бренда', error);
       toast.error('Не удалось одобрить бренд.');
+      // В случае ошибки перезагружаем данные, чтобы вернуть правильное состояние
+      if (activeTab === 'pending') {
+        await loadPendingBrands();
+      } else {
+        await loadAllBrands();
+      }
     } finally {
       setProcessingBrandId(null);
       setProcessingAction(null);
@@ -77,17 +99,31 @@ export function BrandModeration() {
       setProcessingBrandId(brandId);
       setProcessingAction('reject');
       const response = await api.post<Brand>(`/brands/${brandId}/reject`, reason ? { reason } : {});
+      
+      // Оптимистичное обновление - сразу удаляем из списка pending
+      if (activeTab === 'pending') {
+        setPendingBrands((prev) => prev.filter((brand) => brand.id !== brandId));
+      }
+      
       toast.success(`Бренд "${response.data.name}" отклонен.`);
       setShowRejectDialog({ ...showRejectDialog, [brandId]: false });
       setRejectReason({ ...rejectReason, [brandId]: '' });
+      
+      // Перезагружаем данные для синхронизации (без показа индикатора загрузки)
       if (activeTab === 'pending') {
-        void loadPendingBrands();
+        await loadPendingBrands(true);
       } else {
-        void loadAllBrands();
+        await loadAllBrands(true);
       }
     } catch (error) {
       console.error('Ошибка отклонения бренда', error);
       toast.error('Не удалось отклонить бренд.');
+      // В случае ошибки перезагружаем данные, чтобы вернуть правильное состояние
+      if (activeTab === 'pending') {
+        await loadPendingBrands();
+      } else {
+        await loadAllBrands();
+      }
     } finally {
       setProcessingBrandId(null);
       setProcessingAction(null);

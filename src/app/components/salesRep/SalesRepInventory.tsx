@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, AlertCircle, Clock, Loader2, Store, Search } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 interface InventoryItem {
   id: string;
@@ -350,6 +351,7 @@ export function SalesRepInventory() {
           </div>
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 }

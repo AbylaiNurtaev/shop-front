@@ -3,6 +3,7 @@ import { Store, MapPin, Package, TrendingUp, AlertCircle, Clock, Loader2 } from 
 import api from '../../api/axios';
 import { toast } from 'sonner';
 import { useSalesRepNotifications } from '../../hooks/useSalesRepNotifications';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 interface Store {
   id: string;
@@ -121,6 +122,7 @@ export function SalesRepHome() {
           ))}
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 }

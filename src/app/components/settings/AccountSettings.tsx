@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Copy, Loader2 } from 'lucide-react';
+import { Copy, Loader2, Package, Check } from 'lucide-react';
 import api from '../../api/axios';
 import { uploadPhoto } from '../../api/upload';
 import { User } from '../../types';
 import { toast } from 'sonner';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 // Функция для форматирования номера телефона
 const formatPhoneNumber = (value: string): string => {
@@ -172,6 +173,9 @@ export function AccountSettings({
     id?: string;
     phoneNumber?: string;
     currency?: string;
+    country?: string;
+    city?: string;
+    categoryIds?: string[];
   }>({
     isActive: true,
   });
@@ -195,6 +199,9 @@ export function AccountSettings({
     id?: string;
     phoneNumber?: string;
     currency?: string;
+    country?: string;
+    city?: string;
+    categoryIds?: string[];
   }>({
     isActive: true,
     currency: 'KZT',
@@ -262,12 +269,20 @@ export function AccountSettings({
           try {
             // Получаем данные пользователя, чтобы взять email и storeId
             const userResponse = await api.get<ApiUser>(`/users/${userId}`);
-            const posResponse = await api.get<{ name?: string }>('/pos/account');
+            const posResponse = await api.get<{ 
+              firstName?: string;
+              lastName?: string;
+              middleName?: string;
+              phoneNumber?: string;
+            }>('/pos/account');
             if (!isActive) return;
 
             const initialData = {
               email: userResponse.data.email,
-              name: posResponse.data.name || '',
+              firstName: posResponse.data.firstName || '',
+              lastName: posResponse.data.lastName || '',
+              middleName: posResponse.data.middleName || '',
+              phoneNumber: posResponse.data.phoneNumber || '',
               currency: userSettings.currency || 'KZT',
             };
 
@@ -275,8 +290,16 @@ export function AccountSettings({
             setUserForm(initialData);
           } catch (error) {
             console.error('Ошибка загрузки профиля кассира', error);
-            // Если не удалось получить данные кассира, просто показываем пустое поле имени
-            const initialData = { name: '', currency: userSettings.currency || 'KZT' };
+            // Если не удалось получить данные кассира, используем данные пользователя или пустые значения
+            const userResponse = await api.get<ApiUser>(`/users/${userId}`);
+            const initialData = {
+              email: userResponse.data.email,
+              firstName: userResponse.data.firstName || '',
+              lastName: userResponse.data.lastName || '',
+              middleName: '',
+              phoneNumber: '',
+              currency: userSettings.currency || 'KZT',
+            };
             setInitialUserForm(initialData);
             setUserForm(initialData);
           } finally {
@@ -311,14 +334,22 @@ export function AccountSettings({
           const userResponse = await api.get<ApiUser>(`/users/${userId}`);
           if (!isActive) return;
 
-          // Получаем данные Дс
-          const distributorResponse = await api.get<{ id: string; name: string }>('/distributors/me');
+          // Загружаем категории и данные Дс параллельно
+          const [categoriesResponse, distributorResponse] = await Promise.all([
+            api.get<{ items: ApiCategory[] }>('/categories'),
+            api.get<{ id: string; name: string; country?: string; city?: string; categoryIds?: string[] }>('/distributors/me'),
+          ]);
           if (!isActive) return;
+
+          setCategories(categoriesResponse.data.items || []);
 
           const initialData = {
             id: distributorResponse.data.id,
             email: userResponse.data.email,
             name: distributorResponse.data.name,
+            country: distributorResponse.data.country || '',
+            city: distributorResponse.data.city || '',
+            categoryIds: distributorResponse.data.categoryIds || [],
             currency: userSettings.currency || 'KZT',
           };
           setInitialUserForm(initialData);
@@ -484,9 +515,35 @@ export function AccountSettings({
     try {
       // Для продавца магазина (кассира) используем POS API
       if (role === 'storeSeller') {
-        await api.put('/pos/account', {
-          name: userForm.name,
-        });
+        const updateData: {
+          firstName?: string;
+          lastName?: string;
+          middleName?: string | null;
+          phoneNumber?: string | null;
+        } = {};
+
+        if (userForm.firstName !== undefined && userForm.firstName.trim() !== '') {
+          updateData.firstName = userForm.firstName.trim();
+        }
+        if (userForm.lastName !== undefined && userForm.lastName.trim() !== '') {
+          updateData.lastName = userForm.lastName.trim();
+        }
+        if (userForm.middleName !== undefined) {
+          updateData.middleName = userForm.middleName.trim() || null;
+        }
+        if (userForm.phoneNumber !== undefined) {
+          updateData.phoneNumber = userForm.phoneNumber.trim() || null;
+        }
+
+        await api.put('/pos/account', updateData);
+
+        // Получаем обновленные данные кассира
+        const posResponse = await api.get<{ 
+          firstName?: string;
+          lastName?: string;
+          middleName?: string;
+          phoneNumber?: string;
+        }>('/pos/account');
 
         // Пытаемся получить актуальные данные пользователя для обновления стора
         try {
@@ -496,8 +553,8 @@ export function AccountSettings({
             email: userResponse.data.email,
             role,
             profileComplete: true,
-            firstName: userForm.name || userResponse.data.firstName,
-            lastName: userResponse.data.lastName || '',
+            firstName: posResponse.data.firstName || userResponse.data.firstName || '',
+            lastName: posResponse.data.lastName || userResponse.data.lastName || '',
             storeId: userResponse.data.storeId,
             isActive: userResponse.data.isActive,
           };
@@ -506,29 +563,19 @@ export function AccountSettings({
           console.error('Не удалось обновить данные пользователя после обновления кассира', error);
         }
 
-        // Сохраняем валюту
-        if (userForm.currency) {
-          localStorage.setItem(`currency_${userId}`, userForm.currency);
-        }
+        // Обновляем начальные значения
+        const updatedData = {
+          email: userForm.email || '',
+          firstName: posResponse.data.firstName || '',
+          lastName: posResponse.data.lastName || '',
+          middleName: posResponse.data.middleName || '',
+          phoneNumber: posResponse.data.phoneNumber || '',
+          currency: userForm.currency || 'KZT',
+        };
+        setInitialUserForm(updatedData);
+        setUserForm(updatedData);
 
-        // Сохраняем валюту через API
-        if (userForm.currency) {
-          try {
-            await api.put('/users/me/settings', {
-              currency: userForm.currency,
-            });
-          } catch (error) {
-            console.error('Ошибка сохранения валюты', error);
-          }
-        }
-
-        setInitialUserForm((prev) => ({
-          ...prev,
-          name: userForm.name,
-          currency: userForm.currency,
-        }));
-
-        toast.success('Имя кассира успешно обновлено');
+        toast.success('Данные кассира успешно обновлены');
         return;
       }
 
@@ -591,12 +638,30 @@ export function AccountSettings({
 
       // Для Дс используем специальный API
       if (role === 'distributor') {
-        await api.put('/distributors/me/name', {
-          name: userForm.name,
-        });
+        const updateData: {
+          name?: string;
+          country?: string;
+          city?: string;
+          categoryIds?: string[];
+        } = {};
+
+        if (userForm.name !== undefined) {
+          updateData.name = userForm.name;
+        }
+        if (userForm.country !== undefined) {
+          updateData.country = userForm.country;
+        }
+        if (userForm.city !== undefined) {
+          updateData.city = userForm.city;
+        }
+        if (userForm.categoryIds !== undefined) {
+          updateData.categoryIds = userForm.categoryIds;
+        }
+
+        await api.put('/distributors/me/name', updateData);
 
         // Получаем обновленные данные Дс
-        const distributorResponse = await api.get<{ id: string; name: string }>('/distributors/me');
+        const distributorResponse = await api.get<{ id: string; name: string; country?: string; city?: string; categoryIds?: string[] }>('/distributors/me');
 
         // Получаем обновленные данные пользователя для email
         const userResponse = await api.get<ApiUser>(`/users/${userId}`);
@@ -617,6 +682,9 @@ export function AccountSettings({
           id: distributorResponse.data.id,
           email: userResponse.data.email,
           name: distributorResponse.data.name,
+          country: distributorResponse.data.country || '',
+          city: distributorResponse.data.city || '',
+          categoryIds: distributorResponse.data.categoryIds || [],
           currency: userForm.currency || 'KZT',
         });
 
@@ -633,7 +701,7 @@ export function AccountSettings({
         };
 
         onUserUpdated(updatedUserData);
-        toast.success('Имя успешно обновлено');
+        toast.success('Данные успешно обновлены');
         return;
       }
 
@@ -948,10 +1016,22 @@ export function AccountSettings({
       );
     }
     if (role === 'distributor') {
-      return userForm.name !== initialUserForm.name || userForm.currency !== initialUserForm.currency;
+      const categoryIdsChanged = JSON.stringify(userForm.categoryIds || []) !== JSON.stringify(initialUserForm.categoryIds || []);
+      return (
+        userForm.name !== initialUserForm.name ||
+        userForm.country !== initialUserForm.country ||
+        userForm.city !== initialUserForm.city ||
+        categoryIdsChanged ||
+        userForm.currency !== initialUserForm.currency
+      );
     }
     if (role === 'storeSeller') {
-      return userForm.name !== initialUserForm.name || userForm.currency !== initialUserForm.currency;
+      return (
+        userForm.firstName !== initialUserForm.firstName ||
+        userForm.lastName !== initialUserForm.lastName ||
+        userForm.middleName !== initialUserForm.middleName ||
+        userForm.phoneNumber !== initialUserForm.phoneNumber
+      );
     }
     return userForm.isActive !== initialUserForm.isActive || userForm.currency !== initialUserForm.currency;
   }, [userForm, initialUserForm, role]);
@@ -1075,7 +1155,7 @@ export function AccountSettings({
       return userForm.name || userForm.email || '';
     }
     if (role === 'storeSeller') {
-      return userForm.name || userForm.email || '';
+      return [userForm.lastName, userForm.firstName, userForm.middleName].filter(Boolean).join(' ') || userForm.email || '';
     }
     return userForm.email || '';
   };
@@ -1097,6 +1177,34 @@ export function AccountSettings({
             <p className="text-sm text-muted-foreground">Обновите информацию о себе</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1 text-foreground">ID торгового представителя</label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    if (userId) {
+                      try {
+                        await navigator.clipboard.writeText(userId);
+                        toast.success('ID торгового представителя скопирован в буфер обмена');
+                      } catch (error) {
+                        console.error('Ошибка копирования ID', error);
+                        toast.error('Не удалось скопировать ID');
+                      }
+                    }
+                  }}
+                  className="flex-shrink-0 h-11 w-11 flex items-center justify-center border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                  title="Копировать ID"
+                >
+                  <Copy className="h-5 w-5 text-foreground" />
+                </button>
+                <input
+                  type="text"
+                  value={userId || ''}
+                  readOnly
+                  className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
+                />
+              </div>
+            </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1 text-foreground">Email</label>
               <input
@@ -1491,6 +1599,46 @@ export function AccountSettings({
                 placeholder="Введите ваше имя"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">Страна</label>
+              <select
+                value={userForm.country || ''}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, country: e.target.value }))}
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+              >
+                <option value="">Выберите страну</option>
+                {COUNTRIES.map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">Город</label>
+              {userForm.country === 'Казахстан' ? (
+                <select
+                  value={userForm.city || ''}
+                  onChange={(e) => setUserForm((prev) => ({ ...prev, city: e.target.value }))}
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+                >
+                  <option value="">Выберите город</option>
+                  {KAZAKHSTAN_CITIES.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={userForm.city || ''}
+                  onChange={(e) => setUserForm((prev) => ({ ...prev, city: e.target.value }))}
+                  className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+                  placeholder="Введите город"
+                />
+              )}
+            </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1 text-foreground">Валюта</label>
               <select
@@ -1503,6 +1651,80 @@ export function AccountSettings({
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
               </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1 text-foreground">
+                Категории (необязательно)
+              </label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Выберите категории, с которыми вы работаете. Можно выбрать несколько или не выбирать ни одной.
+              </p>
+              {categories.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>Загрузка категорий...</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {categories.map((category) => {
+                      const isSelected = userForm.categoryIds?.includes(category.id) || false;
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() => {
+                            const currentIds = userForm.categoryIds || [];
+                            const newIds = currentIds.includes(category.id)
+                              ? currentIds.filter((id) => id !== category.id)
+                              : [...currentIds, category.id];
+                            setUserForm((prev) => ({ ...prev, categoryIds: newIds }));
+                          }}
+                          className={`relative group p-4 rounded-xl border-2 transition-all duration-200 ${
+                            isSelected
+                              ? 'border-primary bg-primary/10 shadow-md scale-[1.02]'
+                              : 'border-border bg-card hover:border-primary/50 hover:bg-accent/30 hover:shadow-sm'
+                          }`}
+                        >
+                          {/* Иконка галочки при выборе */}
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-sm">
+                              <Check className="w-4 h-4 text-primary-foreground" />
+                            </div>
+                          )}
+                          
+                          {/* Иконка категории */}
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-colors ${
+                            isSelected
+                              ? 'bg-primary/20'
+                              : 'bg-muted group-hover:bg-primary/10'
+                          }`}>
+                            <Package className={`w-5 h-5 ${
+                              isSelected ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'
+                            }`} />
+                          </div>
+                          
+                          {/* Название категории */}
+                          <p className={`text-sm font-medium text-left transition-colors ${
+                            isSelected ? 'text-primary' : 'text-foreground'
+                          }`}>
+                            {category.name}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Счетчик выбранных */}
+                  {userForm.categoryIds && userForm.categoryIds.length > 0 && (
+                    <div className="flex items-center justify-center gap-2 pt-2">
+                      <div className="px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                        Выбрано: {userForm.categoryIds.length} {userForm.categoryIds.length === 1 ? 'категория' : 'категорий'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1533,33 +1755,11 @@ export function AccountSettings({
           <div>
             <h3 className="text-xl font-semibold text-foreground">Настройки кассира</h3>
             <p className="text-sm text-muted-foreground">
-              Обновите отображаемое имя кассира для POS-страницы
+              Обновите данные кассира
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1 text-foreground">
-                Имя кассира <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={userForm.name || ''}
-                onChange={(e) =>
-                  setUserForm((prev) => ({
-                    ...prev,
-                    name: e.target.value,
-                  }))
-                }
-                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
-                placeholder="Введите имя, которое будет видно на кассе"
-                required
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Это имя будет использоваться на странице кассы (POS).
-              </p>
-            </div>
-
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1 text-foreground">Email</label>
               <input
@@ -1569,6 +1769,56 @@ export function AccountSettings({
                 className="w-full h-11 px-3 bg-muted border border-border rounded-lg cursor-not-allowed text-muted-foreground"
               />
               <p className="text-xs text-muted-foreground mt-1">Email кассира менять нельзя.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">
+                Фамилия <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={userForm.lastName || ''}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+                placeholder="Введите фамилию"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">
+                Имя <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={userForm.firstName || ''}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+                placeholder="Введите имя"
+                required
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1 text-foreground">Отчество</label>
+              <input
+                type="text"
+                value={userForm.middleName || ''}
+                onChange={(e) => setUserForm((prev) => ({ ...prev, middleName: e.target.value }))}
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+                placeholder="Введите отчество (необязательно)"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1 text-foreground">Номер телефона</label>
+              <input
+                type="tel"
+                value={userForm.phoneNumber || ''}
+                onChange={(e) => {
+                  const formatted = formatPhoneNumber(e.target.value);
+                  setUserForm((prev) => ({ ...prev, phoneNumber: formatted }));
+                }}
+                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
+                placeholder="+7 (900) 123-45-67"
+              />
             </div>
 
             {storeId && (
@@ -1592,19 +1842,6 @@ export function AccountSettings({
                 </div>
               </div>
             )}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1 text-foreground">Валюта</label>
-              <select
-                value={userForm.currency || 'KZT'}
-                onChange={(e) => setUserForm((prev) => ({ ...prev, currency: e.target.value }))}
-                className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
-              >
-                <option value="KZT">KZT (₸)</option>
-                <option value="RUB">RUB (₽)</option>
-                <option value="USD">USD ($)</option>
-                <option value="EUR">EUR (€)</option>
-              </select>
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -1850,6 +2087,7 @@ export function AccountSettings({
           </div>
         </>
       )}
+      <ScrollToTopButton />
     </div>
   );
 }

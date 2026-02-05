@@ -3,6 +3,7 @@ import { Package, Loader2, Search, Save } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 interface DistributorProduct {
   id: string;
@@ -383,6 +384,7 @@ export function DistributorProducts() {
           </Button>
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 }

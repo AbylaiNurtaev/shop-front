@@ -63,6 +63,7 @@ export interface DistributorProfile {
   email: string;
   password: string;
   verificationCode: string;
+  categoryIds?: string[];
 }
 
 export interface Category {

@@ -1,4 +1,4 @@
-import { User, LogOut, Bell, Building2, FolderTree, Menu, Settings, Check, CheckCheck, Sun, Moon } from 'lucide-react';
+import { User, LogOut, Bell, Building2, FolderTree, Menu, Settings, Sun, Moon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, React, useEffect } from 'react';
 import api from '../api/axios';
@@ -9,9 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from './ui/popover';
-import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
-import { Badge } from './ui/badge';
 
 interface TopBarProps {
   userEmail: string;
@@ -257,82 +255,38 @@ export function TopBar({ userEmail, role, onLogout, firstName, lastName, middleN
                 )}
               </button>
             </PopoverTrigger>
-            <PopoverContent 
-              className="w-96 p-0" 
+            <PopoverContent
+              className="w-96 p-0"
               align="end"
               sideOffset={8}
             >
               <div className="flex flex-col max-h-[80vh]">
-                <div className="flex items-center justify-between p-4 border-b">
-                  <h3 className="font-semibold text-lg">Уведомления</h3>
-                  {notifications.some((n) => !n.isRead) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={markAllAsRead}
-                      className="flex items-center gap-2"
-                    >
-                      <CheckCheck className="w-4 h-4" />
-                      Отметить все
-                    </Button>
-                  )}
+                <div className="p-3 border-b">
+                  <h3 className="font-semibold text-sm">Уведомления</h3>
                 </div>
                 <ScrollArea className="flex-1 max-h-[60vh]">
                   <div className="p-2">
                     {isLoadingNotifications ? (
                       <div className="flex items-center justify-center py-8">
-                        <div className="text-muted-foreground">Загрузка...</div>
+                        <div className="text-muted-foreground text-sm">Загрузка...</div>
                       </div>
                     ) : notifications.length === 0 ? (
                       <div className="flex items-center justify-center py-8">
-                        <div className="text-muted-foreground">Нет уведомлений</div>
+                        <div className="text-muted-foreground text-sm">Нет уведомлений</div>
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-1">
                         {notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            className={`p-4 rounded-lg border transition-colors ${
-                              notification.isRead
-                                ? 'bg-card border-border'
-                                : 'bg-accent/50 border-primary/20'
-                            }`}
+                            className={`p-3 rounded-md cursor-pointer transition-colors ${notification.isRead
+                              ? 'bg-card hover:bg-accent/50'
+                              : 'bg-accent/50 border-l-2 border-primary'
+                              }`}
+                            onClick={() => !notification.isRead && markAsRead(notification.id)}
                           >
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h4 className="font-medium text-sm">{notification.title}</h4>
-                                  {!notification.isRead && (
-                                    <Badge variant="default" className="h-4 px-1.5 text-[10px]">
-                                      Новое
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-2">
-                                  {notification.message}
-                                </p>
-                                <div className="text-xs text-muted-foreground">
-                                  {new Date(notification.createdAt).toLocaleString('ru-RU', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })}
-                                </div>
-                              </div>
-                              {!notification.isRead && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => markAsRead(notification.id)}
-                                  className="flex-shrink-0"
-                                  title="Отметить как прочитанное"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
+                            <h4 className="font-medium text-sm mb-1">{notification.title}</h4>
+                            <p className="text-xs text-muted-foreground">{notification.message}</p>
                           </div>
                         ))}
                       </div>

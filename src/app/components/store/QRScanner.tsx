@@ -3,6 +3,7 @@ import { QrCode, Search, Plus, Package, Loader2, CheckCircle2, XCircle, Camera, 
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 interface ProductInfo {
   id: string;
@@ -679,6 +680,7 @@ export function QRScanner() {
           )}
         </div>
       </div>
+      <ScrollToTopButton />
     </div>
   );
 }

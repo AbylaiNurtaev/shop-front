@@ -9,7 +9,7 @@ interface RecipeModalProps {
 
 export function RecipeModal({ recipe, onClose, onAddToMeal }: RecipeModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-card rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-card border-b border-border p-4 flex items-center justify-between z-10">
           <h2>{recipe.name}</h2>

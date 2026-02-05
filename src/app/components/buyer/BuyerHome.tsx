@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Navigation, MapPin, Search, Mic, Paperclip, Store, Package, Image as ImageIcon, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../api/axios';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 
 type GeoState =
   | { status: 'idle' }
@@ -1227,6 +1228,7 @@ export function BuyerHome() {
           </div>
         </div>
       </div>
+      <ScrollToTopButton />
     </div>
   );
 }

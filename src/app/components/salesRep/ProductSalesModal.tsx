@@ -276,7 +276,7 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Общая выручка</div>
-                  <div className="text-2xl font-semibold text-green-600">
+                  <div className="text-2xl font-semibold text-green-600 dark:text-green-400">
                     {formatCurrency(
                       (data.summary || data.statistics)?.totalRevenue || 0,
                       data.stores[0]?.sales[0]?.currency || 'KZT'
@@ -312,7 +312,7 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
                         </div>
                         <div className="text-right">
                           <div className="text-sm text-muted-foreground">Продаж: {store.totalSales || store.sales.length}</div>
-                          <div className="text-sm font-semibold text-green-600">
+                          <div className="text-sm font-semibold text-green-600 dark:text-green-400">
                             {formatCurrency(store.totalRevenue, store.sales[0]?.currency || 'KZT')}
                           </div>
                         </div>
@@ -339,7 +339,7 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
                                     <td className="py-2 px-2 text-right">
                                       {formatCurrency(sale.price, sale.currency)}
                                     </td>
-                                    <td className="py-2 px-2 text-right font-semibold text-green-600">
+                                    <td className="py-2 px-2 text-right font-semibold text-green-600 dark:text-green-400">
                                       {formatCurrency(sale.revenue || sale.totalAmount, sale.currency)}
                                     </td>
                                   </tr>
@@ -350,7 +350,7 @@ export function ProductSalesModal({ isOpen, onClose, productId, salesRepresentat
                                   <td className="py-2 px-2">Итого:</td>
                                   <td className="py-2 px-2 text-right">{store.totalQuantity}</td>
                                   <td className="py-2 px-2 text-right">—</td>
-                                  <td className="py-2 px-2 text-right text-green-600">
+                                  <td className="py-2 px-2 text-right text-green-600 dark:text-green-400">
                                     {formatCurrency(store.totalRevenue, store.sales[0]?.currency || 'KZT')}
                                   </td>
                                 </tr>

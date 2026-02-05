@@ -3,6 +3,7 @@ import { ShoppingCart, Search, Plus, Minus, Trash2, CheckCircle2, XCircle, Loade
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { ScrollToTopButton } from '../ui/scroll-to-top-button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 
 interface SaleItem {
@@ -49,7 +50,14 @@ export function POS() {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'cash' | 'card' | 'hybrid' | null>(null);
+  const [cashAmount, setCashAmount] = useState(0);
+  const [cardAmount, setCardAmount] = useState(0);
+  const [cashInput, setCashInput] = useState('');
+  const [cardInput, setCardInput] = useState('');
   const skuInputRef = useRef<HTMLInputElement>(null);
+  const cashInputRef = useRef<HTMLInputElement>(null);
+  const cardInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const qrCodeRegionId = 'pos-camera';
 
@@ -310,12 +318,163 @@ export function POS() {
       toast.error('Чек пуст');
       return;
     }
-    // Открываем модальное окно выбора способа оплаты
+    // Сбрасываем состояние оплаты при открытии
+    setSelectedPaymentMethod(null);
+      setCashAmount(0);
+      setCardAmount(0);
+      setCashInput('');
+    setCardInput('');
+    // Открываем модальное окно оплаты
     setShowPaymentModal(true);
   };
 
-  const handlePaymentMethod = async (paymentMethod: 'cash' | 'card') => {
+  const handleSelectPaymentMethod = (method: 'cash' | 'card' | 'hybrid') => {
+    setSelectedPaymentMethod(method);
+    if (method === 'cash' && cashInputRef.current) {
+      setTimeout(() => cashInputRef.current?.focus(), 100);
+    } else if (method === 'hybrid' && cashInputRef.current) {
+      setTimeout(() => cashInputRef.current?.focus(), 100);
+    }
+  };
+
+  const handleAddHybridPayment = () => {
+    const cashValue = parseInt(cashInput) || 0;
+    const cardValue = parseInt(cardInput) || 0;
+    const total = cashValue + cardValue;
+    
+    if (total <= 0) {
+      toast.error('Введите суммы');
+      return;
+    }
+    
+    if (total !== currentSale?.totalAmount) {
+      toast.error(`Сумма должна равняться ${currentSale?.totalAmount} ${currentSale?.currency}`);
+      return;
+    }
+    
+    setCashAmount(cashValue);
+    setCardAmount(cardValue);
+    setCashInput('');
+    setCardInput('');
+    toast.success(`Оплата: ${cashValue} наличными, ${cardValue} картой`);
+  };
+
+  const handleResetPayment = () => {
+    setSelectedPaymentMethod(null);
+    setCashAmount(0);
+    setCardAmount(0);
+    setCashInput('');
+    setCardInput('');
+  };
+
+  const calculateRemaining = () => {
+    if (!currentSale) return 0;
+    return Math.max(0, Math.ceil(currentSale.totalAmount - cashAmount - cardAmount));
+  };
+
+  // Обработка Escape для закрытия модального окна
+  useEffect(() => {
+    if (!showPaymentModal) return;
+    
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        const remaining = calculateRemaining();
+        if (remaining === currentSale?.totalAmount) {
+          // Если ничего не оплачено, можно закрыть
+          setShowPaymentModal(false);
+          handleResetPayment();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showPaymentModal, currentSale, cashAmount, cardAmount]);
+
+  const calculateChange = () => {
+    if (!currentSale) return 0;
+    const remaining = calculateRemaining();
+    const cashInputValue = parseInt(cashInput) || 0;
+    if (cashInputValue > 0 && remaining > 0) {
+      return Math.max(0, cashInputValue - remaining);
+    }
+    return 0;
+  };
+
+  const handleAddCashPayment = () => {
+    const amount = parseInt(cashInput) || 0;
+    if (amount <= 0) {
+      toast.error('Введите сумму');
+      return;
+    }
+    
     if (!currentSale) return;
+    
+    const remaining = calculateRemaining();
+    if (remaining <= 0) {
+      toast.error('Сумма уже полностью оплачена');
+      setCashInput('');
+      return;
+    }
+    
+    // Если введенная сумма больше или равна остатку, оплачиваем полностью
+    if (amount >= remaining) {
+      setCashAmount(currentSale.totalAmount);
+      const change = amount - remaining;
+      setCashInput('');
+      
+      if (change > 0) {
+        toast.success(`Оплачено полностью. Сдача: ${change} ${currentSale.currency}`);
+      } else {
+        toast.success(`Оплачено полностью`);
+      }
+    } else {
+      // Частичная оплата (не должно быть в новой логике, но оставляем для безопасности)
+      setCashAmount(cashAmount + amount);
+      setCashInput('');
+      toast.success(`Оплачено: ${amount} ${currentSale.currency}`);
+      
+      if (cashInputRef.current) {
+        cashInputRef.current.focus();
+      }
+    }
+  };
+
+  const handleAddCardPayment = () => {
+    const remaining = calculateRemaining();
+    if (remaining <= 0) {
+      toast.error('Сумма уже полностью оплачена');
+      return;
+    }
+    
+    setCardAmount(cardAmount + remaining);
+    toast.success(`Доплачено картой: ${remaining} ${currentSale?.currency}`);
+  };
+
+  const handleFullCardPayment = () => {
+    if (!currentSale) return;
+    setCardAmount(currentSale.totalAmount);
+    toast.success(`Оплачено картой: ${currentSale.totalAmount} ${currentSale.currency}`);
+  };
+
+  const handleFullCashPayment = () => {
+    if (!currentSale) return;
+    const remaining = calculateRemaining();
+    if (remaining > 0) {
+      setCashAmount(cashAmount + remaining);
+      setCashInput('');
+      toast.success(`Оплачено наличными: ${remaining} ${currentSale.currency}`);
+    }
+  };
+
+  const handleCompletePayment = async () => {
+    if (!currentSale) return;
+
+    const remaining = calculateRemaining();
+    if (remaining > 0) {
+      toast.error(`Осталось доплатить: ${remaining} ${currentSale.currency}`);
+      return;
+    }
 
     setShowPaymentModal(false);
     setIsCompleting(true);
@@ -343,18 +502,54 @@ export function POS() {
         }
       }
 
-      // Теперь завершаем продажу с указанием способа оплаты
-      const response = await api.post<AddItemResponse>('/pos/sale/complete', {
+      // Определяем способ оплаты для API
+      let paymentMethod: 'CASH' | 'CARD' | 'HYBRID' = 'CASH';
+      const requestBody: {
+        saleId: string;
+        paymentMethod: 'CASH' | 'CARD' | 'HYBRID';
+        cashAmount?: number;
+        cardAmount?: number;
+      } = {
         saleId: currentSale.id,
-        paymentMethod: paymentMethod === 'cash' ? 'CASH' : 'CARD',
-      });
+        paymentMethod: 'CASH',
+      };
+
+      if (cashAmount > 0 && cardAmount > 0) {
+        // Гибридная оплата: обязательно передаем обе суммы
+        paymentMethod = 'HYBRID';
+        requestBody.paymentMethod = 'HYBRID';
+        requestBody.cashAmount = cashAmount;
+        requestBody.cardAmount = cardAmount;
+      } else if (cardAmount > 0) {
+        // Оплата картой: не передаем суммы
+        paymentMethod = 'CARD';
+        requestBody.paymentMethod = 'CARD';
+      } else {
+        // Оплата наличными: не передаем суммы
+        paymentMethod = 'CASH';
+        requestBody.paymentMethod = 'CASH';
+      }
+
+      // Теперь завершаем продажу с указанием способа оплаты
+      const response = await api.post<AddItemResponse>('/pos/sale/complete', requestBody);
       
-      const paymentMethodText = paymentMethod === 'cash' ? 'наличными' : 'безналичными';
+      let paymentMethodText = '';
+      if (cashAmount > 0 && cardAmount > 0) {
+        paymentMethodText = `смешанной оплатой (${cashAmount} наличными, ${cardAmount} картой)`;
+      } else if (cashAmount > 0) {
+        paymentMethodText = 'наличными';
+      } else {
+        paymentMethodText = 'картой';
+      }
+      
       toast.success(`Оплата ${paymentMethodText} завершена! Сумма: ${response.data.sale.totalAmount} ${response.data.sale.currency}`);
       
       // Загружаем новый чек
       await loadCurrentSale();
       setShowHistory(false);
+      setSelectedPaymentMethod(null);
+      setCashAmount(0);
+      setCardAmount(0);
     } catch (error: any) {
       console.error('Ошибка завершения продажи', error);
       const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Не удалось завершить продажу';
@@ -851,35 +1046,291 @@ export function POS() {
         </div>
       </div>
 
-      {/* Payment Method Modal */}
-      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Выберите способ оплаты</DialogTitle>
-            <DialogDescription>
-              Сумма к оплате: {currentSale?.totalAmount} {currentSale?.currency}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <button
-              onClick={() => handlePaymentMethod('cash')}
-              className="flex flex-col items-center justify-center p-6 border-2 border-border rounded-lg hover:bg-accent hover:border-primary transition-all group"
-            >
-              <Wallet className="w-12 h-12 text-primary mb-3 group-hover:scale-110 transition-transform" />
-              <span className="text-xl font-semibold">Нал</span>
-              <span className="text-sm text-muted-foreground mt-1">Наличные</span>
-            </button>
-            <button
-              onClick={() => handlePaymentMethod('card')}
-              className="flex flex-col items-center justify-center p-6 border-2 border-border rounded-lg hover:bg-accent hover:border-primary transition-all group"
-            >
-              <CreditCard className="w-12 h-12 text-primary mb-3 group-hover:scale-110 transition-transform" />
-              <span className="text-xl font-semibold">Без нал</span>
-              <span className="text-sm text-muted-foreground mt-1">Безналичные</span>
-            </button>
+      {/* Payment Modal - Упрощенный UX */}
+      <Dialog open={showPaymentModal} onOpenChange={(open) => {
+        const remaining = calculateRemaining();
+        // Разрешаем закрытие только если ничего не оплачено или оплата завершена
+        if (!open && (remaining === currentSale?.totalAmount || remaining === 0)) {
+          setShowPaymentModal(false);
+          handleResetPayment();
+        }
+      }}>
+        <DialogContent 
+          className="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0"
+          onEscapeKeyDown={(e) => {
+            const remaining = calculateRemaining();
+            if (remaining === currentSale?.totalAmount) {
+              // Если ничего не оплачено, закрываем
+              setShowPaymentModal(false);
+              handleResetPayment();
+            } else {
+              // Иначе предотвращаем закрытие
+              e.preventDefault();
+            }
+          }}
+        >
+          <div className="p-6 space-y-6">
+            {/* Верхняя часть: Крупные цифры - всегда видны */}
+            <div className="bg-primary/5 rounded-xl p-6 border-2 border-primary/20">
+              <div className="text-center space-y-2">
+                <div className="text-sm text-muted-foreground uppercase tracking-wide">К оплате</div>
+                <div className="text-5xl font-bold text-primary">
+                  {Math.ceil(currentSale?.totalAmount || 0)} {currentSale?.currency}
+                </div>
+              </div>
+            </div>
+
+            {/* Статус оплаты (показываем только если есть частичная оплата) */}
+            {(cashAmount > 0 || cardAmount > 0) && (
+              <div className={`rounded-xl p-6 border-2 ${
+                calculateRemaining() === 0 
+                  ? 'bg-green-50 dark:bg-green-950 border-green-500' 
+                  : 'bg-orange-50 dark:bg-orange-950 border-orange-500'
+              }`}>
+                <div className="text-center space-y-2">
+                  <div className="text-sm text-muted-foreground uppercase tracking-wide">Осталось</div>
+                  {calculateRemaining() === 0 ? (
+                    <div className="text-4xl font-bold text-green-600 dark:text-green-400">
+                      Оплачено полностью
+                    </div>
+                  ) : (
+                    <div className="text-4xl font-bold text-orange-600 dark:text-orange-400">
+                      {calculateRemaining()} {currentSale?.currency}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Центральная часть: Основной способ оплаты */}
+            {!selectedPaymentMethod ? (
+              <div className="space-y-4">
+                <div className="text-center text-sm text-muted-foreground mb-4">
+                  Выберите способ оплаты
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => handleSelectPaymentMethod('cash')}
+                    className="flex flex-col items-center justify-center p-8 border-2 border-border rounded-xl hover:bg-accent hover:border-primary transition-all group min-h-[140px]"
+                  >
+                    <Wallet className="w-16 h-16 text-primary mb-4 group-hover:scale-110 transition-transform" />
+                    <span className="text-2xl font-bold">Наличными</span>
+                  </button>
+                  <button
+                    onClick={() => handleSelectPaymentMethod('card')}
+                    className="flex flex-col items-center justify-center p-8 border-2 border-border rounded-xl hover:bg-accent hover:border-primary transition-all group min-h-[140px]"
+                  >
+                    <CreditCard className="w-16 h-16 text-primary mb-4 group-hover:scale-110 transition-transform" />
+                    <span className="text-2xl font-bold">Картой</span>
+                  </button>
+                </div>
+                <button
+                  onClick={() => handleSelectPaymentMethod('hybrid')}
+                  className="w-full flex items-center justify-center gap-3 p-6 border-2 border-border rounded-xl hover:bg-accent hover:border-primary transition-all group"
+                >
+                  <Wallet className="w-6 h-6 text-primary" />
+                  <CreditCard className="w-6 h-6 text-primary" />
+                  <span className="text-xl font-bold">Смешанная оплата</span>
+                </button>
+              </div>
+            ) : selectedPaymentMethod === 'cash' ? (
+              <div className="space-y-4">
+                {/* Ввод суммы наличными */}
+                <div className="space-y-3">
+                  <label className="text-base font-semibold block text-center">Введите сумму</label>
+                  <input
+                    ref={cashInputRef}
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={cashInput}
+                    onChange={(e) => setCashInput(e.target.value)}
+                    placeholder="0"
+                    className="w-full px-6 py-5 text-4xl text-center border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary font-bold bg-background"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddCashPayment();
+                      }
+                    }}
+                    autoFocus
+                  />
+                  
+                  {/* Показ сдачи (если введено больше остатка) */}
+                  {cashInput && parseInt(cashInput) > 0 && (
+                    <div className="bg-muted/50 rounded-lg p-4 text-center">
+                      {parseInt(cashInput) > calculateRemaining() ? (
+                        <div className="space-y-1">
+                          <div className="text-sm text-muted-foreground">Сдача</div>
+                          <div className="text-2xl font-bold text-green-600">
+                            {calculateChange()} {currentSale?.currency}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="text-sm text-muted-foreground">Останется доплатить</div>
+                        <div className="text-2xl font-bold">
+                          {Math.max(0, calculateRemaining() - (parseInt(cashInput) || 0))} {currentSale?.currency}
+                        </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Кнопки действий */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={handleAddCashPayment}
+                      disabled={!cashInput || parseInt(cashInput) <= 0}
+                      className="h-16 bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed text-xl font-bold"
+                    >
+                      Внести
+                    </button>
+                    <button
+                      onClick={handleFullCashPayment}
+                      disabled={calculateRemaining() <= 0}
+                      className="h-16 border-2 border-primary text-primary rounded-xl hover:bg-primary/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xl font-bold"
+                    >
+                      Вся сумма
+                    </button>
+                  </div>
+                </div>
+
+                {/* Кнопка сброса выбора способа */}
+                <button
+                  onClick={handleResetPayment}
+                  className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Выбрать другой способ оплаты
+                </button>
+              </div>
+            ) : selectedPaymentMethod === 'card' ? (
+              <div className="space-y-4">
+                {/* Оплата картой */}
+                <button
+                  onClick={handleFullCardPayment}
+                  disabled={calculateRemaining() <= 0}
+                  className="w-full h-24 bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed text-2xl font-bold flex items-center justify-center gap-4"
+                >
+                  <CreditCard className="w-10 h-10" />
+                  Оплатить {Math.ceil(currentSale?.totalAmount || 0)} {currentSale?.currency}
+                </button>
+
+                {/* Кнопка сброса выбора способа */}
+                <button
+                  onClick={handleResetPayment}
+                  className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Выбрать другой способ оплаты
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Смешанная оплата: два инпута */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-base font-semibold block text-center">Наличными</label>
+                    <input
+                      ref={cashInputRef}
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={cashInput}
+                      onChange={(e) => setCashInput(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-6 py-5 text-3xl text-center border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary font-bold bg-background"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          cardInputRef.current?.focus();
+                        }
+                      }}
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-base font-semibold block text-center">Картой</label>
+                    <input
+                      ref={cardInputRef}
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={cardInput}
+                      onChange={(e) => setCardInput(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-6 py-5 text-3xl text-center border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary font-bold bg-background"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAddHybridPayment();
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Показ суммы */}
+                  {(cashInput || cardInput) && (
+                    <div className="bg-muted/50 rounded-lg p-4 text-center">
+                      <div className="text-sm text-muted-foreground mb-1">Итого</div>
+                      <div className="text-2xl font-bold">
+                        {(parseInt(cashInput) || 0) + (parseInt(cardInput) || 0)} {currentSale?.currency}
+                      </div>
+                      {(parseInt(cashInput) || 0) + (parseInt(cardInput) || 0) !== currentSale?.totalAmount && (
+                        <div className="text-sm text-destructive mt-2">
+                          Должно быть: {currentSale?.totalAmount} {currentSale?.currency}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Кнопка подтверждения */}
+                  <button
+                    onClick={handleAddHybridPayment}
+                    disabled={
+                      !cashInput || !cardInput || 
+                      parseInt(cashInput) <= 0 || parseInt(cardInput) <= 0 ||
+                      (parseInt(cashInput) || 0) + (parseInt(cardInput) || 0) !== currentSale?.totalAmount
+                    }
+                    className="w-full h-16 bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed text-xl font-bold"
+                  >
+                    Подтвердить оплату
+                  </button>
+                </div>
+
+                {/* Кнопка сброса выбора способа */}
+                <button
+                  onClick={handleResetPayment}
+                  className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Выбрать другой способ оплаты
+                </button>
+              </div>
+            )}
+
+            {/* Нижняя часть: Завершение оплаты (только когда остаток = 0) */}
+            {calculateRemaining() === 0 && (
+              <div className="pt-4 border-t-2 border-border">
+                  <button
+                    onClick={handleCompletePayment}
+                  disabled={isCompleting}
+                  className="w-full h-16 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-xl"
+                  >
+                    {isCompleting ? (
+                      <>
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                        <span>Обработка...</span>
+                      </>
+                    ) : (
+                      <>
+                      <CheckCircle2 className="w-6 h-6" />
+                      <span>Завершить оплату</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+          )}
           </div>
         </DialogContent>
       </Dialog>
+      <ScrollToTopButton />
     </div>
   );
 }

@@ -1,11 +1,13 @@
-import React, { useState, useEffect, type FormEvent } from 'react';
-import { ArrowLeft, Users, Loader2, Mail, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, FormEvent } from 'react';
+import { ArrowLeft, Users, Loader2, Mail, CheckCircle2, Phone } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
+import { PhoneVerificationModal } from './PhoneVerificationModal';
 
 interface SalesRepRegistrationProps {
   onComplete: () => void | Promise<void>;
   onBack: () => void;
+  isDemo?: boolean;
 }
 
 // Функция для форматирования номера телефона
@@ -57,7 +59,10 @@ const formatPhoneNumber = (value: string): string => {
   return `+7 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 8)}-${digits.slice(8, 10)}`;
 };
 
-export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistrationProps) {
+const EMAIL_COOLDOWN_KEY = 'salesrep_email_cooldown';
+const PHONE_COOLDOWN_KEY = 'salesrep_phone_cooldown';
+
+export function SalesRepRegistration({ onComplete, onBack, isDemo = false }: SalesRepRegistrationProps) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -71,25 +76,56 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
 
   // Email verification states
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [isSendingCode, setIsSendingCode] = useState(false);
-  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
-  const [verificationError, setVerificationError] = useState<string | undefined>(undefined);
-  const [codeSent, setCodeSent] = useState(false);
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [isSendingEmailCode, setIsSendingEmailCode] = useState(false);
+  const [isVerifyingEmailCode, setIsVerifyingEmailCode] = useState(false);
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [emailVerificationError, setEmailVerificationError] = useState<string | undefined>(undefined);
+  const [emailCodeCooldown, setEmailCodeCooldown] = useState(() => {
+    if (isDemo) return 0;
+    const stored = localStorage.getItem(EMAIL_COOLDOWN_KEY);
+    if (!stored) return 0;
+    const elapsed = Math.floor((Date.now() - parseInt(stored)) / 1000);
+    return Math.max(0, 60 - elapsed);
+  });
+
+  // Phone verification states
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [isSendingPhoneCode, setIsSendingPhoneCode] = useState(false);
+  const [phoneVerificationError, setPhoneVerificationError] = useState<string | undefined>(undefined);
+  const [isPhoneVerificationModalOpen, setIsPhoneVerificationModalOpen] = useState(false);
+  const [phoneCodeCooldown, setPhoneCodeCooldown] = useState(() => {
+    if (isDemo) return 0;
+    const stored = localStorage.getItem(PHONE_COOLDOWN_KEY);
+    if (!stored) return 0;
+    const elapsed = Math.floor((Date.now() - parseInt(stored)) / 1000);
+    return Math.max(0, 60 - elapsed);
+  });
+
+  // Функция для нормализации номера телефона
+  const normalizePhoneNumber = (phone: string): string => {
+    let cleaned = phone.replace(/[^\d+]/g, '');
+    if (!cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned;
+    }
+    return cleaned;
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!isEmailVerified) {
-      setVerificationError('Пожалуйста, подтвердите ваш email');
+    if (!isDemo && !isEmailVerified) {
+      setEmailVerificationError('Пожалуйста, подтвердите ваш email');
       return;
     }
-    if (!verificationCode || verificationCode.length !== 6) {
-      setVerificationError('Пожалуйста, введите и подтвердите код верификации');
+    if (!isDemo && !isPhoneVerified) {
+      setPhoneVerificationError('Пожалуйста, подтвердите ваш номер телефона');
       return;
     }
+    // УБРАЛ проверку emailVerificationCode, так как email уже подтвержден через isEmailVerified
 
     setIsSubmitting(true);
     try {
+      const isDemoMode = window.location.pathname.includes('/demo');
       await api.post('/auth/register-sales-representative', {
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -97,7 +133,8 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
         email: formData.email,
         password: formData.password,
         phoneNumber: formData.phoneNumber || undefined,
-        verificationCode,
+        verificationCode: isDemo ? '000000' : emailVerificationCode,
+        ...(isDemoMode && { demo: true }),
       });
       toast.success('Регистрация успешна!');
       await onComplete();
@@ -127,85 +164,162 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
     return !publicEmailDomains.includes(domain);
   };
 
-  const handleSendVerificationCode = async () => {
+  const handleSendEmailCode = async () => {
     if (!formData.email) {
-      setVerificationError('Пожалуйста, введите email');
+      setEmailVerificationError('Пожалуйста, введите email');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setVerificationError('Некорректный формат email');
+      setEmailVerificationError('Некорректный формат email');
       return;
     }
 
-    if (!isCorporateEmail(formData.email)) {
-      setVerificationError('Пожалуйста, используйте корпоративную почту. Публичные почтовые сервисы (Gmail, Yahoo, Mail.ru и т.д.) не допускаются.');
+    if (!isDemo && !isCorporateEmail(formData.email)) {
+      setEmailVerificationError('Пожалуйста, используйте корпоративную почту. Публичные почтовые сервисы (Gmail, Yahoo, Mail.ru и т.д.) не допускаются.');
       return;
     }
 
-    setIsSendingCode(true);
-    setVerificationError(undefined);
-    setCodeSent(false);
+    setIsSendingEmailCode(true);
+    setEmailVerificationError(undefined);
+    setEmailCodeSent(false);
     setIsEmailVerified(false);
 
     try {
       await api.post('/auth/verification/send', {
         email: formData.email,
+        ...(isDemo && { demo: true }),
       });
-      setCodeSent(true);
+      setEmailCodeSent(true);
+      setEmailCodeCooldown(60);
+      if (!isDemo) {
+        localStorage.setItem(EMAIL_COOLDOWN_KEY, Date.now().toString());
+      }
     } catch (error: any) {
       const status = error.response?.status;
       const code = error.response?.data?.code;
       const backendError = error.response?.data?.error;
 
       if (status === 409 && code === 'EMAIL_ALREADY_EXISTS') {
-        setVerificationError('Пользователь с таким email уже существует. Попробуйте войти в систему или используйте другой email.');
+        setEmailVerificationError('Пользователь с таким email уже существует. Попробуйте войти в систему или используйте другой email.');
       } else {
         const fallbackMessage = backendError || error.response?.data?.message || 'Не удалось отправить код верификации';
-        setVerificationError(fallbackMessage);
+        setEmailVerificationError(fallbackMessage);
       }
-      setCodeSent(false);
+      setEmailCodeSent(false);
       setIsEmailVerified(false);
     } finally {
-      setIsSendingCode(false);
+      setIsSendingEmailCode(false);
     }
   };
 
-  const handleVerifyCode = async () => {
-    if (!verificationCode || verificationCode.length !== 6) {
-      setVerificationError('Код должен состоять из 6 цифр');
+  const handleSendPhoneCode = async () => {
+    if (!formData.phoneNumber) {
+      setPhoneVerificationError('Пожалуйста, введите номер телефона');
       return;
     }
 
-    setIsVerifyingCode(true);
-    setVerificationError(undefined);
+    const normalizedPhone = normalizePhoneNumber(formData.phoneNumber);
+    const digitsOnly = normalizedPhone.replace(/\D/g, '');
+    if (digitsOnly.length !== 11 || (!digitsOnly.startsWith('7') && !digitsOnly.startsWith('1'))) {
+      setPhoneVerificationError('Некорректный формат номера телефона. Поддерживаются: RU/KZ 7XXXXXXXXXX или US 1XXXXXXXXXX (11 цифр)');
+      return;
+    }
+
+    setIsSendingPhoneCode(true);
+    setPhoneVerificationError(undefined);
+    setIsPhoneVerified(false);
+
+    try {
+      await api.post('/auth/verification/phone/send', {
+        phoneNumber: normalizedPhone,
+        ...(isDemo && { demo: true }),
+      });
+      setIsPhoneVerificationModalOpen(true);
+      setPhoneCodeCooldown(60);
+      if (!isDemo) {
+        localStorage.setItem(PHONE_COOLDOWN_KEY, Date.now().toString());
+      }
+    } catch (error: any) {
+      const status = error.response?.status;
+      const code = error.response?.data?.code;
+      const backendError = error.response?.data?.error;
+
+      if (status === 409 && code === 'PHONE_ALREADY_EXISTS') {
+        setPhoneVerificationError('Пользователь с таким номером телефона уже существует. Попробуйте войти в систему или используйте другой номер.');
+      } else {
+        const fallbackMessage = backendError || error.response?.data?.message || 'Не удалось отправить код верификации через WhatsApp';
+        setPhoneVerificationError(fallbackMessage);
+      }
+    } finally {
+      setIsSendingPhoneCode(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async () => {
+    if (!emailVerificationCode || emailVerificationCode.length !== 6) {
+      setEmailVerificationError('Код должен состоять из 6 цифр');
+      return;
+    }
+
+    setIsVerifyingEmailCode(true);
+    setEmailVerificationError(undefined);
 
     try {
       await api.post('/auth/verification/verify', {
         email: formData.email,
-        code: verificationCode,
+        code: emailVerificationCode,
+        ...(isDemo && { demo: true }),
       });
+
+      // После успешной верификации устанавливаем все состояния
       setIsEmailVerified(true);
-      setVerificationError(undefined);
+      setEmailVerificationError(undefined);
+      setEmailCodeCooldown(0);
+      setEmailCodeSent(false);
+      setEmailVerificationCode('');
+
+      if (!isDemo) {
+        localStorage.removeItem(EMAIL_COOLDOWN_KEY);
+      }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Неверный код верификации';
-      setVerificationError(errorMessage);
+      setEmailVerificationError(errorMessage);
       setIsEmailVerified(false);
     } finally {
-      setIsVerifyingCode(false);
+      setIsVerifyingEmailCode(false);
     }
   };
 
-  // Сброс верификации при изменении email
-  useEffect(() => {
-    if (formData.email) {
-      setIsEmailVerified(false);
-      setCodeSent(false);
-      setVerificationCode('');
-      setVerificationError(undefined);
+  const handlePhoneVerified = () => {
+    setIsPhoneVerified(true);
+    setIsPhoneVerificationModalOpen(false);
+    setPhoneVerificationError(undefined);
+    setPhoneCodeCooldown(0);
+    if (!isDemo) {
+      localStorage.removeItem(PHONE_COOLDOWN_KEY);
     }
-  }, [formData.email]);
+  };
+
+  // Кулдаун для кнопок отправки кода
+  useEffect(() => {
+    if (phoneCodeCooldown > 0) {
+      const timer = setTimeout(() => {
+        setPhoneCodeCooldown((s) => s - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [phoneCodeCooldown]);
+
+  useEffect(() => {
+    if (emailCodeCooldown > 0) {
+      const timer = setTimeout(() => {
+        setEmailCodeCooldown((s) => s - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [emailCodeCooldown]);
 
   const updateField = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -255,8 +369,14 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
               <Users className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-semibold">Регистрация ТП</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">Укажите основные данные</p>
+              <h1 className="text-lg sm:text-xl font-semibold">
+                Регистрация ТП{isDemo && ' (Демо)'}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {isDemo
+                  ? 'Демо-режим: можно использовать любой email, подтверждение email не требуется'
+                  : 'Укажите основные данные'}
+              </p>
             </div>
           </div>
 
@@ -306,6 +426,7 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
                 />
               </div>
 
+              {/* Email верификация */}
               <div>
                 <label className="block text-xs sm:text-sm mb-1.5">
                   Email <span className="text-destructive">*</span>
@@ -314,24 +435,33 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => updateField('email', e.target.value)}
+                    onChange={(e) => {
+                      if (!isDemo && isEmailVerified) return;
+                      updateField('email', e.target.value);
+                    }}
                     className="flex-1 px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                     placeholder="sales@example.com"
                     required
-                    disabled={isEmailVerified}
+                    disabled={!isDemo && isEmailVerified}
                   />
-                  {!isEmailVerified && (
+                  {!isDemo && !isEmailVerified && (
                     <button
                       type="button"
-                      onClick={handleSendVerificationCode}
-                      disabled={isSendingCode || !formData.email}
+                      onClick={handleSendEmailCode}
+                      disabled={isSendingEmailCode || !formData.email || emailCodeCooldown > 0}
                       className="px-3 sm:px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs sm:text-sm font-medium whitespace-nowrap"
                     >
-                      {isSendingCode ? (
+                      {isSendingEmailCode ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
                           <span className="hidden sm:inline">Отправка...</span>
                           <span className="sm:hidden">...</span>
+                        </>
+                      ) : emailCodeCooldown > 0 ? (
+                        <>
+                          <Mail className="w-4 h-4" />
+                          <span className="hidden sm:inline">Повторить ({emailCodeCooldown}с)</span>
+                          <span className="sm:hidden">{emailCodeCooldown}с</span>
                         </>
                       ) : (
                         <>
@@ -342,14 +472,14 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
                       )}
                     </button>
                   )}
-                  {isEmailVerified && (
+                  {!isDemo && isEmailVerified && (
                     <div className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-green-500/10 text-green-600 rounded-md whitespace-nowrap">
                       <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                       <span className="text-xs sm:text-sm font-medium">Подтверждено</span>
                     </div>
                   )}
                 </div>
-                {codeSent && !isEmailVerified && (
+                {!isDemo && emailCodeSent && !isEmailVerified && (
                   <div className="mt-3 space-y-2">
                     <label className="block text-xs sm:text-sm mb-1.5">
                       Код верификации <span className="text-destructive">*</span>
@@ -357,11 +487,11 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
                     <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         type="text"
-                        value={verificationCode}
+                        value={emailVerificationCode}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                          setVerificationCode(value);
-                          setVerificationError(undefined);
+                          setEmailVerificationCode(value);
+                          setEmailVerificationError(undefined);
                         }}
                         className="flex-1 px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                         placeholder="Введите 6-значный код"
@@ -369,11 +499,11 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
                       />
                       <button
                         type="button"
-                        onClick={handleVerifyCode}
-                        disabled={isVerifyingCode || verificationCode.length !== 6}
+                        onClick={handleVerifyEmailCode}
+                        disabled={isVerifyingEmailCode || emailVerificationCode.length !== 6}
                         className="px-3 sm:px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs sm:text-sm font-medium whitespace-nowrap"
                       >
-                        {isVerifyingCode ? (
+                        {isVerifyingEmailCode ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span className="hidden sm:inline">Проверка...</span>
@@ -389,8 +519,66 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
                     </p>
                   </div>
                 )}
-                {verificationError && (
-                  <p className="mt-2 text-xs text-destructive">{verificationError}</p>
+                {emailVerificationError && (
+                  <p className="mt-2 text-xs text-destructive">{emailVerificationError}</p>
+                )}
+              </div>
+
+              {/* Phone верификация */}
+              <div>
+                <label className="block text-xs sm:text-sm mb-1.5">
+                  Номер телефона <span className="text-destructive">*</span>
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={(e) => {
+                      const formatted = formatPhoneNumber(e.target.value);
+                      updateField('phoneNumber', formatted);
+                    }}
+                    className="flex-1 px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                    placeholder="+7 (900) 123-45-67"
+                    required
+                    disabled={!isDemo && isPhoneVerified}
+                  />
+                  {!isDemo && !isPhoneVerified && (
+                    <button
+                      type="button"
+                      onClick={handleSendPhoneCode}
+                      disabled={isSendingPhoneCode || !formData.phoneNumber || phoneCodeCooldown > 0}
+                      className="px-3 sm:px-4 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs sm:text-sm font-medium whitespace-nowrap"
+                    >
+                      {isSendingPhoneCode ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="hidden sm:inline">Отправка...</span>
+                          <span className="sm:hidden">...</span>
+                        </>
+                      ) : phoneCodeCooldown > 0 ? (
+                        <>
+                          <Phone className="w-4 h-4" />
+                          <span className="hidden sm:inline">Повторить ({phoneCodeCooldown}с)</span>
+                          <span className="sm:hidden">{phoneCodeCooldown}с</span>
+                        </>
+                      ) : (
+                        <>
+                          <Phone className="w-4 h-4" />
+                          <span className="hidden sm:inline">Отправить код</span>
+                          <span className="sm:hidden">Код</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {isPhoneVerified && (
+                    <div className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-green-500/10 text-green-600 rounded-md whitespace-nowrap">
+                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm font-medium">Подтверждено</span>
+                    </div>
+                  )}
+                </div>
+                {phoneVerificationError && (
+                  <p className="mt-2 text-xs text-destructive">{phoneVerificationError}</p>
                 )}
               </div>
 
@@ -420,8 +608,9 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
                     const formatted = formatPhoneNumber(e.target.value);
                     updateField('phoneNumber', formatted);
                   }}
-                  className="w-full px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full px-3 py-2 text-sm sm:text-base bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                   placeholder="+7 (900) 123-45-67"
+                  disabled={!isDemo && isPhoneVerified}
                 />
               </div>
             </div>
@@ -437,7 +626,7 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !isEmailVerified}
+                disabled={isSubmitting || (!isDemo && (!isEmailVerified || !isPhoneVerified))}
                 className="w-full sm:flex-1 bg-primary text-primary-foreground py-2.5 rounded-md hover:opacity-90 transition-opacity font-medium disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 {isSubmitting ? (
@@ -457,6 +646,14 @@ export function SalesRepRegistration({ onComplete, onBack }: SalesRepRegistratio
           </form>
         </div>
       </div>
+
+      <PhoneVerificationModal
+        isOpen={isPhoneVerificationModalOpen}
+        onClose={() => setIsPhoneVerificationModalOpen(false)}
+        phoneNumber={formData.phoneNumber}
+        onVerified={handlePhoneVerified}
+        isDemo={isDemo}
+      />
     </div>
   );
 }
