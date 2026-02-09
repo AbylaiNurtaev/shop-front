@@ -103,7 +103,7 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
           {!isCollapsed && (
             <div className="flex items-center gap-2">
               <Store className="w-6 h-6 text-primary" />
-              <span className="font-semibold">Inventory Pro</span>
+              <span className="font-semibold">Omiai</span>
             </div>
           )}
           <button

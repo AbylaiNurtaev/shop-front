@@ -1,13 +1,27 @@
 import { useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
+type ThemeContext = 'landing' | 'dashboard';
 
-export function useTheme() {
+export function useTheme(context: ThemeContext = 'dashboard') {
   const [theme, setTheme] = useState<Theme>(() => {
-    // Проверяем localStorage при инициализации
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    // Для лендинга всегда темная тема
+    if (context === 'landing') {
+      return 'dark';
+    }
+    
+    // Для дашборда проверяем сохраненную тему
+    const savedTheme = localStorage.getItem('dashboard-theme') as Theme | null;
     if (savedTheme) {
       return savedTheme;
+    }
+    // Проверяем старый ключ для обратной совместимости
+    const oldTheme = localStorage.getItem('theme') as Theme | null;
+    if (oldTheme) {
+      // Мигрируем в новый ключ
+      localStorage.setItem('dashboard-theme', oldTheme);
+      localStorage.removeItem('theme');
+      return oldTheme;
     }
     // Проверяем системные настройки
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -25,11 +39,17 @@ export function useTheme() {
       root.classList.remove('dark');
     }
     
-    // Сохраняем в localStorage
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    // Сохраняем только для дашборда
+    if (context === 'dashboard') {
+      localStorage.setItem('dashboard-theme', theme);
+    }
+  }, [theme, context]);
 
   const toggleTheme = () => {
+    // Для лендинга переключение не работает
+    if (context === 'landing') {
+      return;
+    }
     setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 

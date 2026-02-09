@@ -44,14 +44,23 @@ export function ProductCatalog({
     );
   };
 
-  // Получение количества дней до истечения оплаты
-  const getDaysUntilExpiry = (product: Product): number | null => {
+  // Получение срока до истечения оплаты (в днях или месяцах)
+  const getDaysUntilExpiry = (product: Product): string | null => {
     if (!product.paymentExpiresAt) return null;
     const expiryDate = new Date(product.paymentExpiresAt);
     const now = new Date();
     const diffTime = expiryDate.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays : 0;
+    
+    if (diffDays <= 0) return '0 дн.';
+    
+    // Если больше 30 дней, показываем в месяцах
+    if (diffDays > 30) {
+      const months = Math.floor(diffDays / 30);
+      return `${months} мес.`;
+    }
+    
+    return `${diffDays} дн.`;
   };
 
   const handlePaymentClick = (e: React.MouseEvent, product: Product) => {
@@ -237,7 +246,7 @@ export function ProductCatalog({
                     {isPaymentActive(product) ? (
                       <div className="flex items-center gap-1.5 text-sm">
                         <span className="font-medium text-green-600 dark:text-green-400">
-                          {getDaysUntilExpiry(product)} дн.
+                          {getDaysUntilExpiry(product)}
                         </span>
                       </div>
                     ) : (
@@ -312,7 +321,7 @@ export function ProductCatalog({
                         <div className="flex items-center gap-1.5 text-sm">
                           <CreditCard className="w-4 h-4 text-green-600 dark:text-green-400" />
                           <span className="font-medium text-green-600 dark:text-green-400">
-                            {getDaysUntilExpiry(product)} дн.
+                            {getDaysUntilExpiry(product)}
                           </span>
                         </div>
                       ) : (

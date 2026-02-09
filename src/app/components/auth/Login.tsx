@@ -59,7 +59,7 @@ export function Login({ onLogin, onNavigateToRegister, showQuickLogins = true }:
             <div className="w-12 h-12 bg-primary text-primary-foreground rounded-lg flex items-center justify-center mb-3">
               <Store className="w-7 h-7" />
             </div>
-            <h1 className="text-2xl font-semibold">Inventory Pro</h1>
+            <h1 className="text-2xl font-semibold">Omiai</h1>
             <p className="text-sm text-muted-foreground mt-1">Вход в систему</p>
           </div>
 
@@ -170,7 +170,7 @@ export function Login({ onLogin, onNavigateToRegister, showQuickLogins = true }:
         </div>
 
         <div className="mt-4 text-center text-xs text-muted-foreground">
-          © 2026 Inventory Pro. Все права защищены.
+          © 2026 Omiai. Все права защищены.
         </div>
       </div>
     </div>

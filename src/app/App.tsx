@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Login } from './components/auth/Login';
 import { RoleSelection } from './components/auth/RoleSelection';
@@ -35,6 +35,7 @@ import { ProductCatalog } from './components/brand/ProductCatalog';
 import { BrandProductForm } from './components/brand/BrandProductForm';
 import { AccountSettings } from './components/settings/AccountSettings';
 import { BuyerHome } from './components/buyer/BuyerHome';
+import { WhatsAppChat } from './components/buyer/WhatsAppChat';
 import { BrandModeration } from './components/admin/BrandModeration';
 import { AdminCategoryManagement } from './components/admin/AdminCategoryManagement';
 import { StoresList } from './components/distributor/StoresList';
@@ -909,6 +910,8 @@ export default function App() {
       
       // Если указана наценка, создаем Offer с ценой = себестоимость + наценка
       const markup = (productData as any).markup;
+      let offerCreated = false;
+      
       if (markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0) {
         try {
           // Получаем актуальные данные товара с сервера, чтобы узнать себестоимость
@@ -931,26 +934,61 @@ export default function App() {
             // Получаем storeId
             const storeId = user.storeId || localStorage.getItem('storeId');
             if (storeId) {
-              await api.post('/offers', {
-                productId: newProduct.id,
-                storeId: storeId,
-                price: calculatedPrice,
-                currency: userCurrency,
-                quantity: productData.quantity ?? 0,
-              });
-              toast.success('Товар создан и цена установлена');
+              try {
+                await api.post('/offers', {
+                  productId: newProduct.id,
+                  storeId: storeId,
+                  price: calculatedPrice,
+                  currency: userCurrency,
+                  quantity: productData.quantity ?? 0,
+                });
+                offerCreated = true;
+                toast.success('Товар создан и цена установлена');
+              } catch (offerError: any) {
+                console.error('Ошибка создания Offer с наценкой', offerError);
+                const errorMessage = offerError.response?.data?.message || offerError.response?.data?.error || 'Неизвестная ошибка';
+                toast.error(`Товар создан, но не удалось установить цену: ${errorMessage}. Попробуйте установить цену вручную.`);
+                // Не закрываем форму, чтобы пользователь мог повторить попытку
+                return;
+              }
+            } else {
+              toast.warning('Товар создан, но не удалось определить магазин для установки цены');
+              return;
             }
           } else {
             toast.success('Товар создан. Установите цену позже, когда будет известна себестоимость');
+            // Закрываем форму, так как продукт создан успешно
+            setShowProductForm(false);
+            setEditingProduct(null);
+            return;
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Ошибка создания Offer с наценкой', error);
-          toast.success('Товар создан, но не удалось установить цену. Установите её позже');
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Неизвестная ошибка';
+          
+          // Если это ошибка авторизации, не закрываем форму и показываем предупреждение
+          if (error.response?.status === 401) {
+            toast.error('Ошибка авторизации. Пожалуйста, обновите страницу и попробуйте снова.');
+            // Не закрываем форму, чтобы пользователь мог повторить попытку после обновления
+            return;
+          }
+          
+          // Для других ошибок закрываем форму, так как продукт уже создан
+          toast.warning(`Товар создан, но не удалось установить цену: ${errorMessage}. Установите её позже вручную.`);
+          setShowProductForm(false);
+          setEditingProduct(null);
+          return;
         }
+      } else {
+        // Если наценка не указана, просто закрываем форму
+        toast.success('Товар создан');
       }
       
-      setShowProductForm(false);
-      setEditingProduct(null);
+      // Закрываем форму только если все прошло успешно
+      if (offerCreated) {
+        setShowProductForm(false);
+        setEditingProduct(null);
+      }
     } catch (error) {
       console.error('Ошибка создания товара', error);
       toast.error('Не удалось создать товар.');
@@ -1033,82 +1071,84 @@ export default function App() {
     }
   };
 
+  const loadProductsAndOffers = useCallback(async () => {
+    if (!user) return;
+    setIsLoadingProducts(true);
+    try {
+      const [categoriesResponse, productsResponse, offersResponse, storesResponse] = await Promise.all([
+        api.get<ApiListResponse<ApiCategory>>('/categories'),
+        api.get<ApiListResponse<ApiProduct>>('/products'),
+        api.get<ApiListResponse<ApiOffer>>('/offers'),
+        api.get<ApiListResponse<ApiStore>>('/stores'),
+      ]);
+
+      console.log('GET /products response', productsResponse.data);
+      console.log('GET /offers response', offersResponse.data);
+
+      const loadedCategories = categoriesResponse.data?.items?.map((category) => ({
+        id: category.id,
+        name: category.name,
+      })) ?? [];
+      const loadedProducts = productsResponse.data?.items?.map((product) =>
+        mapApiProduct(product)
+      ) ?? [];
+      const loadedOffers = offersResponse.data?.items ?? [];
+      const loadedStores = storesResponse.data?.items ?? [];
+
+      const knownProductIds = new Set(loadedProducts.map((product) => product.id));
+      const missingProductIds = loadedOffers
+        .filter((offer) => !offer.product && offer.productId)
+        .map((offer) => offer.productId as string)
+        .filter((productId) => !knownProductIds.has(productId));
+      const missingProducts = await Promise.all(
+        missingProductIds.map((productId) =>
+          api.get<ApiProduct>(`/products/${productId}`).then((response) => response.data).catch(() => null)
+        )
+      );
+
+      const mergedProducts = [
+        ...loadedProducts,
+        ...missingProducts.filter(Boolean).map((product) => mapApiProduct(product!)),
+      ];
+
+      const knownCategoryIds = new Set(loadedCategories.map((category) => category.id));
+      const missingCategoryIds = mergedProducts
+        .map((product) => product.categoryId)
+        .filter((categoryId) => !knownCategoryIds.has(categoryId));
+      const missingCategories = await Promise.all(
+        missingCategoryIds.map((categoryId) =>
+          api.get<ApiCategory>(`/categories/${categoryId}`).then((response) => response.data).catch(() => null)
+        )
+      );
+
+      setCategories([
+        ...loadedCategories,
+        ...missingCategories.filter(Boolean).map((category) => ({
+          id: category!.id,
+          name: category!.name,
+        })),
+      ]);
+      setProducts(mergedProducts);
+      setOffers(loadedOffers);
+      setStores(loadedStores);
+    } catch (error) {
+      console.error('Ошибка загрузки данных', error);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user) return;
     let isActive = true;
     const loadData = async () => {
-      setIsLoadingProducts(true);
-      try {
-        const [categoriesResponse, productsResponse, offersResponse, storesResponse] = await Promise.all([
-          api.get<ApiListResponse<ApiCategory>>('/categories'),
-          api.get<ApiListResponse<ApiProduct>>('/products'),
-          api.get<ApiListResponse<ApiOffer>>('/offers'),
-          api.get<ApiListResponse<ApiStore>>('/stores'),
-        ]);
-        if (!isActive) return;
-
-        console.log('GET /products response', productsResponse.data);
-        console.log('GET /offers response', offersResponse.data);
-
-        const loadedCategories = categoriesResponse.data?.items?.map((category) => ({
-          id: category.id,
-          name: category.name,
-        })) ?? [];
-        const loadedProducts = productsResponse.data?.items?.map((product) =>
-          mapApiProduct(product)
-        ) ?? [];
-        const loadedOffers = offersResponse.data?.items ?? [];
-        const loadedStores = storesResponse.data?.items ?? [];
-
-        const knownProductIds = new Set(loadedProducts.map((product) => product.id));
-        const missingProductIds = loadedOffers
-          .filter((offer) => !offer.product && offer.productId)
-          .map((offer) => offer.productId as string)
-          .filter((productId) => !knownProductIds.has(productId));
-        const missingProducts = await Promise.all(
-          missingProductIds.map((productId) =>
-            api.get<ApiProduct>(`/products/${productId}`).then((response) => response.data).catch(() => null)
-          )
-        );
-
-        const mergedProducts = [
-          ...loadedProducts,
-          ...missingProducts.filter(Boolean).map((product) => mapApiProduct(product!)),
-        ];
-
-        const knownCategoryIds = new Set(loadedCategories.map((category) => category.id));
-        const missingCategoryIds = mergedProducts
-          .map((product) => product.categoryId)
-          .filter((categoryId) => !knownCategoryIds.has(categoryId));
-        const missingCategories = await Promise.all(
-          missingCategoryIds.map((categoryId) =>
-            api.get<ApiCategory>(`/categories/${categoryId}`).then((response) => response.data).catch(() => null)
-          )
-        );
-
-        setCategories([
-          ...loadedCategories,
-          ...missingCategories.filter(Boolean).map((category) => ({
-            id: category!.id,
-            name: category!.name,
-          })),
-        ]);
-        setProducts(mergedProducts);
-        setOffers(loadedOffers);
-        setStores(loadedStores);
-      } catch (error) {
-        console.error('Ошибка загрузки данных', error);
-      } finally {
-        if (isActive) {
-          setIsLoadingProducts(false);
-        }
-      }
+      await loadProductsAndOffers();
     };
     loadData();
     return () => {
       isActive = false;
     };
-  }, [user]);
+  }, [user, loadProductsAndOffers]);
 
   const storeProducts = useMemo(() => {
     if (!storeId) return [];
@@ -1421,6 +1461,7 @@ export default function App() {
           }} onBack={() => navigate('/register/role')} />}
         />
         <Route path="/buyer" element={<BuyerHome />} />
+        <Route path="/buyer/wp" element={<WhatsAppChat />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
@@ -1486,6 +1527,7 @@ export default function App() {
                           categories={categories}
                           onCreateProduct={handleCreateProduct}
                           isLoading={isLoadingProducts}
+                          onMarkupUpdated={loadProductsAndOffers}
                         />
                       }
                     />

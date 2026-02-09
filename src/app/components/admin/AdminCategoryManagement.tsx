@@ -17,7 +17,7 @@ interface CategoryRequest {
   categoryName?: string;
   parentCategoryId?: string | null;
   parentCategoryName?: string | null;
-  status: 'pending' | 'approved' | 'rejected' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'pending' | 'approved' | 'rejected' | 'accepted' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACCEPTED';
   brandId: string;
   brandName?: string;
   brand?: {
@@ -45,6 +45,8 @@ export function AdminCategoryManagement() {
   const [createCategoryData, setCreateCategoryData] = useState({ name: '', parentId: '' });
   const [editingParentCategoryName, setEditingParentCategoryName] = useState(false);
   const [editedParentCategoryName, setEditedParentCategoryName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submittingFromRequest, setSubmittingFromRequest] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -103,19 +105,29 @@ export function AdminCategoryManagement() {
       setRequestsLoading(true);
       const response = await api.get<{ items: any[] }>('/categories/requests/all');
       // Маппим данные с бэкенда
-      const mappedRequests: CategoryRequest[] = (response.data.items || []).map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        categoryName: item.name || item.categoryName,
-        parentCategoryId: item.parentCategoryId,
-        parentCategoryName: item.parentCategoryName,
-        status: item.status?.toLowerCase() as 'pending' | 'approved' | 'rejected',
-        brandId: item.brandId,
-        brandName: item.brand?.name || item.brandName,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        rejectionReason: item.rejectedReason || item.rejectionReason,
-      }));
+      const mappedRequests: CategoryRequest[] = (response.data.items || []).map((item: any) => {
+        // Нормализуем статус: ACCEPTED -> approved, остальные как есть
+        let normalizedStatus = item.status;
+        if (item.status === 'ACCEPTED' || item.status === 'accepted') {
+          normalizedStatus = 'approved';
+        } else if (item.status) {
+          normalizedStatus = item.status.toLowerCase();
+        }
+        
+        return {
+          id: item.id,
+          name: item.name,
+          categoryName: item.name || item.categoryName,
+          parentCategoryId: item.parentCategoryId,
+          parentCategoryName: item.parentCategoryName,
+          status: normalizedStatus as 'pending' | 'approved' | 'rejected' | 'accepted' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'ACCEPTED',
+          brandId: item.brandId,
+          brandName: item.brand?.name || item.brandName,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+          rejectionReason: item.rejectedReason || item.rejectionReason,
+        };
+      });
       setRequests(mappedRequests);
     } catch (error) {
       console.error('Ошибка загрузки заявок', error);
@@ -138,6 +150,13 @@ export function AdminCategoryManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Защита от повторной отправки
+    if (submitting) {
+      return;
+    }
+    
+    setSubmitting(true);
     try {
       if (editingId) {
         await api.put(`/categories/${editingId}`, {
@@ -156,6 +175,8 @@ export function AdminCategoryManagement() {
     } catch (error: any) {
       console.error('Ошибка сохранения категории', error);
       toast.error(error.response?.data?.message || 'Не удалось сохранить категорию');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -229,6 +250,12 @@ export function AdminCategoryManagement() {
     e.preventDefault();
     if (!selectedRequest) return;
 
+    // Защита от повторной отправки
+    if (submittingFromRequest) {
+      return;
+    }
+
+    setSubmittingFromRequest(true);
     try {
       let parentCategoryId = createCategoryData.parentId || undefined;
 
@@ -276,6 +303,8 @@ export function AdminCategoryManagement() {
     } catch (error: any) {
       console.error('Ошибка создания категории из заявки', error);
       toast.error(error.response?.data?.message || 'Не удалось создать категорию');
+    } finally {
+      setSubmittingFromRequest(false);
     }
   };
 
@@ -610,9 +639,10 @@ export function AdminCategoryManagement() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    disabled={submitting}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {editingId ? 'Сохранить' : 'Создать'}
+                    {submitting ? 'Сохранение...' : editingId ? 'Сохранить' : 'Создать'}
                   </button>
                 </div>
               </form>
@@ -645,14 +675,14 @@ export function AdminCategoryManagement() {
                         <span
                           className={`px-2 py-1 text-xs rounded-full ${request.status === 'pending' || request.status === 'PENDING'
                             ? 'bg-yellow-100 text-yellow-800'
-                            : request.status === 'approved' || request.status === 'APPROVED'
+                            : request.status === 'approved' || request.status === 'APPROVED' || request.status === 'accepted' || request.status === 'ACCEPTED'
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
                             }`}
                         >
                           {request.status === 'pending' || request.status === 'PENDING'
                             ? 'Ожидает'
-                            : request.status === 'approved' || request.status === 'APPROVED'
+                            : request.status === 'approved' || request.status === 'APPROVED' || request.status === 'accepted' || request.status === 'ACCEPTED'
                               ? 'Одобрена'
                               : 'Отклонена'}
                         </span>
@@ -880,9 +910,10 @@ export function AdminCategoryManagement() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  disabled={submittingFromRequest}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Создать категорию
+                  {submittingFromRequest ? 'Создание...' : 'Создать категорию'}
                 </button>
               </div>
             </form>

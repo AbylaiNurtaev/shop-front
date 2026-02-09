@@ -10,9 +10,10 @@ interface ProductListProps {
   categories: Category[];
   onCreateProduct: () => void;
   isLoading?: boolean;
+  onMarkupUpdated?: () => void;
 }
 
-export function ProductList({ products, categories, onCreateProduct, isLoading = false }: ProductListProps) {
+export function ProductList({ products, categories, onCreateProduct, isLoading = false, onMarkupUpdated }: ProductListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -220,7 +221,7 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
     });
 
     try {
-      await Promise.all(savePromises);
+      const responses = await Promise.all(savePromises);
       toast.success('Цены сохранены');
       // Обновляем оригинальные значения
       setOriginalMarkups((prev) => {
@@ -233,8 +234,12 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
         });
         return updated;
       });
-      // Перезагружаем страницу для обновления данных
-      window.location.reload();
+      // Очищаем редактируемые значения
+      setEditingMarkups({});
+      // Вызываем callback для обновления данных в родительском компоненте
+      if (onMarkupUpdated) {
+        onMarkupUpdated();
+      }
     } catch (error: any) {
       console.error('Ошибка сохранения цен', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось сохранить цены';

@@ -25,11 +25,13 @@ export function PaymentModal({
   onMultiplePaymentSuccess,
 }: PaymentModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [periodMonths, setPeriodMonths] = useState<6 | 9 | 12>(6);
 
   // Сброс состояния при закрытии модалки
   useEffect(() => {
     if (!isOpen) {
       setIsProcessing(false);
+      setPeriodMonths(6); // Сброс периода при закрытии
     }
   }, [isOpen]);
 
@@ -39,10 +41,11 @@ export function PaymentModal({
   const isMultiplePayment = productsToPay.length > 1;
 
   // Подсчет суммы оплаты
-  // 1000 тенге за один товар, при множественной оплате умножаем на количество
+  // Цена зависит от периода: 1000 тенге за месяц
+  // 6 месяцев = 6000, 9 месяцев = 9000, 12 месяцев = 12000
   const calculateAmount = (): number => {
-    // 1000 тенге за один товар
-    const pricePerProduct = 1000;
+    const pricePerMonth = 1000;
+    const pricePerProduct = pricePerMonth * periodMonths;
     
     // При множественной оплате умножаем на количество товаров
     if (isMultiplePayment) {
@@ -59,6 +62,7 @@ export function PaymentModal({
         const productIds = productsToPay.map((p) => p.id);
         const response = await api.post('/products/pay/multiple', {
           productIds,
+          periodMonths,
         });
 
         const responseData = response.data;
@@ -86,7 +90,9 @@ export function PaymentModal({
           `Оплата успешно выполнена для ${productsToPay.length} товаров!`,
         );
       } else {
-        const response = await api.post(`/products/${product.id}/pay`);
+        const response = await api.post(`/products/${product.id}/pay`, {
+          periodMonths,
+        });
         const responseData = response.data;
 
         const updatedProduct: Product =
@@ -208,30 +214,47 @@ export function PaymentModal({
                         <span className="font-medium text-sm">{p.name}</span>
                         <span className="text-xs text-muted-foreground font-mono ml-2">({p.sku})</span>
                       </div>
-                      <span className="text-sm font-medium text-primary">1 000 ₸</span>
+                      <span className="text-sm font-medium text-primary">
+                        {(1000 * periodMonths).toLocaleString('ru-RU')} ₸
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-muted-foreground">Цена за товар:</span>
-                  <span className="text-sm font-medium">1 000 ₸</span>
+              <div className="space-y-4">
+                <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-base font-semibold">Период оплаты:</label>
+                    <select
+                      value={periodMonths}
+                      onChange={(e) => setPeriodMonths(Number(e.target.value) as 6 | 9 | 12)}
+                      className="px-4 py-2.5 bg-card border-2 border-primary/30 rounded-lg text-base font-medium focus:border-primary focus:ring-2 focus:ring-ring transition-all min-w-[140px]"
+                      disabled={isProcessing}
+                    >
+                      <option value={6}>6 месяцев</option>
+                      <option value={9}>9 месяцев</option>
+                      <option value={12}>12 месяцев</option>
+                    </select>
+                  </div>
+                  <div className="flex justify-between items-center mb-2 pt-2 border-t border-primary/20">
+                    <span className="text-sm text-muted-foreground">Цена за товар:</span>
+                    <span className="text-sm font-medium">{(1000 * periodMonths).toLocaleString('ru-RU')} ₸</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-muted-foreground">Количество товаров:</span>
+                    <span className="text-sm font-medium">{productsToPay.length} шт.</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-primary/20">
+                    <span className="text-sm font-semibold">Итого к оплате:</span>
+                    <span className="text-lg font-bold text-primary">
+                      {calculateAmount().toLocaleString('ru-RU')} ₸
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-muted-foreground">Количество товаров:</span>
-                  <span className="text-sm font-medium">{productsToPay.length} шт.</span>
+                <div className="flex justify-between items-center pt-2 border-t border-border">
+                  <span className="text-sm font-medium">Срок действия для всех товаров:</span>
+                  <span className="font-semibold text-primary">{periodMonths} месяцев</span>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-primary/20">
-                  <span className="text-sm font-semibold">Итого к оплате:</span>
-                  <span className="text-lg font-bold text-primary">
-                    {(productsToPay.length * 1000).toLocaleString('ru-RU')} ₸
-                  </span>
-                </div>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-border">
-                <span className="text-sm font-medium">Срок действия для всех товаров:</span>
-                <span className="font-semibold text-primary">30 дней</span>
               </div>
             </div>
           ) : (
@@ -244,15 +267,32 @@ export function PaymentModal({
                 <span className="text-sm text-muted-foreground">Артикул:</span>
                 <span className="font-mono text-sm">{product.sku}</span>
               </div>
-              <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold">Сумма к оплате:</span>
-                  <span className="text-lg font-bold text-primary">1 000 ₸</span>
+              <div className="space-y-4">
+                <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-base font-semibold">Период оплаты:</label>
+                    <select
+                      value={periodMonths}
+                      onChange={(e) => setPeriodMonths(Number(e.target.value) as 6 | 9 | 12)}
+                      className="px-4 py-2.5 bg-card border-2 border-primary/30 rounded-lg text-base font-medium focus:border-primary focus:ring-2 focus:ring-ring transition-all min-w-[140px]"
+                      disabled={isProcessing}
+                    >
+                      <option value={6}>6 месяцев</option>
+                      <option value={9}>9 месяцев</option>
+                      <option value={12}>12 месяцев</option>
+                    </select>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-primary/20">
+                    <span className="text-sm font-semibold">Сумма к оплате:</span>
+                    <span className="text-lg font-bold text-primary">
+                      {calculateAmount().toLocaleString('ru-RU')} ₸
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-border">
-                <span className="text-sm font-medium">Срок действия:</span>
-                <span className="font-semibold text-primary">30 дней</span>
+                <div className="flex justify-between items-center pt-2 border-t border-border">
+                  <span className="text-sm font-medium">Срок действия:</span>
+                  <span className="font-semibold text-primary">{periodMonths} месяцев</span>
+                </div>
               </div>
             </div>
           )}
@@ -260,24 +300,9 @@ export function PaymentModal({
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg p-4">
             <p className="text-sm text-blue-900 dark:text-blue-100">
               <strong>Внимание:</strong> Оплата будет выполнена через платежную систему TipTop.
-              Стоимость размещения одного товара составляет 1 000 ₸.
+              Стоимость размещения одного товара составляет 1 000 ₸ за месяц.
               После нажатия «Оплатить» откроется безопасная форма оплаты карты.
             </p>
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Сумма к оплате:</span>
-              <span className="text-lg font-semibold text-primary">
-                {calculateAmount().toLocaleString('ru-RU')} ₸
-              </span>
-            </div>
-            {isMultiplePayment && (
-              <p className="text-xs text-muted-foreground mt-2">
-                {productsToPay.length} товар(ов) × 1 000 ₸ ={' '}
-                {calculateAmount().toLocaleString('ru-RU')} ₸
-              </p>
-            )}
           </div>
 
           <div className="flex gap-3">

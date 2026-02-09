@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Inventory PRO - система управления инвентарем" />
   <meta name="theme-color" content="#ffffff" />
-  
+
   <title>Inventory PRO</title>
 
   <!-- Favicon для всех браузеров -->
@@ -37,6 +37,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Inventory PRO" />
 
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
   <!-- Microsoft Tiles -->
   <meta name="msapplication-TileColor" content="#ffffff" />
   <meta name="msapplication-TileImage" content="/logo.png" />
@@ -44,23 +51,19 @@
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json" />
-  
+
   <!-- Применение темы до загрузки React для предотвращения мерцания -->
   <script>
-    (function() {
-      const savedTheme = localStorage.getItem('theme');
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-      
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+    (function () {
+      // Всегда устанавливаем темную тему для лендинга
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
     })();
   </script>
-  <script type="module" crossorigin src="/assets/index-MM6-chWb.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-czdNRxvg.css">
+  <!-- TipTop Pay widget -->
+  <script src="https://widget.tiptoppay.kz/bundles/widget.js"></script>
+  <script type="module" crossorigin src="/assets/index-VQcZucqy.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BFJuxucn.css">
 </head>
 
 <body>
