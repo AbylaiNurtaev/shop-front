@@ -693,6 +693,24 @@ export function POS() {
 
   return (
     <div className="min-h-screen bg-muted/30 p-4">
+      {/* Один контейнер камеры в DOM — без дубликатов по id */}
+      {isScanning && (
+        <div className="bg-card border border-border rounded-lg shadow-sm p-4 mb-4 md:max-w-md md:mx-auto">
+          <div className="relative">
+            <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden" style={{ minHeight: '250px' }} />
+            <button
+              onClick={stopCamera}
+              className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+              title="Закрыть камеру"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          <p className="text-sm text-muted-foreground text-center mt-2">
+            Наведите камеру на штрих-код
+          </p>
+        </div>
+      )}
       {/* Mobile Layout */}
       <div className="md:hidden">
         {/* Header */}
@@ -757,24 +775,6 @@ export function POS() {
             )}
           </div>
 
-          {/* Camera Scanner */}
-          {isScanning && (
-            <div className="bg-card border border-border rounded-lg shadow-sm p-4 mb-4 mt-4">
-              <div className="relative">
-                <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden" style={{ minHeight: '250px' }} />
-                <button
-                  onClick={stopCamera}
-                  className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
-                  title="Закрыть камеру"
-                >
-                  <X className="w-5 h-5 text-white" />
-                </button>
-              </div>
-              <p className="text-sm text-muted-foreground text-center mt-2">
-                Наведите камеру на штрих-код
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Sale Items */}
@@ -936,24 +936,6 @@ export function POS() {
                 )}
               </div>
 
-              {/* Camera Scanner */}
-              {isScanning && (
-                <div className="mt-4 bg-card border border-border rounded-lg shadow-sm p-4">
-                  <div className="relative">
-                    <div id={qrCodeRegionId} className="w-full rounded-lg overflow-hidden max-w-md mx-auto" style={{ minHeight: '250px' }} />
-                    <button
-                      onClick={stopCamera}
-                      className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
-                      title="Закрыть камеру"
-                    >
-                      <X className="w-5 h-5 text-white" />
-                    </button>
-                  </div>
-                  <p className="text-sm text-muted-foreground text-center mt-2">
-                    Наведите камеру на штрих-код
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Sale Items */}
