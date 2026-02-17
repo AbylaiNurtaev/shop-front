@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, X } from 'lucide-react';
+import { Send, X, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import api from '../../api/axios';
@@ -31,7 +31,13 @@ export function WhatsAppChat() {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (
+    text: string,
+    extra?: {
+      type?: string;
+      location?: { latitude: number; longitude: number };
+    }
+  ) => {
     if (!text.trim() || sending) return;
 
     const trimmedText = text.trim();
@@ -56,6 +62,7 @@ export function WhatsAppChat() {
             chatId,
             body: trimmedText,
             is_me: false,
+            ...(extra || {}),
           },
         ],
       });
@@ -147,6 +154,41 @@ export function WhatsAppChat() {
 
   const handleSend = () => {
     sendMessage(input);
+  };
+
+  const handleSendLocation = () => {
+    if (sending) return;
+
+    if (!navigator.geolocation) {
+      toast.error('Геолокация не поддерживается в вашем браузере.');
+      return;
+    }
+
+    setSending(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const text = `Моя геолокация: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        try {
+          await sendMessage(text, {
+            type: 'location',
+            location: { latitude, longitude },
+          });
+        } finally {
+          setSending(false);
+        }
+      },
+      (error) => {
+        console.error('Ошибка получения геолокации', error);
+        if (error.code === error.PERMISSION_DENIED) {
+          toast.error('Доступ к геолокации отклонён. Разрешите доступ в настройках браузера.');
+        } else {
+          toast.error('Не удалось получить геолокацию. Попробуйте ещё раз.');
+        }
+        setSending(false);
+      }
+    );
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -276,6 +318,15 @@ export function WhatsAppChat() {
               className="flex-1 min-w-0 px-4 py-2 bg-white border border-gray-300 rounded-full text-sm text-black focus:outline-none focus:ring-2 focus:ring-[#075e54]"
               disabled={sending}
             />
+            <button
+              type="button"
+              onClick={handleSendLocation}
+              disabled={sending}
+              className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-[#25d366] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#1ebc59] transition-colors"
+              title="Отправить геолокацию"
+            >
+              <MapPin className="w-5 h-5" />
+            </button>
             <button
               type="button"
               onClick={handleSend}

@@ -90,10 +90,13 @@ type ApiStore = {
   id: string;
   name: string;
   address: string;
-  location: {
-    lat: number;
-    lng: number;
+  location?: string | {
+    lat?: number;
+    lng?: number;
+    link?: string;
   };
+  latitude?: number;
+  longitude?: number;
   description?: string;
   photos?: string[];
 };
@@ -139,6 +142,7 @@ type ApiOffer = {
   productId?: string;
   storeId?: string;
   price: number;
+  markup?: number;
   currency: string;
   isAvailable?: boolean;
   quantity?: number;
@@ -176,6 +180,7 @@ export default function App() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showProductForm, setShowProductForm] = useState(false);
   const [showBrandProductSelector, setShowBrandProductSelector] = useState(false);
+  const [productsWithoutCostPrice, setProductsWithoutCostPrice] = useState<number>(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -326,7 +331,7 @@ export default function App() {
       try {
         const userResponse = await api.get<ApiUser>(`/users/${storedUserId}`);
         if (!isActive) return;
-        
+
         // Загружаем настройки пользователя (включая валюту)
         let userCurrency = 'KZT';
         try {
@@ -335,14 +340,14 @@ export default function App() {
         } catch (error) {
           console.warn('Не удалось загрузить настройки пользователя, используем значение по умолчанию', error);
         }
-        
+
         const role = mapApiRoleToUserRole(
           userResponse.data.role ?? localStorage.getItem('userRole') ?? undefined
         );
-        
+
         // Загружаем ФИО в зависимости от роли
         const fullNameData = await loadUserFullName(role, userResponse.data.id, userResponse.data.storeId);
-        
+
         setUser({
           id: userResponse.data.id,
           email: userResponse.data.email,
@@ -409,7 +414,7 @@ export default function App() {
       }
 
       const role = mapApiRoleToUserRole(authedUser.role);
-      
+
       // Загружаем настройки пользователя (включая валюту)
       let userCurrency = 'KZT';
       try {
@@ -418,10 +423,10 @@ export default function App() {
       } catch (error) {
         console.warn('Не удалось загрузить настройки пользователя, используем значение по умолчанию', error);
       }
-      
+
       // Загружаем ФИО в зависимости от роли
       const fullNameData = await loadUserFullName(role, authedUser.id, authedUser.storeId);
-      
+
       setUser({
         id: authedUser.id,
         email: authedUser.email,
@@ -463,7 +468,7 @@ export default function App() {
       } else if (role === 'buyer') {
         navigate('/buyer', { replace: true });
       } else {
-        navigate('/store/products', { replace: true });
+        navigate('/store/inventory', { replace: true });
       }
     } catch (error) {
       console.error('Ошибка входа', error);
@@ -503,17 +508,17 @@ export default function App() {
       const firstName = (profile.firstName || '').trim();
       const lastName = (profile.lastName || '').trim();
       const middleName = (profile.middleName || '').trim();
-      
+
       if (!firstName) {
         toast.error('Имя обязательно для заполнения');
         return;
       }
-      
+
       if (!lastName) {
         toast.error('Фамилия обязательна для заполнения');
         return;
       }
-      
+
       let logoUrl: string | undefined;
       if (profile.logoFile) {
         logoUrl = await uploadPhoto(profile.logoFile);
@@ -531,9 +536,9 @@ export default function App() {
         store: {
           name: profile.storeName,
           address: `${profile.address}, ${profile.city}, ${profile.country}`,
-          location: {
-            link: profile.locationLink,
-          },
+          location: profile.locationLink,
+          latitude: profile.latitude,
+          longitude: profile.longitude,
           description: profile.description || undefined,
           photos: logoUrl ? [logoUrl] : undefined,
           phoneNumber: profile.phoneNumber || profile.phone || undefined,
@@ -571,7 +576,7 @@ export default function App() {
         await api.get<ApiStore>(`/stores/${createdUser.storeId}`);
       }
       localStorage.setItem('userRole', 'store');
-      navigate('/store/products', { replace: true });
+      navigate('/store/inventory', { replace: true });
     } catch (error) {
       console.error('Ошибка регистрации магазина', error);
       toast.error('Не удалось завершить регистрацию магазина.');
@@ -703,28 +708,31 @@ export default function App() {
     }
     try {
       let calculatedPrice: number | null = null;
-      
-      // Если указана наценка, вычисляем цену = себестоимость + наценка
-      if (markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0) {
-        try {
-          // Получаем актуальные данные товара с сервера, чтобы узнать себестоимость
-          const productResponse = await api.get<ApiProduct>(`/products/${brandProduct.id}`);
-          const costPrice = productResponse.data.costPrice;
-          
-          if (costPrice !== undefined && costPrice !== null) {
-            calculatedPrice = costPrice + markup;
-            console.log('Вычислена цена с наценкой:', { costPrice, markup, calculatedPrice });
-          } else {
-            console.warn('Себестоимость не найдена для товара', brandProduct.id);
-          }
-        } catch (error) {
-          console.error('Ошибка получения себестоимости товара', error);
+
+      const hasMarkup = markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0;
+
+      // Если указана наценка, вычисляем цену: цена = себестоимость + наценка
+      if (hasMarkup) {
+        const costPrice = brandProduct.costPrice;
+
+        if (costPrice !== undefined && costPrice !== null) {
+          // Есть себестоимость - вычисляем итоговую цену
+          calculatedPrice = costPrice + (markup as number);
+          console.log('Вычислена цена с наценкой:', { costPrice, markup, calculatedPrice });
+        } else {
+          // Себестоимости нет - не устанавливаем цену
+          console.warn('Себестоимость не найдена для товара, цена не будет установлена', {
+            productId: brandProduct.id,
+            productName: brandProduct.name,
+            markup,
+          });
+          calculatedPrice = null;
         }
       }
-      
+
       // Если цена не была вычислена, используем 0 (цена будет установлена позже через наценку)
       const finalPrice = calculatedPrice !== null ? calculatedPrice : 0;
-      
+
       const offerPayload = {
         productId: brandProduct.id,
         storeId,
@@ -732,49 +740,27 @@ export default function App() {
         currency,
         isAvailable,
         quantity,
+        ...(markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0
+          ? { markup: markup }
+          : {}),
       };
-      
+
       console.log('Создание Offer с данными:', offerPayload);
-      
+
       const offerResponse = await api.post<ApiOffer>('/offers', offerPayload);
       const createdOffer = offerResponse.data;
-      const offerDetails = await api.get<ApiOffer>(`/offers/${createdOffer.id}`);
-      const offerData = offerDetails.data;
-      const resolvedOffer: ApiOffer = offerData.product
-        ? offerData
-        : {
-          ...offerData,
-          product: {
-            id: brandProduct.id,
-            name: brandProduct.name,
-            categoryId: brandProduct.categoryId,
-            sku: brandProduct.sku,
-            images: brandProduct.images,
-            weight: brandProduct.weight,
-            volume: brandProduct.volume,
-            unitsPerPack: brandProduct.unitsPerBox,
-            brandName: brandProduct.brandName,
-            packageInfo: brandProduct.packageInfo,
-            storageLife: brandProduct.storageLife,
-            productionDate: brandProduct.productionDate,
-            allergens: brandProduct.allergens,
-            ageRestrictions: brandProduct.ageRestrictions,
-          },
-        };
-      setOffers((prev) => [...prev, resolvedOffer]);
-      setProducts((prev) =>
-        prev.some((item) => item.id === brandProduct.id) ? prev : [...prev, brandProduct]
-      );
-      
-      // Перезагружаем данные для обновления UI
-      window.location.reload();
-      
+
+      // Перезагружаем все данные, чтобы получить актуальную информацию о товаре с ценами и наценкой
+      await loadProductsAndOffers();
+
       if (markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0 && calculatedPrice !== null && calculatedPrice > 0) {
         toast.success('Товар добавлен и цена установлена');
+      } else if (hasMarkup && calculatedPrice === null) {
+        toast.warning('Товар добавлен, но цена не установлена - отсутствует себестоимость. Установите цену вручную.');
       } else {
         toast.success('Товар добавлен. Установите цену через наценку в списке товаров');
       }
-      
+
       setShowBrandProductSelector(false);
     } catch (error) {
       console.error('Ошибка создания оффера', error);
@@ -796,6 +782,7 @@ export default function App() {
             currency: productData.currency ?? editingProduct.currency,
             isAvailable: productData.isAvailable ?? editingProduct.isAvailable ?? true,
             quantity: productData.quantity ?? editingProduct.quantity,
+            markup: productData.markup ?? editingProduct.markup,
           });
           const updatedOffer = response.data;
           setOffers((prev) => prev.map((offer) => (
@@ -906,18 +893,15 @@ export default function App() {
         createdBy: user?.role === 'brand' ? 'brand' : 'store',
         images: productData.images,
       });
-      setProducts([...products, newProduct]);
-      
       // Если указана наценка, создаем Offer с ценой = себестоимость + наценка
       const markup = (productData as any).markup;
-      let offerCreated = false;
-      
+
       if (markup !== undefined && markup !== null && !isNaN(markup) && markup >= 0) {
         try {
           // Получаем актуальные данные товара с сервера, чтобы узнать себестоимость
           const productResponse = await api.get<ApiProduct>(`/products/${newProduct.id}`);
           const costPrice = productResponse.data.costPrice;
-          
+
           if (costPrice !== undefined && costPrice !== null) {
             // Получаем валюту из настроек
             let userCurrency = 'KZT';
@@ -927,10 +911,10 @@ export default function App() {
             } catch (error) {
               console.warn('Не удалось загрузить валюту, используем значение по умолчанию', error);
             }
-            
+
             // Вычисляем цену: цена = себестоимость + наценка
             const calculatedPrice = costPrice + markup;
-            
+
             // Получаем storeId
             const storeId = user.storeId || localStorage.getItem('storeId');
             if (storeId) {
@@ -941,54 +925,64 @@ export default function App() {
                   price: calculatedPrice,
                   currency: userCurrency,
                   quantity: productData.quantity ?? 0,
+                  markup: markup,
                 });
-                offerCreated = true;
+
+                // Перезагружаем все данные, чтобы получить актуальную информацию о товаре
+                await loadProductsAndOffers();
+
                 toast.success('Товар создан и цена установлена');
+                setShowProductForm(false);
+                setEditingProduct(null);
+                return;
               } catch (offerError: any) {
                 console.error('Ошибка создания Offer с наценкой', offerError);
                 const errorMessage = offerError.response?.data?.message || offerError.response?.data?.error || 'Неизвестная ошибка';
+
+                // Перезагружаем данные в любом случае
+                await loadProductsAndOffers();
+
                 toast.error(`Товар создан, но не удалось установить цену: ${errorMessage}. Попробуйте установить цену вручную.`);
-                // Не закрываем форму, чтобы пользователь мог повторить попытку
+                setShowProductForm(false);
+                setEditingProduct(null);
                 return;
               }
             } else {
+              await loadProductsAndOffers();
               toast.warning('Товар создан, но не удалось определить магазин для установки цены');
+              setShowProductForm(false);
+              setEditingProduct(null);
               return;
             }
           } else {
+            await loadProductsAndOffers();
             toast.success('Товар создан. Установите цену позже, когда будет известна себестоимость');
-            // Закрываем форму, так как продукт создан успешно
             setShowProductForm(false);
             setEditingProduct(null);
             return;
           }
         } catch (error: any) {
-          console.error('Ошибка создания Offer с наценкой', error);
-          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Неизвестная ошибка';
-          
-          // Если это ошибка авторизации, не закрываем форму и показываем предупреждение
+          console.error('Ошибка при работе с наценкой', error);
+          await loadProductsAndOffers();
+
           if (error.response?.status === 401) {
             toast.error('Ошибка авторизации. Пожалуйста, обновите страницу и попробуйте снова.');
-            // Не закрываем форму, чтобы пользователь мог повторить попытку после обновления
-            return;
+          } else {
+            const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Неизвестная ошибка';
+            toast.warning(`Товар создан, но возникла проблема: ${errorMessage}`);
           }
-          
-          // Для других ошибок закрываем форму, так как продукт уже создан
-          toast.warning(`Товар создан, но не удалось установить цену: ${errorMessage}. Установите её позже вручную.`);
+
           setShowProductForm(false);
           setEditingProduct(null);
           return;
         }
-      } else {
-        // Если наценка не указана, просто закрываем форму
-        toast.success('Товар создан');
       }
-      
-      // Закрываем форму только если все прошло успешно
-      if (offerCreated) {
-        setShowProductForm(false);
-        setEditingProduct(null);
-      }
+
+      // Если наценка не указана, перезагружаем данные и закрываем форму
+      await loadProductsAndOffers();
+      toast.success('Товар создан');
+      setShowProductForm(false);
+      setEditingProduct(null);
     } catch (error) {
       console.error('Ошибка создания товара', error);
       toast.error('Не удалось создать товар.');
@@ -1024,7 +1018,7 @@ export default function App() {
     setOffers((prev) => prev.map((offer) => (
       offer.id === product.offerId ? { ...offer, quantity: newQuantity } : offer
     )));
-    
+
     // Выполняем запрос в фоне без ожидания
     api.put<ApiOffer>(`/offers/${product.offerId}`, {
       quantity: newQuantity,
@@ -1081,6 +1075,20 @@ export default function App() {
         api.get<ApiListResponse<ApiOffer>>('/offers'),
         api.get<ApiListResponse<ApiStore>>('/stores'),
       ]);
+
+      // Для дистрибьютора загружаем количество товаров без себестоимости
+      if (user.role === 'distributor') {
+        try {
+          const distributorProductsResponse = await api.get<{ items?: Array<{ costPrice?: number | null; hasCostPrice?: boolean }> }>('/distributors/me/products');
+          const distributorProducts = distributorProductsResponse.data?.items || [];
+          const withoutCostPrice = distributorProducts.filter(
+            (product) => !product.hasCostPrice && (product.costPrice === undefined || product.costPrice === null)
+          ).length;
+          setProductsWithoutCostPrice(withoutCostPrice);
+        } catch (error) {
+          console.error('Ошибка загрузки количества товаров без себестоимости', error);
+        }
+      }
 
       console.log('GET /products response', productsResponse.data);
       console.log('GET /offers response', offersResponse.data);
@@ -1145,8 +1153,18 @@ export default function App() {
       await loadProductsAndOffers();
     };
     loadData();
+
+    // Обновляем количество товаров без себестоимости при событии обновления
+    const handleProductsUpdated = () => {
+      if (user?.role === 'distributor') {
+        loadProductsAndOffers();
+      }
+    };
+    window.addEventListener('productsUpdated', handleProductsUpdated);
+
     return () => {
       isActive = false;
+      window.removeEventListener('productsUpdated', handleProductsUpdated);
     };
   }, [user, loadProductsAndOffers]);
 
@@ -1198,6 +1216,8 @@ export default function App() {
           quantity: productOffer?.quantity ?? product.quantity ?? 0,
           // Убеждаемся, что offerId установлен
           offerId: productOffer?.id ?? product.offerId,
+          // Наценка из оффера
+          markup: productOffer?.markup ?? product.markup,
         };
       });
   }, [offers, products, storeId]);
@@ -1210,7 +1230,7 @@ export default function App() {
         user?.role === 'brand' ? '/brand/catalog' :
           user?.role === 'salesRep' ? '/salesrep/analytics' :
             user?.role === 'storeSeller' ? '/store/pos' :
-              '/store/products';
+              '/store/inventory';
   const currentView = useMemo(() => {
     if (!user) return 'products';
     const path = location.pathname;
@@ -1318,159 +1338,159 @@ export default function App() {
     }
     return (
       <>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route
-          path="/login"
-          element={
-            <Login
-              onLogin={handleLogin}
-              onNavigateToRegister={() => navigate('/register/role')}
-              showQuickLogins={false}
-            />
-          }
-        />
-        <Route
-          path="/login/demo"
-          element={
-            <Login
-              onLogin={handleLogin}
-              onNavigateToRegister={() => navigate('/register/role')}
-              showQuickLogins={true}
-            />
-          }
-        />
-        <Route
-          path="/register/role"
-          element={<RoleSelection onSelectRole={handleRoleSelection} onBack={() => navigate('/login')} />}
-        />
-        <Route
-          path="/register/store"
-          element={<StoreRegistration onComplete={handleStoreRegistration} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/store/demo"
-          element={<StoreRegistration isDemo={true} onComplete={handleStoreRegistration} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/brand"
-          element={<BrandRegistration onComplete={handleBrandRegistration} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/brand/demo"
-          element={<BrandRegistration isDemo={true} onComplete={handleBrandRegistration} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/distributor"
-          element={<DistributorRegistration onComplete={handleDistributorRegistration} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/distributor/demo"
-          element={<DistributorRegistration isDemo={true} onComplete={handleDistributorRegistration} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/salesrep"
-          element={<SalesRepRegistration onComplete={async () => {
-            toast.success('Регистрация успешна! Войдите в систему.');
-            navigate('/login', { replace: true });
-          }} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/salesrep/demo"
-          element={<SalesRepRegistration isDemo={true} onComplete={async () => {
-            toast.success('Регистрация успешна! Войдите в систему.');
-            navigate('/login', { replace: true });
-          }} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/store-seller"
-          element={<StoreSellerRegistration onComplete={async () => {
-            // После регистрации токены уже сохранены, нужно восстановить сессию
-            const storedUserId = localStorage.getItem('userId');
-            const accessToken = localStorage.getItem('accessToken');
-            if (storedUserId && accessToken) {
-              try {
-                const userResponse = await api.get<ApiUser>(`/users/${storedUserId}`);
-                const role = mapApiRoleToUserRole(userResponse.data.role ?? 'STORE_SELLER');
-                setUser({
-                  id: userResponse.data.id,
-                  email: userResponse.data.email,
-                  role,
-                  profileComplete: true,
-                  firstName: userResponse.data.firstName,
-                  lastName: userResponse.data.lastName,
-                  storeId: userResponse.data.storeId,
-                  isActive: userResponse.data.isActive,
-                });
-                setUserId(userResponse.data.id);
-                if (userResponse.data.storeId) {
-                  setStoreId(userResponse.data.storeId);
-                  localStorage.setItem('storeId', userResponse.data.storeId);
-                  await api.get<ApiStore>(`/stores/${userResponse.data.storeId}`);
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route
+            path="/login"
+            element={
+              <Login
+                onLogin={handleLogin}
+                onNavigateToRegister={() => navigate('/register/role')}
+                showQuickLogins={false}
+              />
+            }
+          />
+          <Route
+            path="/login/demo"
+            element={
+              <Login
+                onLogin={handleLogin}
+                onNavigateToRegister={() => navigate('/register/role')}
+                showQuickLogins={true}
+              />
+            }
+          />
+          <Route
+            path="/register/role"
+            element={<RoleSelection onSelectRole={handleRoleSelection} onBack={() => navigate('/login')} />}
+          />
+          <Route
+            path="/register/store"
+            element={<StoreRegistration onComplete={handleStoreRegistration} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/store/demo"
+            element={<StoreRegistration isDemo={true} onComplete={handleStoreRegistration} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/brand"
+            element={<BrandRegistration onComplete={handleBrandRegistration} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/brand/demo"
+            element={<BrandRegistration isDemo={true} onComplete={handleBrandRegistration} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/distributor"
+            element={<DistributorRegistration onComplete={handleDistributorRegistration} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/distributor/demo"
+            element={<DistributorRegistration isDemo={true} onComplete={handleDistributorRegistration} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/salesrep"
+            element={<SalesRepRegistration onComplete={async () => {
+              toast.success('Регистрация успешна! Войдите в систему.');
+              navigate('/login', { replace: true });
+            }} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/salesrep/demo"
+            element={<SalesRepRegistration isDemo={true} onComplete={async () => {
+              toast.success('Регистрация успешна! Войдите в систему.');
+              navigate('/login', { replace: true });
+            }} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/store-seller"
+            element={<StoreSellerRegistration onComplete={async () => {
+              // После регистрации токены уже сохранены, нужно восстановить сессию
+              const storedUserId = localStorage.getItem('userId');
+              const accessToken = localStorage.getItem('accessToken');
+              if (storedUserId && accessToken) {
+                try {
+                  const userResponse = await api.get<ApiUser>(`/users/${storedUserId}`);
+                  const role = mapApiRoleToUserRole(userResponse.data.role ?? 'STORE_SELLER');
+                  setUser({
+                    id: userResponse.data.id,
+                    email: userResponse.data.email,
+                    role,
+                    profileComplete: true,
+                    firstName: userResponse.data.firstName,
+                    lastName: userResponse.data.lastName,
+                    storeId: userResponse.data.storeId,
+                    isActive: userResponse.data.isActive,
+                  });
+                  setUserId(userResponse.data.id);
+                  if (userResponse.data.storeId) {
+                    setStoreId(userResponse.data.storeId);
+                    localStorage.setItem('storeId', userResponse.data.storeId);
+                    await api.get<ApiStore>(`/stores/${userResponse.data.storeId}`);
+                  }
+                  localStorage.setItem('userRole', role);
+                  navigate('/store/pos', { replace: true });
+                } catch (error) {
+                  console.error('Ошибка восстановления сессии', error);
+                  toast.success('Регистрация успешна! Войдите в систему.');
+                  navigate('/login', { replace: true });
                 }
-                localStorage.setItem('userRole', role);
-                navigate('/store/pos', { replace: true });
-              } catch (error) {
-                console.error('Ошибка восстановления сессии', error);
+              } else {
                 toast.success('Регистрация успешна! Войдите в систему.');
                 navigate('/login', { replace: true });
               }
-            } else {
-              toast.success('Регистрация успешна! Войдите в систему.');
-              navigate('/login', { replace: true });
-            }
-          }} onBack={() => navigate('/register/role')} />}
-        />
-        <Route
-          path="/register/store-seller/demo"
-          element={<StoreSellerRegistration isDemo={true} onComplete={async () => {
-            // После регистрации токены уже сохранены, нужно восстановить сессию
-            const storedUserId = localStorage.getItem('userId');
-            const accessToken = localStorage.getItem('accessToken');
-            if (storedUserId && accessToken) {
-              try {
-                const userResponse = await api.get<ApiUser>(`/users/${storedUserId}`);
-                const role = mapApiRoleToUserRole(userResponse.data.role ?? 'STORE_SELLER');
-                setUser({
-                  id: userResponse.data.id,
-                  email: userResponse.data.email,
-                  role,
-                  profileComplete: true,
-                  firstName: userResponse.data.firstName,
-                  lastName: userResponse.data.lastName,
-                  storeId: userResponse.data.storeId,
-                  isActive: userResponse.data.isActive,
-                });
-                setUserId(userResponse.data.id);
-                if (userResponse.data.storeId) {
-                  setStoreId(userResponse.data.storeId);
-                  localStorage.setItem('storeId', userResponse.data.storeId);
-                  await api.get<ApiStore>(`/stores/${userResponse.data.storeId}`);
+            }} onBack={() => navigate('/register/role')} />}
+          />
+          <Route
+            path="/register/store-seller/demo"
+            element={<StoreSellerRegistration isDemo={true} onComplete={async () => {
+              // После регистрации токены уже сохранены, нужно восстановить сессию
+              const storedUserId = localStorage.getItem('userId');
+              const accessToken = localStorage.getItem('accessToken');
+              if (storedUserId && accessToken) {
+                try {
+                  const userResponse = await api.get<ApiUser>(`/users/${storedUserId}`);
+                  const role = mapApiRoleToUserRole(userResponse.data.role ?? 'STORE_SELLER');
+                  setUser({
+                    id: userResponse.data.id,
+                    email: userResponse.data.email,
+                    role,
+                    profileComplete: true,
+                    firstName: userResponse.data.firstName,
+                    lastName: userResponse.data.lastName,
+                    storeId: userResponse.data.storeId,
+                    isActive: userResponse.data.isActive,
+                  });
+                  setUserId(userResponse.data.id);
+                  if (userResponse.data.storeId) {
+                    setStoreId(userResponse.data.storeId);
+                    localStorage.setItem('storeId', userResponse.data.storeId);
+                    await api.get<ApiStore>(`/stores/${userResponse.data.storeId}`);
+                  }
+                  localStorage.setItem('userRole', role);
+                  navigate('/store/pos', { replace: true });
+                } catch (error) {
+                  console.error('Ошибка восстановления сессии', error);
+                  toast.success('Регистрация успешна! Войдите в систему.');
+                  navigate('/login', { replace: true });
                 }
-                localStorage.setItem('userRole', role);
-                navigate('/store/pos', { replace: true });
-              } catch (error) {
-                console.error('Ошибка восстановления сессии', error);
+              } else {
                 toast.success('Регистрация успешна! Войдите в систему.');
                 navigate('/login', { replace: true });
               }
-            } else {
-              toast.success('Регистрация успешна! Войдите в систему.');
-              navigate('/login', { replace: true });
-            }
-          }} onBack={() => navigate('/register/role')} />}
-        />
-        <Route path="/buyer" element={<BuyerHome />} />
-        <Route path="/buyer/wp" element={<WhatsAppChat />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/terms-of-service" element={<TermsOfService />} />
-        <Route path="/refund-policy" element={<RefundPolicy />} />
-        <Route path="/payment-policy" element={<PaymentPolicy />} />
-        <Route path="/consent" element={<Consent />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </>
-  );
+            }} onBack={() => navigate('/register/role')} />}
+          />
+          <Route path="/buyer" element={<BuyerHome />} />
+          <Route path="/buyer/wp" element={<WhatsAppChat />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
+          <Route path="/refund-policy" element={<RefundPolicy />} />
+          <Route path="/payment-policy" element={<PaymentPolicy />} />
+          <Route path="/consent" element={<Consent />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </>
+    );
   }
 
   const uiRole = user.role === 'admin' ? 'admin' : user.role === 'distributor' ? 'distributor' : user.role === 'brand' ? 'brand' : user.role === 'salesRep' ? 'salesRep' : user.role === 'storeSeller' ? 'store' : 'store';
@@ -1486,6 +1506,7 @@ export default function App() {
             onNavigate={handleNavigate}
             onLogout={handleLogout}
             userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
+            productsWithoutCostPrice={user.role === 'distributor' ? productsWithoutCostPrice : 0}
           />
         </div>
       )}
@@ -1580,11 +1601,7 @@ export default function App() {
                       role={user.role === 'storeSeller' ? 'storeSeller' : 'store'}
                       onUserUpdated={(updatedUser) => setUser(updatedUser)}
                       onUserDeleted={handleLogout}
-                      onStoreDeleted={() => {
-                        setStoreId(null);
-                        localStorage.removeItem('storeId');
-                        navigate('/login', { replace: true });
-                      }}
+                      onStoreDeleted={handleLogout}
                     />
                   }
                 />
@@ -1592,7 +1609,7 @@ export default function App() {
                   path="/store/*"
                   element={
                     <Navigate
-                      to={user.role === 'storeSeller' ? '/store/pos' : '/store/products'}
+                      to={user.role === 'storeSeller' ? '/store/pos' : '/store/inventory'}
                       replace
                     />
                   }
@@ -1696,6 +1713,7 @@ export default function App() {
           userEmail={user.email}
           onLogout={handleLogout}
           userRole={user.role === 'storeSeller' ? 'storeSeller' : user.role === 'store' ? 'store' : undefined}
+          productsWithoutCostPrice={user.role === 'distributor' ? productsWithoutCostPrice : 0}
         />
       </div>
 

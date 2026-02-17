@@ -188,6 +188,7 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
               storeId: storeId,
               price: calculatedPrice,
               currency: userCurrency,
+              markup: editedMarkup,
             }).then((response) => {
               console.log(`Offer создан успешно:`, response.data);
             }).catch((error) => {
@@ -208,6 +209,7 @@ export function ProductList({ products, categories, onCreateProduct, isLoading =
             api.put(`/offers/${offerId}`, {
               price: calculatedPrice,
               currency: userCurrency,
+              markup: editedMarkup,
             }).then((response) => {
               console.log(`Offer обновлен успешно:`, response.data);
             }).catch((error) => {

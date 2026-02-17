@@ -1,5 +1,6 @@
 import { Package, BarChart3, FolderTree, Store, Menu, X, Settings, Users, Building2, TrendingUp, TrendingDown, MessageCircle, Brain, Network, History, FolderTree as FolderTreeIcon, Calendar, QrCode, ShoppingCart, AlertTriangle, LogOut, Search, FileText, DollarSign } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 interface SidebarProps {
   role: 'store' | 'brand' | 'admin' | 'distributor' | 'salesRep';
@@ -7,19 +8,38 @@ interface SidebarProps {
   onNavigate: (view: string) => void;
   onLogout: () => void;
   userRole?: 'store' | 'storeSeller';
+  productsWithoutCostPrice?: number;
 }
 
-export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: SidebarProps) {
+export function Sidebar({ role, currentView, onNavigate, onLogout, userRole, productsWithoutCostPrice = 0 }: SidebarProps) {
+  const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showPulse, setShowPulse] = useState(true);
+
+  // Проверяем, нужно ли подсветить раздел "Товары"
+  const shouldHighlightProducts = location.state &&
+    typeof location.state === 'object' &&
+    'highlightProductId' in location.state;
+
+  // Убираем анимацию pulse через 3 секунды
+  useEffect(() => {
+    if (shouldHighlightProducts) {
+      setShowPulse(true);
+      const timer = setTimeout(() => {
+        setShowPulse(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldHighlightProducts]);
 
   // Меню для владельца магазина (полный доступ)
   const storeOwnerMenuItems = [
     { id: 'inventory', label: 'Склад', icon: BarChart3 },
+    { id: 'products', label: 'Товары', icon: Package },
     { id: 'invoice-history', label: 'История накладных', icon: FileText },
     { id: 'activity-history', label: 'История действий', icon: History },
     { id: 'expenses', label: 'Расходы', icon: DollarSign },
-    { id: 'products', label: 'Товары', icon: Package },
   ];
 
   // Меню для продавца магазина (ограниченный доступ)
@@ -122,18 +142,25 @@ export function Sidebar({ role, currentView, onNavigate, onLogout, userRole }: S
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
+              const isHighlighted = item.id === 'products' && shouldHighlightProducts && !isActive;
+              const showBadge = item.id === 'products' && productsWithoutCostPrice > 0;
               return (
                 <li key={item.id}>
                   <button
                     onClick={() => onNavigate(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-md transition-colors min-h-[44px] ${isActive
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-md transition-all min-h-[44px] relative text-left ${isActive
                       ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      : isHighlighted
+                        ? `bg-primary/20 dark:bg-primary/30 text-primary border-l-4 border-l-primary shadow-sm ${showPulse ? 'animate-pulse' : ''}`
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                       }`}
                     title={isCollapsed ? item.label : undefined}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
-                    {!isCollapsed && <span>{item.label}</span>}
+                    {!isCollapsed && <span className="flex-1 text-left">{item.label}</span>}
+                    {showBadge && (
+                      <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0" />
+                    )}
                   </button>
                 </li>
               );

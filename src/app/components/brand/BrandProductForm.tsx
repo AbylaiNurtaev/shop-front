@@ -9,7 +9,7 @@ import { Slider } from '../ui/slider';
 const DEFAULT_STORAGE_LIFE_DAYS = 14;
 const DEFAULT_AGE_RESTRICTION = 0;
 const DEFAULT_PACKAGE_UNIT = 'шт';
-const PACKAGE_UNITS = ['шт', 'л', 'кг'];
+const PACKAGE_UNITS = ['шт', 'мл', 'л', 'кг'];
 
 const parseNumberFromText = (value?: string) => {
   if (!value) return null;

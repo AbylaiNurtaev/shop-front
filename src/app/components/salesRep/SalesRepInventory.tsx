@@ -93,8 +93,28 @@ export function SalesRepInventory() {
       const response = await api.get<{ items?: ApiCategory[] }>('/categories');
       const items = response.data?.items || response.data || [];
       const categoriesList = Array.isArray(items) ? items : [];
-      setCategories(categoriesList);
-      return categoriesList;
+      
+      // Создаем плоский список всех категорий (включая подкатегории)
+      const flatCategories: ApiCategory[] = [];
+      categoriesList.forEach((category) => {
+        // Добавляем основную категорию
+        flatCategories.push({
+          id: category.id,
+          name: category.name,
+        });
+        // Добавляем подкатегории, если они есть
+        if ((category as any).subCategories && Array.isArray((category as any).subCategories)) {
+          (category as any).subCategories.forEach((subCat: ApiCategory) => {
+            flatCategories.push({
+              id: subCat.id,
+              name: subCat.name,
+            });
+          });
+        }
+      });
+      
+      setCategories(flatCategories);
+      return flatCategories;
     } catch (error) {
       console.error('Ошибка загрузки категорий', error);
       return null;

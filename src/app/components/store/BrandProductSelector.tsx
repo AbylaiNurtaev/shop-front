@@ -27,8 +27,7 @@ export function BrandProductSelector({ brandProducts, categories, existingProduc
   const isProductExists = useMemo(() => {
     if (!selectedProduct) return false;
     return existingProducts.some(
-      (p) => p.sku.toLowerCase() === selectedProduct.sku.toLowerCase() ||
-        p.name.toLowerCase() === selectedProduct.name.toLowerCase()
+      (p) => p.id === selectedProduct.id || p.sku.toLowerCase() === selectedProduct.sku.toLowerCase()
     );
   }, [selectedProduct, existingProducts]);
 
@@ -56,10 +55,9 @@ export function BrandProductSelector({ brandProducts, categories, existingProduc
   // Фильтруем товары: исключаем те, которые уже есть в списке магазина
   const availableProducts = useMemo(() => {
     return brandProducts.filter((product) => {
-      // Проверяем, есть ли товар уже в списке магазина
+      // Проверяем, есть ли товар уже в списке магазина по уникальному идентификатору (ID или SKU)
       const existsInStore = existingProducts.some(
-        (p) => p.sku.toLowerCase() === product.sku.toLowerCase() ||
-          p.name.toLowerCase() === product.name.toLowerCase()
+        (p) => p.id === product.id || p.sku.toLowerCase() === product.sku.toLowerCase()
       );
       return !existsInStore;
     });
@@ -332,6 +330,7 @@ export function BrandProductSelector({ brandProducts, categories, existingProduc
                       type="number"
                       value={initialQuantity}
                       onChange={(e) => setInitialQuantity(Math.max(0, parseInt(e.target.value) || 0))}
+                      onFocus={(e) => e.target.select()}
                       placeholder="0"
                       min="0"
                       className="w-full h-14 px-4 bg-input-background border-2 border-border rounded-lg text-2xl font-bold text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
@@ -462,6 +461,7 @@ export function BrandProductSelector({ brandProducts, categories, existingProduc
                       type="number"
                       value={initialQuantity}
                       onChange={(e) => setInitialQuantity(Math.max(0, parseInt(e.target.value) || 0))}
+                      onFocus={(e) => e.target.select()}
                       placeholder="0"
                       min="0"
                       className="w-full h-14 px-4 bg-input-background border-2 border-border rounded-lg text-2xl font-bold text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"

@@ -5,7 +5,9 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
-  Filter
+  Filter,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import api from '../../api/axios';
 import { toast } from 'sonner';
@@ -13,6 +15,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+
+interface ApiSearchStatistics {
+  brand?: {
+    id: string;
+    name: string;
+  };
+  period?: {
+    startDate: string;
+    endDate: string;
+  };
+  summary: {
+    totalSearches: number;
+    foundSearches: number;
+    notFoundSearches: number;
+    clarificationNeeded?: number;
+    uniqueProductsFound?: number;
+    brandSearchCount?: number;
+  };
+  topProducts: Array<{
+    productId: string;
+    productName: string;
+    searchCount: number;
+    lastSearched: string;
+    topQueries: string[];
+  }>;
+}
 
 interface SearchStatistics {
   summary: {
@@ -24,19 +52,11 @@ interface SearchStatistics {
     productId: string;
     productName: string;
     searchCount: number;
-    foundCount: number;
-    notFoundCount: number;
+    lastSearched: string;
     popularQueries: Array<{
       query: string;
       count: number;
     }>;
-  }>;
-  recentSearches: Array<{
-    query: string;
-    productId?: string;
-    productName?: string;
-    found: boolean;
-    timestamp: string;
   }>;
 }
 
@@ -46,6 +66,7 @@ export function BrandSearchStatistics() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [limit, setLimit] = useState(20);
+  const [showFilters, setShowFilters] = useState(false);
 
   // Устанавливаем даты по умолчанию (последние 30 дней, конечная дата - завтра)
   useEffect(() => {
@@ -74,17 +95,42 @@ export function BrandSearchStatistics() {
         limit: limit.toString(),
       });
 
-      const response = await api.get<SearchStatistics>(`/brands/me/search-statistics?${params}`);
-      // Обеспечиваем, что все необходимые поля существуют
+      const response = await api.get<ApiSearchStatistics>(`/brands/me/search-statistics?${params}`);
       const data = response.data || {};
+      
+      // Преобразуем данные из формата API в формат компонента
+      const summary = data.summary || {
+        totalSearches: 0,
+        foundSearches: 0,
+        notFoundSearches: 0,
+      };
+
+      // Преобразуем topProducts: topQueries (массив строк) -> popularQueries (массив объектов)
+      const topProducts = (data.topProducts || []).map((product) => {
+        // Преобразуем массив строк topQueries в массив объектов с query и count
+        // Для простоты считаем, что каждый запрос встречается 1 раз
+        // Если нужна реальная статистика, API должно возвращать объекты
+        const popularQueries = (product.topQueries || []).map((query) => ({
+          query,
+          count: 1, // По умолчанию 1, так как API не возвращает count для каждого запроса
+        }));
+
+        return {
+          productId: product.productId,
+          productName: product.productName,
+          searchCount: product.searchCount,
+          lastSearched: product.lastSearched,
+          popularQueries,
+        };
+      });
+
       setStatistics({
-        summary: data.summary || {
-          totalSearches: 0,
-          found: 0,
-          notFound: 0,
+        summary: {
+          totalSearches: summary.totalSearches || 0,
+          found: summary.foundSearches || 0,
+          notFound: summary.notFoundSearches || 0,
         },
-        topProducts: data.topProducts || [],
-        recentSearches: data.recentSearches || [],
+        topProducts,
       });
     } catch (error: any) {
       console.error('Ошибка загрузки статистики поиска', error);
@@ -97,7 +143,6 @@ export function BrandSearchStatistics() {
           notFound: 0,
         },
         topProducts: [],
-        recentSearches: [],
       });
     } finally {
       setLoading(false);
@@ -119,9 +164,25 @@ export function BrandSearchStatistics() {
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
       {/* Mobile Header */}
-      <div className="md:hidden bg-card border-b border-border sticky top-0 z-10 shadow-sm">
+      <div className="md:hidden bg-card border-b border-border sticky top-0 z-20 shadow-sm">
         <div className="px-4 py-3">
-          <h1 className="text-lg font-semibold">Статистика поиска</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-semibold">Статистика поиска</h1>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2"
+            >
+              <Filter className="w-4 h-4" />
+              <span className="hidden sm:inline">Фильтры</span>
+              {showFilters ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -136,8 +197,8 @@ export function BrandSearchStatistics() {
       </div>
 
       {/* Filters */}
-      <div className="px-4 md:px-0 mb-4 md:mb-6">
-        <Card>
+      <div className={`px-4 md:px-0 mb-4 md:mb-6 transition-all duration-300 ${showFilters ? 'block' : 'hidden md:block'}`}>
+        <Card className="shadow-sm">
           <CardHeader className="pb-3 md:pb-6">
             <CardTitle className="flex items-center gap-2 text-base md:text-lg">
               <Filter className="w-4 h-4 md:w-5 md:h-5" />
@@ -147,7 +208,7 @@ export function BrandSearchStatistics() {
           <CardContent className="space-y-3 md:space-y-0">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
               <div>
-                <Label htmlFor="startDate" className="text-xs md:text-sm">Начальная дата</Label>
+                <Label htmlFor="startDate" className="text-xs md:text-sm font-medium">Начальная дата</Label>
                 <Input
                   id="startDate"
                   type="date"
@@ -157,7 +218,7 @@ export function BrandSearchStatistics() {
                 />
               </div>
               <div>
-                <Label htmlFor="endDate" className="text-xs md:text-sm">Конечная дата</Label>
+                <Label htmlFor="endDate" className="text-xs md:text-sm font-medium">Конечная дата</Label>
                 <Input
                   id="endDate"
                   type="date"
@@ -167,7 +228,7 @@ export function BrandSearchStatistics() {
                 />
               </div>
               <div>
-                <Label htmlFor="limit" className="text-xs md:text-sm">Лимит товаров</Label>
+                <Label htmlFor="limit" className="text-xs md:text-sm font-medium">Лимит товаров</Label>
                 <Input
                   id="limit"
                   type="number"
@@ -179,7 +240,10 @@ export function BrandSearchStatistics() {
                 />
               </div>
               <div className="flex items-end md:items-end">
-                <Button onClick={fetchStatistics} className="w-full h-10 md:h-9 text-sm font-medium">
+                <Button 
+                  onClick={fetchStatistics} 
+                  className="w-full h-10 md:h-9 text-sm font-medium"
+                >
                   <Search className="w-4 h-4 mr-2" />
                   Поиск
                 </Button>
@@ -200,49 +264,55 @@ export function BrandSearchStatistics() {
       ) : (
         <>
           {/* Summary Statistics */}
-          <div className="px-4 md:px-0 mb-4 md:mb-6">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
-              <Card className="shadow-sm">
+          <div className="px-4 md:px-0 mt-4 md:mt-0 mb-4 md:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4 md:px-6 md:pt-6">
                   <CardTitle className="text-xs md:text-sm font-medium">Всего поисков</CardTitle>
-                  <Search className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950">
+                    <Search className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
-                  <div className="text-xl md:text-2xl font-bold">{statistics.summary?.totalSearches ?? 0}</div>
-                  <p className="text-xs text-muted-foreground mt-1.5">
+                  <div className="text-2xl md:text-3xl font-bold">{statistics.summary?.totalSearches ?? 0}</div>
+                  <p className="text-xs text-muted-foreground mt-2">
                     За выбранный период
                   </p>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-sm">
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4 md:px-6 md:pt-6">
                   <CardTitle className="text-xs md:text-sm font-medium">Найдено</CardTitle>
-                  <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                  <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950">
+                    <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-600 dark:text-green-400" />
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
-                  <div className="text-xl md:text-2xl font-bold text-green-600">
+                  <div className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">
                     {statistics.summary?.found ?? 0}
                   </div>
                   {statistics.summary?.totalSearches && statistics.summary.totalSearches > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1.5">
+                    <p className="text-xs text-muted-foreground mt-2">
                       {Math.round((statistics.summary.found / statistics.summary.totalSearches) * 100)}% успешных поисков
                     </p>
                   )}
                 </CardContent>
               </Card>
 
-              <Card className="shadow-sm">
+              <Card className="shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4 md:px-6 md:pt-6">
                   <CardTitle className="text-xs md:text-sm font-medium">Не найдено</CardTitle>
-                  <XCircle className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
+                  <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950">
+                    <XCircle className="h-4 w-4 md:h-5 md:w-5 text-red-600 dark:text-red-400" />
+                  </div>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 md:px-6 md:pb-6">
-                  <div className="text-xl md:text-2xl font-bold text-red-600">
+                  <div className="text-2xl md:text-3xl font-bold text-red-600 dark:text-red-400">
                     {statistics.summary?.notFound ?? 0}
                   </div>
                   {statistics.summary?.totalSearches && statistics.summary.totalSearches > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1.5">
+                    <p className="text-xs text-muted-foreground mt-2">
                       {Math.round((statistics.summary.notFound / statistics.summary.totalSearches) * 100)}% неудачных поисков
                     </p>
                   )}
@@ -256,10 +326,12 @@ export function BrandSearchStatistics() {
             <Card className="mb-6 shadow-sm">
               <CardHeader className="px-4 pt-4 md:px-6 md:pt-6 pb-3 md:pb-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                  <TrendingUp className="w-4 h-4 md:w-5 md:h-5" />
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-primary" />
+                  </div>
                   Топ товаров по поискам
                 </CardTitle>
-                <CardDescription className="text-xs md:text-sm mt-1">
+                <CardDescription className="text-xs md:text-sm mt-1.5">
                   Товары, которые ищут чаще всего
                 </CardDescription>
               </CardHeader>
@@ -273,45 +345,55 @@ export function BrandSearchStatistics() {
                     {statistics.topProducts.map((product, index) => (
                       <div
                         key={product.productId}
-                        className="border border-border rounded-xl p-3 md:p-4 hover:bg-muted/50 transition-colors shadow-sm"
+                        className="border border-border rounded-xl p-4 md:p-5 hover:bg-muted/50 hover:shadow-md transition-all duration-200 shadow-sm bg-card"
                       >
-                        <div className="flex items-start gap-2.5 md:gap-3 mb-2.5 md:mb-3">
-                          <div className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs md:text-sm font-semibold text-primary">
+                        <div className="flex items-start gap-3 md:gap-4 mb-3">
+                          <div className={`flex-shrink-0 w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm md:text-base font-bold ${
+                            index === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white' :
+                            index === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400 text-white' :
+                            index === 2 ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white' :
+                            'bg-primary/10 text-primary'
+                          }`}>
                             {index + 1}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-sm md:text-base mb-2 leading-tight">{product.productName}</h3>
-                            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 md:gap-4 text-xs md:text-sm">
-                              <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <h3 className="font-semibold text-base md:text-lg mb-2.5 leading-tight text-foreground">
+                              {product.productName}
+                            </h3>
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5 md:gap-4 text-xs md:text-sm">
+                              <span className="flex items-center gap-1.5 text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-md">
                                 <Search className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
-                                <span className="font-medium">{product.searchCount}</span> поисков
+                                <span className="font-semibold text-foreground">{product.searchCount}</span>
+                                <span>поисков</span>
                               </span>
-                              <span className="flex items-center gap-1.5 text-green-600">
-                                <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
-                                <span className="font-medium">{product.foundCount}</span> найдено
-                              </span>
-                              <span className="flex items-center gap-1.5 text-red-600">
-                                <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
-                                <span className="font-medium">{product.notFoundCount}</span> не найдено
-                              </span>
+                              {product.lastSearched && (
+                                <span className="flex items-center gap-1.5 text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-md">
+                                  <span>
+                                    Последний: {new Date(product.lastSearched).toLocaleDateString('ru-RU', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric'
+                                    })}
+                                  </span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
 
                         {product.popularQueries && product.popularQueries.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-border">
-                            <p className="text-xs md:text-sm font-medium mb-2 text-muted-foreground">
+                          <div className="mt-4 pt-4 border-t border-border">
+                            <p className="text-xs md:text-sm font-semibold mb-2.5 text-foreground">
                               Популярные запросы:
                             </p>
-                            <div className="flex flex-wrap gap-1.5 md:gap-2">
+                            <div className="flex flex-wrap gap-2">
                               {product.popularQueries.map((query, qIndex) => (
                                 <span
                                   key={qIndex}
-                                  className="inline-flex items-center gap-1 px-2 md:px-2.5 py-1 bg-muted rounded-md text-xs"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-xs font-medium transition-colors border border-border/50"
                                 >
-                                  <Search className="w-3 h-3 flex-shrink-0" />
-                                  <span className="truncate max-w-[150px] md:max-w-none">{query.query}</span>
-                                  <span className="text-muted-foreground flex-shrink-0">({query.count})</span>
+                                  <Search className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
+                                  <span className="truncate max-w-[200px] md:max-w-none">{query.query}</span>
                                 </span>
                               ))}
                             </div>

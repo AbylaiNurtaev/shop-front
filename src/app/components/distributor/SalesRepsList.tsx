@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { PlanManagement } from './PlanManagement';
 import { CategoryPlansManagement } from './CategoryPlansManagement';
 import { ProductSalesModal } from '../salesRep/ProductSalesModal';
+import { useNavigate } from 'react-router-dom';
 
 interface SalesRep {
   id: string;
@@ -27,6 +28,7 @@ interface SalesRep {
   phone?: string;
   email?: string;
   assignedStores?: string[];
+  storesCount?: number;
 }
 
 interface Store {
@@ -49,6 +51,7 @@ interface Product {
 }
 
 export function SalesRepsList() {
+  const navigate = useNavigate();
   const [salesReps, setSalesReps] = useState<SalesRep[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -91,7 +94,26 @@ export function SalesRepsList() {
     try {
       const response = await api.get<{ items?: SalesRep[] }>('/distributors/me/sales-representatives');
       const items = response.data?.items || response.data || [];
-      setSalesReps(Array.isArray(items) ? items : []);
+      const salesRepsList = Array.isArray(items) ? items : [];
+      
+      // Загружаем количество магазинов для каждого ТП
+      const salesRepsWithCounts = await Promise.all(
+        salesRepsList.map(async (rep) => {
+          try {
+            const storesResponse = await api.get<{ items?: Store[] }>(
+              `/distributors/sales-representatives/${rep.id}/stores`
+            );
+            const stores = storesResponse.data?.items || storesResponse.data || [];
+            const storesCount = Array.isArray(stores) ? stores.length : 0;
+            return { ...rep, storesCount };
+          } catch (error) {
+            console.error(`Ошибка загрузки количества магазинов для ТП ${rep.id}`, error);
+            return { ...rep, storesCount: rep.assignedStores?.length || 0 };
+          }
+        })
+      );
+      
+      setSalesReps(salesRepsWithCounts);
     } catch (error: any) {
       console.error('Ошибка загрузки ТП', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось загрузить ТП';
@@ -319,12 +341,23 @@ export function SalesRepsList() {
       await api.post(`/distributors/sales-representatives/${selectedSalesRep.id}/products`, {
         productId: productId,
       });
-      toast.success('Товар успешно закреплен');
       // Обновляем оба списка для синхронизации
       await Promise.all([
         loadSalesRepProducts(selectedSalesRep.id),
         loadAvailableProducts(),
       ]);
+
+      // Показываем уведомление с кнопкой перехода
+      toast.success('Товар успешно закреплен', {
+        description: 'Вам нужно выставить себестоимость товара',
+        action: {
+          label: 'Перейти',
+          onClick: () => navigate('/distributor/products', { 
+            state: { highlightProductId: productId } 
+          }),
+        },
+        duration: 3000,
+      });
     } catch (error: any) {
       console.error('Ошибка закрепления товара', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось закрепить товар';
@@ -376,18 +409,38 @@ export function SalesRepsList() {
       const totalAdded = data.totalAdded || data.added?.length || 0;
       const totalSkipped = data.totalSkipped || data.alreadyAssigned?.length || 0;
       
-      if (totalSkipped > 0) {
-        toast.success(`Закреплено товаров: ${totalAdded}. Пропущено (уже закреплены): ${totalSkipped}`);
-      } else {
-        toast.success(`Успешно закреплено товаров: ${totalAdded}`);
-      }
-      
       setSelectedProductIds(new Set());
       // Обновляем оба списка для синхронизации
       await Promise.all([
         loadSalesRepProducts(selectedSalesRep.id),
         loadAvailableProducts(),
       ]);
+
+      // Показываем уведомление с кнопкой перехода
+      const firstAddedProductId = data.added?.[0]?.productId || productIds[0];
+      if (totalSkipped > 0) {
+        toast.success(`Закреплено товаров: ${totalAdded}. Пропущено: ${totalSkipped}`, {
+          description: 'Вам нужно выставить себестоимость товара',
+          action: {
+            label: 'Перейти',
+            onClick: () => navigate('/distributor/products', { 
+              state: { highlightProductId: firstAddedProductId } 
+            }),
+          },
+          duration: 3000,
+        });
+      } else {
+        toast.success(`Успешно закреплено товаров: ${totalAdded}`, {
+          description: 'Вам нужно выставить себестоимость товара',
+          action: {
+            label: 'Перейти',
+            onClick: () => navigate('/distributor/products', { 
+              state: { highlightProductId: firstAddedProductId } 
+            }),
+          },
+          duration: 3000,
+        });
+      }
     } catch (error: any) {
       console.error('Ошибка массового закрепления товаров', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось закрепить товары';
@@ -969,7 +1022,7 @@ export function SalesRepsList() {
               <div className="mt-3 pt-3 border-t border-border">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="w-4 h-4" />
-                  <span>Закреплено магазинов: {rep.assignedStores?.length || 0}</span>
+                  <span>Закреплено магазинов: {rep.storesCount ?? rep.assignedStores?.length ?? 0}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                   <span className="text-primary">Нажмите для управления магазинами</span>

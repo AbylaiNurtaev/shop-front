@@ -5,6 +5,7 @@ import { uploadPhoto } from '../../api/upload';
 import { User } from '../../types';
 import { toast } from 'sonner';
 import { ScrollToTopButton } from '../ui/scroll-to-top-button';
+import { LocationPickerMap } from '../store/LocationPickerMap';
 
 // Функция для форматирования номера телефона
 const formatPhoneNumber = (value: string): string => {
@@ -119,6 +120,8 @@ type ApiStore = {
     lat?: number;
     lng?: number;
   } | string;
+  latitude?: number;
+  longitude?: number;
   description?: string;
   photos?: string[];
 };
@@ -137,6 +140,29 @@ type ApiBrand = {
 type ApiCategory = {
   id: string;
   name: string;
+};
+
+const parse2GisCoordinates = (url: string): { lat: number; lng: number } | null => {
+  try {
+    const parsed = new URL(url);
+
+    // Ожидаемый формат: https://2gis.kz/<city>/geo/<id>/<lng>,<lat>
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (!last) return null;
+
+    const match = last.match(/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/);
+    if (!match) return null;
+
+    const lng = parseFloat(match[1]);
+    const lat = parseFloat(match[2]);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+
+    return { lat, lng };
+  } catch {
+    return null;
+  }
 };
 
 interface AccountSettingsProps {
@@ -186,6 +212,8 @@ export function AccountSettings({
     city: '',
     description: '',
     locationLink: '',
+    latitude: '',
+    longitude: '',
     photos: '',
     email: '',
   });
@@ -231,6 +259,8 @@ export function AccountSettings({
     city: '',
     description: '',
     locationLink: '',
+    latitude: '',
+    longitude: '',
     photos: '',
     email: '',
   });
@@ -247,6 +277,7 @@ export function AccountSettings({
     phoneNumber: '',
   });
   const [isSavingStoreSettings, setIsSavingStoreSettings] = useState(false);
+  const [storeLocationError, setStoreLocationError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let isActive = true;
@@ -473,16 +504,47 @@ export function AccountSettings({
             parsedAddress = cleanAddress.trim().replace(/^,\s*|,\s*$/g, '');
           }
 
+          const location = storeResponse.data.location;
+          let locationLink = '';
+          let latitude = '';
+          let longitude = '';
+
+          if (typeof location === 'string') {
+            locationLink = location;
+          } else if (location && typeof location === 'object') {
+            locationLink = location.link ?? '';
+            if (typeof location.lat === 'number') {
+              latitude = String(location.lat);
+            }
+            if (typeof location.lng === 'number') {
+              longitude = String(location.lng);
+            }
+          }
+
+          if (typeof storeResponse.data.latitude === 'number') {
+            latitude = String(storeResponse.data.latitude);
+          }
+          if (typeof storeResponse.data.longitude === 'number') {
+            longitude = String(storeResponse.data.longitude);
+          }
+
+          if (!latitude && !longitude && locationLink) {
+            const parsed = parse2GisCoordinates(locationLink);
+            if (parsed) {
+              latitude = String(parsed.lat);
+              longitude = String(parsed.lng);
+            }
+          }
+
           const initialStore = {
             name: storeResponse.data.name,
             address: parsedAddress,
             country: parsedCountry,
             city: parsedCity,
             description: storeResponse.data.description || '',
-            locationLink:
-              typeof storeResponse.data.location === 'string'
-                ? storeResponse.data.location
-                : storeResponse.data.location?.link ?? '',
+            locationLink,
+            latitude,
+            longitude,
             photos: storeResponse.data.photos?.join(', ') || '',
             email: userResponse.data.email,
           };
@@ -916,7 +978,9 @@ export function AccountSettings({
         address?: string;
         country?: string;
         city?: string;
-        location?: string | { link: string };
+        location?: string;
+        latitude?: number;
+        longitude?: number;
         description?: string;
         photos?: string[];
       } = {};
@@ -928,8 +992,20 @@ export function AccountSettings({
         updateData.address = storeForm.address;
       }
       if (storeForm.locationLink) {
-        // API принимает location как string или object с полем link
         updateData.location = storeForm.locationLink;
+
+        const lat = storeForm.latitude ? Number(storeForm.latitude) : undefined;
+        const lng = storeForm.longitude ? Number(storeForm.longitude) : undefined;
+
+        if (
+          lat !== undefined &&
+          lng !== undefined &&
+          !Number.isNaN(lat) &&
+          !Number.isNaN(lng)
+        ) {
+          updateData.latitude = lat;
+          updateData.longitude = lng;
+        }
       }
       if (storeForm.description) {
         updateData.description = storeForm.description;
@@ -977,16 +1053,47 @@ export function AccountSettings({
       // Получаем email пользователя для обновления
       const userResponse = await api.get<ApiUser>(`/users/${userId}`);
 
+      const location = storeResponse.data.location;
+      let locationLink = '';
+      let latitude = '';
+      let longitude = '';
+
+      if (typeof location === 'string') {
+        locationLink = location;
+      } else if (location && typeof location === 'object') {
+        locationLink = location.link ?? '';
+        if (typeof location.lat === 'number') {
+          latitude = String(location.lat);
+        }
+        if (typeof location.lng === 'number') {
+          longitude = String(location.lng);
+        }
+      }
+
+      if (typeof storeResponse.data.latitude === 'number') {
+        latitude = String(storeResponse.data.latitude);
+      }
+      if (typeof storeResponse.data.longitude === 'number') {
+        longitude = String(storeResponse.data.longitude);
+      }
+
+      if (!latitude && !longitude && locationLink) {
+        const parsed = parse2GisCoordinates(locationLink);
+        if (parsed) {
+          latitude = String(parsed.lat);
+          longitude = String(parsed.lng);
+        }
+      }
+
       const updatedStore = {
         name: storeResponse.data.name,
         address: parsedAddress,
         country: parsedCountry,
         city: parsedCity,
         description: storeResponse.data.description || '',
-        locationLink:
-          typeof storeResponse.data.location === 'string'
-            ? storeResponse.data.location
-            : storeResponse.data.location?.link ?? '',
+        locationLink,
+        latitude,
+        longitude,
         photos: storeResponse.data.photos?.join(', ') || '',
         email: userResponse.data.email,
       };
@@ -1058,6 +1165,8 @@ export function AccountSettings({
       storeForm.address !== initialStoreForm.address ||
       storeForm.description !== initialStoreForm.description ||
       storeForm.locationLink !== initialStoreForm.locationLink ||
+      storeForm.latitude !== initialStoreForm.latitude ||
+      storeForm.longitude !== initialStoreForm.longitude ||
       storeForm.photos !== initialStoreForm.photos
     );
   }, [storeForm, initialStoreForm, storeId]);
@@ -2006,12 +2115,56 @@ export function AccountSettings({
                 <input
                   type="url"
                   value={storeForm.locationLink}
-                  onChange={(e) => setStoreForm((prev) => ({ ...prev, locationLink: e.target.value }))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setStoreForm((prev) => {
+                      const next = { ...prev, locationLink: value };
+                      const parsed = parse2GisCoordinates(value);
+                      if (parsed) {
+                        next.latitude = String(parsed.lat);
+                        next.longitude = String(parsed.lng);
+                        setStoreLocationError(undefined);
+                      } else {
+                        next.latitude = '';
+                        next.longitude = '';
+                        setStoreLocationError('В ссылке не удалось найти координаты. Укажите точку на карте ниже.');
+                      }
+                      return next;
+                    });
+                  }}
                   className="w-full h-11 px-3 bg-input-background border border-border rounded-lg text-foreground"
                   placeholder="https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
-                  pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
-                  title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
+                  pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+(?:/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?)?"
+                  title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502 или https://2gis.kz/astana/geo/9570784901748102"
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Вставьте ссылку из 2ГИС. Если координаты не определились, укажите точку на карте ниже.
+                </p>
+                {storeLocationError && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {storeLocationError}
+                  </p>
+                )}
+                {storeForm.latitude && storeForm.longitude && !storeLocationError && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Текущая точка: {storeForm.longitude}, {storeForm.latitude}
+                  </p>
+                )}
+                <div className="mt-2">
+                  <LocationPickerMap
+                    latitude={storeForm.latitude}
+                    longitude={storeForm.longitude}
+                    initialCity={storeForm.city}
+                    onChange={(lat, lng) => {
+                      setStoreForm((prev) => ({
+                        ...prev,
+                        latitude: String(lat),
+                        longitude: String(lng),
+                      }));
+                      setStoreLocationError(undefined);
+                    }}
+                  />
+                </div>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 text-foreground">Описание</label>

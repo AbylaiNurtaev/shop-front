@@ -54,14 +54,13 @@ export function ProductForm({ product, categories, existingProducts = [], onSave
   const [isImagesUploading, setIsImagesUploading] = useState(false);
   const [markup, setMarkup] = useState<string>('');
 
-  // Проверяем, есть ли товар уже в списке
+  // Проверяем, есть ли товар уже в списке по уникальному идентификатору (SKU или ID)
   const isProductExists = React.useMemo(() => {
-    if (!formData.sku && !formData.name) return false;
+    if (!formData.sku) return false;
     return existingProducts.some(
-      (p) => p.sku.toLowerCase() === formData.sku?.toLowerCase() ||
-        p.name.toLowerCase() === formData.name?.toLowerCase()
+      (p) => (product && p.id === product.id) ? false : p.sku.toLowerCase() === formData.sku?.toLowerCase()
     );
-  }, [formData.sku, formData.name, existingProducts]);
+  }, [formData.sku, existingProducts, product]);
 
   // Показываем поле наценки только если товара нет в списке и это создание нового товара
   const showMarkupField = !product && !isProductExists;

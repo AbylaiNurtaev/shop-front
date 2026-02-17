@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Package, Loader2, Search, Save } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import api from '../../api/axios';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
@@ -51,6 +52,7 @@ type ApiCategory = {
 };
 
 export function DistributorProducts() {
+  const location = useLocation();
   const [products, setProducts] = useState<DistributorProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<DistributorProduct[]>([]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
@@ -61,6 +63,10 @@ export function DistributorProducts() {
   
   // Получаем валюту из настроек через API
   const [userCurrency, setUserCurrency] = useState<string>('KZT');
+  
+  // Состояние для подсветки товара
+  const [highlightProductId, setHighlightProductId] = useState<string | null>(null);
+  const productRefs = useRef<Record<string, HTMLDivElement | null>>({});
   
   useEffect(() => {
     const loadCurrency = async () => {
@@ -98,6 +104,30 @@ export function DistributorProducts() {
   useEffect(() => {
     filterProducts();
   }, [products, searchQuery]);
+
+  // Обработка подсветки товара при переходе со страницы закрепления
+  useEffect(() => {
+    const state = location.state as { highlightProductId?: string } | null;
+    if (state?.highlightProductId && products.length > 0) {
+      const productId = state.highlightProductId;
+      setHighlightProductId(productId);
+      
+      // Прокручиваем к товару после небольшой задержки (чтобы DOM обновился)
+      setTimeout(() => {
+        const productElement = productRefs.current[productId];
+        if (productElement) {
+          productElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Убираем подсветку через 5 секунд
+          setTimeout(() => {
+            setHighlightProductId(null);
+          }, 5000);
+        }
+      }, 300);
+      
+      // Очищаем state после использования
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, products]);
 
   const loadCategories = async () => {
     try {
@@ -262,7 +292,16 @@ export function DistributorProducts() {
     try {
       await Promise.all(savePromises);
       toast.success('Изменения сохранены');
+      
+      // Если сохранили себестоимость для подсвеченного товара, убираем подсветку
+      if (highlightProductId && Object.keys(editingValues).includes(highlightProductId)) {
+        setHighlightProductId(null);
+      }
+      
       await loadProducts();
+      
+      // Обновляем количество товаров без себестоимости через событие
+      window.dispatchEvent(new CustomEvent('productsUpdated'));
     } catch (error: any) {
       console.error('Ошибка сохранения изменений', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Не удалось сохранить изменения';
@@ -332,24 +371,52 @@ export function DistributorProducts() {
                     costPrice: product.costPrice?.toString() || '',
                   };
 
+                  const isHighlighted = highlightProductId === product.productId;
+                  
                   return (
-                    <tr key={product.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm lg:text-base font-medium break-words">{product.productName}</td>
+                    <tr 
+                      key={product.id} 
+                      ref={(el) => {
+                        if (product.productId) {
+                          productRefs.current[product.productId] = el;
+                        }
+                      }}
+                      className={`hover:bg-muted/30 transition-all ${
+                        isHighlighted 
+                          ? 'bg-primary/20 dark:bg-primary/30 border-l-4 border-l-primary shadow-md' 
+                          : ''
+                      }`}
+                    >
+                      <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm lg:text-base font-medium break-words">
+                        <div className="flex items-center gap-2">
+                          {!product.hasCostPrice && (
+                            <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0" title="Не указана себестоимость" />
+                          )}
+                          <span>{product.productName}</span>
+                        </div>
+                      </td>
                       <td className="px-4 md:px-4 py-3 md:py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">{product.sku || '—'}</td>
                       <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm text-muted-foreground break-words">{product.brandName || '—'}</td>
                       <td className="px-4 md:px-4 py-3 md:py-3 text-xs md:text-sm text-muted-foreground break-words">{product.categoryName || '—'}</td>
                       <td className="px-4 md:px-4 py-3 md:py-3">
                         <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            step="1"
-                            min="0"
-                            value={editingValue.costPrice}
-                            onChange={(e) => handlePriceChange(product.productId, e.target.value)}
-                            placeholder="0"
-                            className="w-full sm:w-28 md:w-32 px-2 md:px-3 py-1.5 md:py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-xs md:text-sm"
-                          />
-                          <span className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">{userCurrency}</span>
+                          <div className="flex-1 flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="1"
+                              min="0"
+                              value={editingValue.costPrice}
+                              onChange={(e) => handlePriceChange(product.productId, e.target.value)}
+                              placeholder="0"
+                              className={`w-full sm:w-28 md:w-32 px-2 md:px-3 py-1.5 md:py-2 bg-input-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-xs md:text-sm ${
+                                !product.hasCostPrice ? 'border-red-500/50 focus:border-red-500' : 'border-border'
+                              }`}
+                            />
+                            <span className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">{userCurrency}</span>
+                          </div>
+                          {!product.hasCostPrice && (
+                            <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0" title="Не указана себестоимость" />
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -384,6 +451,7 @@ export function DistributorProducts() {
           </Button>
         </div>
       )}
+
       <ScrollToTopButton />
     </div>
   );

@@ -3,6 +3,7 @@ import { ArrowLeft, Upload, Store, Loader2, Mail, CheckCircle2, Phone } from 'lu
 import { StoreProfile } from '../../types';
 import api from '../../api/axios';
 import { PhoneVerificationModal } from './PhoneVerificationModal';
+import { LocationPickerMap } from '../store/LocationPickerMap';
 
 interface StoreRegistrationProps {
   onComplete: (profile: StoreProfile) => void;
@@ -51,6 +52,23 @@ const KAZAKHSTAN_CITIES = [
   'Риддер',
   'Жаркент',
   'Аягоз',
+];
+
+// Список тестовых email и телефонов, для которых не требуется верификация
+const TEST_STORE_EMAILS = [
+  'test-store-1@example.com',
+  'test-store-2@example.com',
+  'test-store-3@example.com',
+  'test-store-4@example.com',
+  'test-store-5@example.com',
+];
+
+const TEST_STORE_PHONES = [
+  '+7 (700) 111-11-11',
+  '+7 (700) 222-22-22',
+  '+7 (700) 333-33-33',
+  '+7 (700) 444-44-44',
+  '+7 (700) 555-55-55',
 ];
 
 // Функция для форматирования номера телефона
@@ -137,6 +155,10 @@ export function StoreRegistration({ onComplete, onBack, isDemo = false }: StoreR
   const [isPhoneVerificationModalOpen, setIsPhoneVerificationModalOpen] = useState(false);
   const [phoneCodeCooldown, setPhoneCodeCooldown] = useState(0);
 
+  const [locationError, setLocationError] = useState<string | undefined>(undefined);
+  const [hasCoordinatesFromLink, setHasCoordinatesFromLink] = useState(false);
+  const [hasLocationFromMap, setHasLocationFromMap] = useState(false);
+
   const EMAIL_COOLDOWN_KEY = 'store_email_verification_last_sent';
   const PHONE_COOLDOWN_KEY = 'store_phone_verification_last_sent';
 
@@ -161,10 +183,94 @@ export function StoreRegistration({ onComplete, onBack, isDemo = false }: StoreR
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const parse2GisCoordinates = (url: string): { lat: number; lng: number } | null => {
+    try {
+      const parsed = new URL(url);
+
+      // Ожидаемый формат: https://2gis.kz/<city>/geo/<id>/<lng>,<lat>
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (!last) return null;
+
+      const match = last.match(/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/);
+      if (!match) return null;
+
+      const lng = parseFloat(match[1]);
+      const lat = parseFloat(match[2]);
+
+      if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+
+      return { lat, lng };
+    } catch {
+      return null;
+    }
+  };
+
   const handlePhoneChange = (e: any) => {
     const formatted = formatPhoneNumber(e.target.value);
     updateField('phone', formatted);
     updateField('phoneNumber', formatted);
+  };
+
+  const handleLocationLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData((prev) => {
+      const next = { ...prev, locationLink: value } as StoreProfile & {
+        latitude?: number;
+        longitude?: number;
+      };
+
+      const parsed = parse2GisCoordinates(value);
+      if (parsed) {
+        next.latitude = parsed.lat;
+        next.longitude = parsed.lng;
+        setHasCoordinatesFromLink(true);
+        setHasLocationFromMap(false);
+        setLocationError(undefined);
+      } else {
+        next.latitude = undefined;
+        next.longitude = undefined;
+        setHasCoordinatesFromLink(false);
+        setHasLocationFromMap(false);
+      }
+
+      return next;
+    });
+  };
+
+  const handleLocationPicked = (lat: number, lng: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+    }));
+    setHasCoordinatesFromLink(true);
+    setHasLocationFromMap(true);
+    setLocationError(undefined);
+  };
+
+  const handlePrefillTestStore = () => {
+    const testLocationLink = 'https://2gis.kz/almaty/geo/9570784901748102/76.889709,43.238949';
+    const parsed = parse2GisCoordinates(testLocationLink);
+
+    setFormData((prev) => ({
+      ...prev,
+      storeName: prev.storeName || 'Тестовый магазин',
+      firstName: prev.firstName || 'Иван',
+      lastName: prev.lastName || 'Иванов',
+      country: prev.country || 'Казахстан',
+      city: prev.city || 'Алматы',
+      address: prev.address || 'Улица Тестовая, 1',
+      email: TEST_STORE_EMAILS[0],
+      phone: TEST_STORE_PHONES[0],
+      phoneNumber: TEST_STORE_PHONES[0],
+      locationLink: testLocationLink,
+      latitude: parsed?.lat,
+      longitude: parsed?.lng,
+    }));
+    setHasCoordinatesFromLink(true);
+    setHasLocationFromMap(false);
+    setLocationError(undefined);
   };
 
   // Функция для нормализации номера телефона
@@ -483,13 +589,33 @@ export function StoreRegistration({ onComplete, onBack, isDemo = false }: StoreR
       return;
     }
 
-    if (!isDemo && !isEmailVerified) {
+    const isTestEmail = TEST_STORE_EMAILS.includes(formData.email);
+    const isTestPhone =
+      TEST_STORE_PHONES.includes(formData.phone) || TEST_STORE_PHONES.includes(formData.phoneNumber);
+
+    if (!isDemo && !isEmailVerified && !isTestEmail) {
       setEmailVerificationError('Пожалуйста, подтвердите ваш email');
       return;
     }
-    if (!isDemo && !isPhoneVerified) {
+    if (!isDemo && !isPhoneVerified && !isTestPhone) {
       setPhoneVerificationError('Пожалуйста, подтвердите ваш номер телефона');
       return;
+    }
+
+    if (!formData.locationLink) {
+      setLocationError('Пожалуйста, укажите ссылку на локацию в 2ГИС');
+      return;
+    }
+
+    if (formData.locationLink) {
+      const hasLatLng =
+        typeof (formData as any).latitude === 'number' && typeof (formData as any).longitude === 'number';
+      if (!hasLatLng) {
+        setLocationError(
+          'Не удалось автоматически определить координаты. Нажмите «Определить на карте» и выберите точку.'
+        );
+        return;
+      }
     }
 
     // Валидация корпоративной почты
@@ -841,13 +967,47 @@ export function StoreRegistration({ onComplete, onBack, isDemo = false }: StoreR
                 <input
                   type="url"
                   value={formData.locationLink}
-                  onChange={(e) => updateField('locationLink', e.target.value)}
+                  onChange={handleLocationLinkChange}
                   className="w-full px-3 py-2 bg-input-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
-                  pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?"
-                  title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502"
+                  pattern="https://2gis\\.kz/[a-z-]+/geo/\\d+(?:/-?\\d+(?:\\.\\d+)?,-?\\d+(?:\\.\\d+)?)?"
+                  title="Ссылка должна быть в формате https://2gis.kz/astana/geo/9570784901748102/71.411775,51.123502 или https://2gis.kz/astana/geo/9570784901748102"
                   required
                 />
+                {formData.locationLink && (
+                  <>
+                    {hasCoordinatesFromLink && !hasLocationFromMap && (
+                      <p className="mt-1 text-xs text-emerald-600">
+                        Нашли ваш магазин, спасибо!
+                      </p>
+                    )}
+                    {(!hasCoordinatesFromLink || hasLocationFromMap) && (
+                      <>
+                        <p
+                          className={`mt-1 text-xs ${hasCoordinatesFromLink && hasLocationFromMap
+                            ? 'text-emerald-600'
+                            : 'text-destructive'
+                            }`}
+                        >
+                          {hasCoordinatesFromLink && hasLocationFromMap
+                            ? 'Нашли ваш магазин, спасибо!'
+                            : 'Вам обязательно нужно указать точку на карте вашего магазина.'}
+                        </p>
+                        <div className="mt-2">
+                          <LocationPickerMap
+                            latitude={(formData as any).latitude}
+                            longitude={(formData as any).longitude}
+                            initialCity={formData.city}
+                            onChange={handleLocationPicked}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+                {locationError && (
+                  <p className="mt-1 text-xs text-destructive">{locationError}</p>
+                )}
               </div>
 
               <div className="md:col-span-2">

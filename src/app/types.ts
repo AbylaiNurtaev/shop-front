@@ -38,6 +38,8 @@ export interface StoreProfile {
   email: string;
   description?: string;
   locationLink: string;
+  latitude?: number;
+  longitude?: number;
   logoFile?: File | null;
   logoUrl?: string;
 }
@@ -119,4 +121,6 @@ export interface Product {
   // Цена магазина
   storePrice?: number;
   storeCurrency?: string;
+  // Наценка магазина
+  markup?: number;
 }

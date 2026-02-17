@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Navigation, MapPin, Search, Mic, Paperclip, Store, Package, Image as ImageIcon, X, Check } from 'lucide-react';
+import { Navigation, MapPin, Search, Mic, Paperclip, Store, Package, Image as ImageIcon, X, Check, ChevronLeft, ChevronRight, ShoppingBasket } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../../api/axios';
 import { ScrollToTopButton } from '../ui/scroll-to-top-button';
@@ -18,7 +18,7 @@ type StoreResult = {
   address: string;
   updatedAgo: string;
   deeplink: string;
-  items: Array<{ name: string; price?: string; availability?: string }>;
+  items: Array<{ name: string; price?: string; availability?: string; allocatedQuantity?: number }>;
 };
 
 type SelectedProduct = {
@@ -26,6 +26,66 @@ type SelectedProduct = {
   name: string;
   brandName?: string;
   packageInfo?: string;
+  images?: string[] | null;
+};
+
+type MatchedProduct = {
+  id: string;
+  name: string;
+  brandName?: string;
+  categoryName?: string;
+  packageInfo?: string | null;
+  images?: string[] | null;
+};
+
+type BatchFoundProduct = {
+  requestedName: string;
+  requestedQuantity?: number;
+  product: {
+    id: string;
+    name: string;
+    images?: string[] | null;
+    brandName?: string;
+    packageInfo?: string | null;
+  };
+  offers: Array<{
+    offerId: string;
+    price: number;
+    currency: string;
+    isAvailable?: boolean;
+    allocatedQuantity?: number;
+    store?: {
+      id: string;
+      name: string;
+      address: string;
+      location?: string;
+      distanceMeters?: number | null;
+      distanceFormatted?: string | null;
+    };
+  }>;
+  totalOffers: number;
+  nearestStore: {
+    name: string;
+    distance: string;
+    distanceMeters: number;
+  };
+  fulfillmentInfo?: {
+    requestedQuantity: number;
+    fulfilledQuantity: number;
+    remainingQuantity: number;
+    storesCount: number;
+    isFullyFulfilled: boolean;
+  };
+};
+
+type BatchNotFoundProduct = {
+  productName: string;
+  reason: string;
+};
+
+type BatchSearchResults = {
+  found: BatchFoundProduct[];
+  notFound: BatchNotFoundProduct[];
 };
 
 type Message = {
@@ -45,6 +105,19 @@ type Message = {
     type?: string;
     description?: string;
   };
+  fulfillmentInfo?: {
+    requestedQuantity: number;
+    fulfilledQuantity: number;
+    remainingQuantity: number;
+    storesCount: number;
+    isFullyFulfilled: boolean;
+  };
+  isVolumeSelection?: boolean;
+  volumeOptions?: string[];
+  needsQuantityInput?: boolean;
+  defaultQuantity?: number;
+  matchedProducts?: MatchedProduct[];
+  batchResults?: BatchSearchResults;
   candidates?: Array<{
     id: string;
     name: string;
@@ -58,6 +131,7 @@ type Message = {
       currency: string;
       isAvailable?: boolean;
       quantity?: number;
+      allocatedQuantity?: number;
       store?: {
         id: string;
         name: string;
@@ -125,6 +199,218 @@ declare var SpeechRecognition: {
   new(): SpeechRecognition;
 };
 
+type QuantityInputProps = {
+  messageId: string;
+  defaultQuantity?: number;
+  onQuantityChange: (quantity: number) => void;
+  disabled?: boolean;
+};
+
+function QuantityInput({ messageId, defaultQuantity = 1, onQuantityChange, disabled }: QuantityInputProps) {
+  const [quantity, setQuantity] = useState<number>(defaultQuantity);
+
+  useEffect(() => {
+    // Уведомляем родителя о начальном количестве
+    onQuantityChange(defaultQuantity);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleDecrease = () => {
+    if (quantity > 1) {
+      const newQuantity = quantity - 1;
+      setQuantity(newQuantity);
+      onQuantityChange(newQuantity);
+    }
+  };
+
+  const handleIncrease = () => {
+    if (quantity < 9999) {
+      const newQuantity = quantity + 1;
+      setQuantity(newQuantity);
+      onQuantityChange(newQuantity);
+    }
+  };
+
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '') {
+      setQuantity(1);
+      onQuantityChange(1);
+      return;
+    }
+    const numValue = parseInt(value, 10);
+    if (!isNaN(numValue) && numValue > 0 && numValue < 10000) {
+      setQuantity(numValue);
+      onQuantityChange(numValue);
+    }
+  };
+
+  return (
+    <div className="mt-4 p-4 bg-card/90 rounded-xl border border-border shadow-sm">
+      <div className="text-sm font-medium mb-4 text-foreground">Количество в штуках:</div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleDecrease}
+          disabled={disabled || quantity <= 1}
+          className="w-10 h-10 flex items-center justify-center rounded-lg border border-border hover:bg-accent hover:border-border/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-medium"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          min="1"
+          max="9999"
+          value={quantity}
+          onChange={handleQuantityChange}
+          disabled={disabled}
+          className="flex-1 px-3 py-2 bg-input-background border border-border rounded-lg text-sm text-center font-medium disabled:opacity-50"
+        />
+        <button
+          type="button"
+          onClick={handleIncrease}
+          disabled={disabled || quantity >= 9999}
+          className="w-10 h-10 flex items-center justify-center rounded-lg border border-border hover:bg-accent hover:border-border/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-lg font-medium"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type VolumeSelectionProps = {
+  messageId: string;
+  volumeOptions: string[];
+  getQuantity: () => number;
+  onSelect: (volume: string, quantity: number) => void;
+  disabled?: boolean;
+  showFindButton?: boolean;
+};
+
+function VolumeSelection({ messageId, volumeOptions, getQuantity, onSelect, disabled, showFindButton = false }: VolumeSelectionProps) {
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+
+  const handlePrevious = () => {
+    if (disabled) return;
+    const newIndex = currentIndex > 0 ? currentIndex - 1 : volumeOptions.length - 1;
+    setCurrentIndex(newIndex);
+  };
+
+  const handleNext = () => {
+    if (disabled) return;
+    const newIndex = currentIndex < volumeOptions.length - 1 ? currentIndex + 1 : 0;
+    setCurrentIndex(newIndex);
+  };
+
+  const handleFind = () => {
+    if (disabled) return;
+    const volume = volumeOptions[currentIndex];
+    const quantity = getQuantity();
+    onSelect(volume, quantity);
+  };
+
+  // Обработка навигации стрелками клавиатуры
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (disabled) return;
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrevious();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNext();
+      } else if (e.key === 'Enter' && showFindButton && currentIndex >= 0 && currentIndex < volumeOptions.length) {
+        e.preventDefault();
+        handleFind();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, volumeOptions, disabled, showFindButton]);
+
+  if (volumeOptions.length === 0) {
+    return null;
+  }
+
+  const currentVolume = volumeOptions[currentIndex];
+
+  return (
+    <div className="mt-4 p-4 bg-card/90 rounded-xl border border-border shadow-sm">
+      <div className="text-sm font-medium mb-4 text-foreground">Какой объем вам нужен?</div>
+      <div className="flex items-center gap-3">
+        {/* Стрелка влево */}
+        <button
+          type="button"
+          onClick={handlePrevious}
+          disabled={disabled}
+          className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl border border-border hover:bg-accent hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+          aria-label="Предыдущий вариант"
+        >
+          <ChevronLeft className="w-6 h-6 text-foreground group-hover:text-primary transition-colors" />
+        </button>
+
+        {/* Центральная кнопка с текущим вариантом (некликабельная, если есть showFindButton) */}
+        {showFindButton ? (
+          <div className="flex-1 px-6 py-4 rounded-xl border border-border bg-background/50 text-base font-semibold text-center">
+            {currentVolume}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleFind}
+            disabled={disabled}
+            className="flex-1 px-6 py-4 rounded-xl border border-border hover:bg-accent hover:border-primary/50 hover:shadow-sm text-base font-semibold transition-all disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+          >
+            {currentVolume}
+          </button>
+        )}
+
+        {/* Стрелка вправо */}
+        <button
+          type="button"
+          onClick={handleNext}
+          disabled={disabled}
+          className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl border border-border hover:bg-accent hover:border-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+          aria-label="Следующий вариант"
+        >
+          <ChevronRight className="w-6 h-6 text-foreground group-hover:text-primary transition-colors" />
+        </button>
+      </div>
+      
+      {/* Индикатор текущей позиции */}
+      {volumeOptions.length > 1 && (
+        <div className="flex justify-center gap-1.5 mt-3">
+          {volumeOptions.map((_, index) => (
+            <div
+              key={index}
+              className={`h-1.5 rounded-full transition-all ${
+                index === currentIndex
+                  ? 'w-6 bg-primary'
+                  : 'w-1.5 bg-muted-foreground/30'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Кнопка "Найти" */}
+      {showFindButton && (
+        <button
+          type="button"
+          onClick={handleFind}
+          disabled={disabled}
+          className="w-full mt-4 px-6 py-3 bg-primary text-primary-foreground rounded-xl text-base font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+        >
+          Найти
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function BuyerHome() {
   const navigate = useNavigate();
   const [geoState, setGeoState] = useState<GeoState>({ status: 'idle' });
@@ -141,6 +427,12 @@ export function BuyerHome() {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  // Состояние для хранения количества для каждого сообщения
+  const [messageQuantities, setMessageQuantities] = useState<Record<string, number>>({});
+  // Состояние для массового поиска
+  const [showBatchSearch, setShowBatchSearch] = useState(false);
+  const [batchProductIds, setBatchProductIds] = useState<string>('');
+  const [batchSearching, setBatchSearching] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -304,6 +596,32 @@ export function BuyerHome() {
     return `${(value / 1000).toFixed(1)} км`;
   };
 
+  // Функция для извлечения количества из текста
+  const extractQuantity = (text: string): number | null => {
+    // Паттерны для поиска количества в тексте
+    const patterns = [
+      /(\d+)\s*шт/i,           // "20 шт", "20шт"
+      /(\d+)\s*штук/i,         // "20 штук"
+      /нужно\s+(\d+)/i,        // "нужно 20"
+      /надо\s+(\d+)/i,         // "надо 15"
+      /хочу\s+(\d+)/i,         // "хочу 10"
+      /купить\s+(\d+)/i,       // "купить 5"
+      /возьму\s+(\d+)/i,       // "возьму 30"
+      /(\d+)\s*(?:единиц|штучек|упаковок)/i, // "20 единиц", "20 упаковок"
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const quantity = parseInt(match[1], 10);
+        if (quantity > 0 && quantity < 10000) { // Разумное ограничение
+          return quantity;
+        }
+      }
+    }
+    return null;
+  };
+
   const formatUpdated = (value?: string) => {
     if (!value) return '—';
     const date = new Date(value);
@@ -338,6 +656,7 @@ export function BuyerHome() {
             name: product.name ?? 'Товар',
             price: offer.price != null ? `${offer.price} ${offer.currency ?? '₸'}`.trim() : undefined,
             availability: offer.isAvailable ? 'в наличии' : 'нет',
+            allocatedQuantity: offer.allocatedQuantity,
           };
           if (existing) {
             existing.items.push(item);
@@ -379,6 +698,7 @@ export function BuyerHome() {
             name: productName,
             price: offer.price != null ? `${offer.price} ${offer.currency ?? '₸'}`.trim() : undefined,
             availability: offer.isAvailable !== false ? 'в наличии' : 'нет',
+            allocatedQuantity: offer.allocatedQuantity,
           };
 
           if (existing) {
@@ -431,6 +751,9 @@ export function BuyerHome() {
         ? { lat: geoState.lat, lng: geoState.lng }
         : geoFromLink ?? undefined;
 
+    // Извлекаем количество из текста, если указано
+    const requestedQuantity = extractQuantity(text);
+
     const payload: any = {
       text,
       attachments: [],
@@ -439,6 +762,11 @@ export function BuyerHome() {
     if (geoValue) {
       payload.geo = geoValue;
       payload.radiusMeters = Math.round(radiusKm * 1000);
+    }
+
+    // Добавляем requestedQuantity если найдено в тексте
+    if (requestedQuantity !== null) {
+      payload.requestedQuantity = requestedQuantity;
     }
 
     setSending(true);
@@ -475,6 +803,12 @@ export function BuyerHome() {
         // и это не новый поиск с вопросами
         selectedProduct: (isSearchCompleted && !hasQuestions) ? responseData?.selectedProduct : undefined,
         candidates: responseData?.candidates,
+        fulfillmentInfo: responseData?.fulfillmentInfo,
+        isVolumeSelection: responseData?.isVolumeSelection === true,
+        volumeOptions: responseData?.volumeOptions || (responseData?.isVolumeSelection ? ['250 мл', '330 мл'] : undefined),
+        needsQuantityInput: responseData?.needsQuantityInput === true,
+        defaultQuantity: responseData?.defaultQuantity ?? 1,
+        matchedProducts: responseData?.matchedProducts || undefined,
       };
 
       // Если есть requestId, запрашиваем полные результаты поиска
@@ -505,6 +839,7 @@ export function BuyerHome() {
               name: productInfo.name,
               brandName: productInfo.brandName,
               packageInfo: productInfo.packageInfo,
+              images: productInfo.images || null,
             };
           } else if (responseData?.selectedProduct && results.length === 0 && isSearchCompleted) {
             // Если товар найден, но магазинов нет, показываем информацию о товаре
@@ -838,14 +1173,95 @@ export function BuyerHome() {
     fileInputRef.current?.click();
   };
 
+  const handleBatchSearch = async () => {
+    const initData = await ensureSessionAndConversation();
+    if (!initData) return;
+
+    // Парсим список названий товаров из текста
+    const productNames = batchProductIds
+      .split(/[,\n]+/)
+      .map(name => name.trim())
+      .filter(name => name.length > 0);
+
+    if (productNames.length === 0) {
+      toast.error('Введите хотя бы одно название товара');
+      return;
+    }
+
+    const geoFromLink = locationLink ? parse2GisLink(locationLink) : null;
+    const geoValue =
+      geoState.status === 'granted'
+        ? { lat: geoState.lat, lng: geoState.lng }
+        : geoFromLink ?? undefined;
+
+    if (!geoValue) {
+      toast.error('Необходимо указать геолокацию для массового поиска');
+      return;
+    }
+
+    setBatchSearching(true);
+    try {
+      const response = await api.post(
+        `/customers/conversations/${initData.conversationId}/messages/batch`,
+        {
+          productNames,
+          geo: geoValue,
+          radiusMeters: Math.round(radiusKm * 1000),
+        }
+      );
+
+      const batchResults: BatchSearchResults = response.data;
+
+      // Добавляем сообщение пользователя
+      const userMessage: Message = {
+        id: `user-batch-${Date.now()}`,
+        role: 'user',
+        text: `Поиск: ${productNames.join(', ')}`,
+      };
+      setMessages((prev) => [...prev, userMessage]);
+
+      // Добавляем сообщение с результатами
+      const foundCount = batchResults.found?.length || 0;
+      const notFoundCount = batchResults.notFound?.length || 0;
+      
+      let resultText = '';
+      if (foundCount > 0 && notFoundCount > 0) {
+        resultText = `Найдено: ${foundCount} товар(ов)\nНе найдено: ${notFoundCount} товар(ов)`;
+      } else if (foundCount > 0) {
+        resultText = `Найдено: ${foundCount} товар(ов)`;
+      } else if (notFoundCount > 0) {
+        resultText = `Не найдено: ${notFoundCount} товар(ов)`;
+      } else {
+        resultText = 'Товары не найдены';
+      }
+
+      const assistantMessage: Message = {
+        id: `assistant-batch-${Date.now()}`,
+        role: 'assistant',
+        text: resultText,
+        batchResults,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      setShowBatchSearch(false);
+      setBatchProductIds('');
+      toast.success('Поиск завершен');
+    } catch (error: any) {
+      console.error('Ошибка массового поиска', error);
+      toast.error(error?.response?.data?.message || 'Не удалось выполнить массовый поиск');
+    } finally {
+      setBatchSearching(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-muted/30 flex items-center justify-center p-0 sm:p-4">
-      <div className="w-full h-full sm:h-[90vh] sm:max-h-[800px] sm:max-w-xl sm:rounded-lg bg-card sm:border sm:border-border shadow-sm flex flex-col">
+    <div className="fixed inset-0 bg-background flex items-center justify-center p-0 sm:p-4">
+      <div className="w-full h-full sm:h-[90vh] sm:max-h-[800px] sm:max-w-xl sm:rounded-xl bg-card sm:border sm:border-border shadow-lg flex flex-col overflow-hidden">
         {/* Закрепленная верхняя часть */}
-        <div className="flex-shrink-0 bg-card border-b border-border p-3 sm:p-4 space-y-3 sm:space-y-4">
+        <div className="flex-shrink-0 bg-card/95 backdrop-blur-sm border-b border-border p-3 sm:p-4 space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 bg-primary/15 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Search className="w-5 h-5 text-primary" />
               </div>
               <div className="min-w-0">
@@ -923,18 +1339,18 @@ export function BuyerHome() {
         </div>
 
         {/* Прокручиваемая область чата */}
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-3 p-3 sm:p-4 pr-1">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3 p-3 sm:p-4 bg-background/50">
           {messages.map((message) => (
             <div
               key={message.id}
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${message.role === 'user'
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm shadow-sm ${message.role === 'user'
                   ? 'bg-primary text-primary-foreground'
                   : message.role === 'system'
-                    ? 'bg-muted text-muted-foreground'
-                    : 'bg-accent/60 text-foreground'
+                    ? 'bg-muted/80 text-muted-foreground'
+                    : 'bg-card border border-border/50 text-foreground'
                   }`}
               >
                 {message.imageUrl && (
@@ -948,8 +1364,66 @@ export function BuyerHome() {
                 )}
                 {message.text && <div className="whitespace-pre-wrap">{message.text}</div>}
 
+                {/* Отображаем matchedProducts как карточки с изображениями, только если нет флагов выбора объема/количества */}
+                {message.matchedProducts && message.matchedProducts.length > 0 && !message.isVolumeSelection && !message.needsQuantityInput && (
+                  <div className="mt-4 space-y-2">
+                    {message.matchedProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => {
+                          // Отправляем сообщение с названием товара
+                          const userMessage: Message = {
+                            id: `user-product-${Date.now()}`,
+                            role: 'user',
+                            text: product.name,
+                          };
+                          setMessages((prev) => [...prev, userMessage]);
+                          sendMessage(product.name);
+                        }}
+                        disabled={sending}
+                        className="w-full text-left border border-border rounded-xl p-3 bg-card/80 hover:bg-card hover:border-primary/30 transition-all hover:shadow-md group"
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Изображение товара */}
+                          {product.images && product.images.length > 0 && product.images[0] && (
+                            <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden border border-border bg-background/50 group-hover:border-primary/50 transition-colors">
+                              <img
+                                src={product.images[0]}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Скрываем изображение при ошибке загрузки
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          )}
+                          {/* Информация о товаре */}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm mb-1 group-hover:text-primary transition-colors">
+                              {product.name}
+                            </div>
+                            {product.brandName && (
+                              <div className="text-xs text-muted-foreground mb-1">
+                                {product.brandName}
+                              </div>
+                            )}
+                            {product.packageInfo && (
+                              <div className="text-xs text-muted-foreground">
+                                {product.packageInfo}
+                              </div>
+                            )}
+                          </div>
+                          <Navigation className="w-4 h-4 text-muted-foreground group-hover:text-primary flex-shrink-0 transition-colors" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {message.candidates && message.candidates.length > 0 && (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-4 space-y-2">
                     {message.candidates
                       .filter((candidate) => {
                         // Фильтруем кандидатов: показываем только те, у которых есть доступные предложения
@@ -1009,6 +1483,7 @@ export function BuyerHome() {
                                   name: candidate.name,
                                   price: nearestOffer.price != null ? `${nearestOffer.price} ${nearestOffer.currency ?? '₸'}`.trim() : undefined,
                                   availability: 'в наличии',
+                                  allocatedQuantity: nearestOffer.allocatedQuantity,
                                 }],
                               };
 
@@ -1027,7 +1502,7 @@ export function BuyerHome() {
 
                               setMessages((prev) => [...prev, storeMessage]);
                             }}
-                            className="w-full text-left border border-border rounded-lg p-3 bg-background/50 hover:bg-background/70 transition-colors"
+                            className="w-full text-left border border-border rounded-xl p-3 bg-card/80 hover:bg-card transition-all hover:shadow-sm"
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
@@ -1047,38 +1522,117 @@ export function BuyerHome() {
                 )}
 
                 {message.selectedProduct && (
-                  <div className="mt-3 p-2 bg-background/80 rounded-lg border border-border">
-                    <div className="flex items-center gap-2 text-xs font-semibold">
+                  <div className="mt-4 p-3 bg-card/90 rounded-xl border border-border shadow-sm">
+                    <div className="flex items-center gap-2 text-xs font-semibold mb-3">
                       <Package className="w-4 h-4 text-primary" />
                       Найден товар:
                     </div>
-                    <div className="mt-1 text-xs">
-                      <div className="font-medium">{message.selectedProduct.name}</div>
-                      {message.selectedProduct.brandName && (
-                        <div className="text-muted-foreground">Бренд: {message.selectedProduct.brandName}</div>
+                    <div className="flex gap-3">
+                      {/* Изображение товара */}
+                      {message.selectedProduct.images && message.selectedProduct.images.length > 0 && message.selectedProduct.images[0] && (
+                        <div className="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-border bg-background/50">
+                          <img
+                            src={message.selectedProduct.images[0]}
+                            alt={message.selectedProduct.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Скрываем изображение при ошибке загрузки
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
                       )}
-                      {message.selectedProduct.packageInfo && (
-                        <div className="text-muted-foreground">Упаковка: {message.selectedProduct.packageInfo}</div>
+                      {/* Информация о товаре */}
+                      <div className="flex-1 min-w-0 text-xs">
+                        <div className="font-medium text-sm mb-1">{message.selectedProduct.name}</div>
+                        {message.selectedProduct.brandName && (
+                          <div className="text-muted-foreground mb-0.5">Бренд: {message.selectedProduct.brandName}</div>
+                        )}
+                        {message.selectedProduct.packageInfo && (
+                          <div className="text-muted-foreground">Упаковка: {message.selectedProduct.packageInfo}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {message.fulfillmentInfo && (
+                  <div className="mt-3 p-3 bg-primary/10 rounded-xl border border-primary/30 shadow-sm">
+                    <div className="text-xs space-y-1">
+                      <div className="font-semibold text-primary">
+                        {message.fulfillmentInfo.isFullyFulfilled 
+                          ? '✓ Заказ полностью укомплектован' 
+                          : '⚠ Частичная доступность'}
+                      </div>
+                      <div className="text-muted-foreground">
+                        Запрошено: <span className="font-medium text-foreground">{message.fulfillmentInfo.requestedQuantity} шт</span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        Доступно: <span className="font-medium text-foreground">{message.fulfillmentInfo.fulfilledQuantity} шт</span> из {message.fulfillmentInfo.storesCount} магазин(ов)
+                      </div>
+                      {message.fulfillmentInfo.remainingQuantity > 0 && (
+                        <div className="text-orange-600 dark:text-orange-400 font-medium">
+                          Не хватает: {message.fulfillmentInfo.remainingQuantity} шт
+                        </div>
                       )}
                     </div>
                   </div>
                 )}
 
                 {message.remainingProducts !== undefined && message.remainingProducts > 1 && (
-                  <div className="mt-2 text-xs text-muted-foreground">
+                  <div className="mt-3 text-xs text-muted-foreground">
                     Осталось вариантов: {message.remainingProducts}
                   </div>
                 )}
 
-                {message.quickReplies && message.quickReplies.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                {/* Показываем количество сверху, если нужно */}
+                {message.needsQuantityInput && (
+                  <QuantityInput
+                    messageId={message.id}
+                    defaultQuantity={message.defaultQuantity || 1}
+                    onQuantityChange={(quantity: number) => {
+                      // Сохраняем количество для этого сообщения
+                      setMessageQuantities((prev) => ({
+                        ...prev,
+                        [message.id]: quantity,
+                      }));
+                    }}
+                    disabled={sending}
+                  />
+                )}
+
+                {/* Показываем выбор объема снизу, если нужно */}
+                {message.isVolumeSelection && message.volumeOptions && (
+                  <VolumeSelection
+                    messageId={message.id}
+                    volumeOptions={message.volumeOptions}
+                    getQuantity={() => messageQuantities[message.id] || message.defaultQuantity || 1}
+                    onSelect={(volume: string, quantity: number) => {
+                      // При выборе объема отправляем количество и объем
+                      const messageText = `${quantity} шт ${volume}`;
+                      const userMessage: Message = {
+                        id: `user-volume-${Date.now()}`,
+                        role: 'user',
+                        text: messageText,
+                      };
+                      setMessages((prev) => [...prev, userMessage]);
+                      sendMessage(messageText);
+                    }}
+                    disabled={sending}
+                    showFindButton={message.needsQuantityInput === true}
+                  />
+                )}
+
+                {/* Показываем маленькие кнопки только если нет флагов выбора объема/количества и нет matchedProducts */}
+                {message.quickReplies && message.quickReplies.length > 0 && !message.isVolumeSelection && !message.needsQuantityInput && !message.matchedProducts && (
+                  <div className="mt-4 flex flex-wrap gap-2">
                     {message.quickReplies.map((reply) => (
                       <button
                         key={reply}
                         type="button"
                         onClick={() => handleQuickReply(reply)}
                         disabled={sending}
-                        className="px-3 py-1.5 rounded-full bg-background border border-border text-xs hover:bg-muted disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-full bg-card border border-border text-xs hover:bg-accent hover:border-border/80 transition-all disabled:opacity-50"
                       >
                         {reply}
                       </button>
@@ -1086,42 +1640,295 @@ export function BuyerHome() {
                   </div>
                 )}
 
-                {message.results && message.results.length > 0 && (
-                  <div className="mt-3">
-                    {message.results
-                      .filter((store) => {
-                        // Фильтруем магазины: показываем только те, у которых есть товары в наличии
-                        return store.items && store.items.some(item => item.availability === 'в наличии');
-                      })
-                      .map((store, idx) => (
-                        <div key={`${store.storeName}-${idx}`} className="border border-border rounded-lg p-4 bg-background/80">
-                          <div className="space-y-3">
-                            <div>
-                              <h4 className="text-sm font-semibold mb-1">{store.storeName}</h4>
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-                                <MapPin className="w-3.5 h-3.5" />
-                                <span>{store.address}</span>
+                {/* Отображение результатов массового поиска */}
+                {message.batchResults && (
+                  <div className="mt-4 space-y-4 sm:space-y-5">
+                    {/* Найденные товары */}
+                    {message.batchResults.found && message.batchResults.found.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                            <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 dark:text-green-400" />
+                          </div>
+                          <h3 className="text-sm sm:text-base font-semibold text-green-600 dark:text-green-400">
+                            Найдено: {message.batchResults.found.length} товар(ов)
+                          </h3>
+                        </div>
+                        <div className="space-y-4 sm:space-y-5">
+                          {(() => {
+                            // Собираем все offers из всех товаров и группируем по магазинам
+                            type StoreGroup = {
+                              store: {
+                                id: string;
+                                name: string;
+                                address: string;
+                                location?: string;
+                                distanceMeters?: number | null;
+                                distanceFormatted?: string | null;
+                              };
+                              products: Array<{
+                                item: BatchFoundProduct;
+                                offer: typeof item.offers[0];
+                                allocatedQuantity: number;
+                              }>;
+                            };
+
+                            const storeGroupsMap = new Map<string, StoreGroup>();
+
+                            message.batchResults.found.forEach((item) => {
+                              const offersWithQuantity = (item.offers || [])
+                                .filter(offer => offer.allocatedQuantity && offer.allocatedQuantity > 0 && offer.store);
+
+                              offersWithQuantity.forEach((offer) => {
+                                const storeId = offer.store?.id || offer.store?.name || 'unknown';
+                                const existing = storeGroupsMap.get(storeId);
+
+                                if (existing) {
+                                  existing.products.push({
+                                    item,
+                                    offer,
+                                    allocatedQuantity: offer.allocatedQuantity || 0,
+                                  });
+                                } else {
+                                  storeGroupsMap.set(storeId, {
+                                    store: offer.store!,
+                                    products: [{
+                                      item,
+                                      offer,
+                                      allocatedQuantity: offer.allocatedQuantity || 0,
+                                    }],
+                                  });
+                                }
+                              });
+                            });
+
+                            // Сортируем магазины по расстоянию
+                            const storeGroups = Array.from(storeGroupsMap.values()).sort((a, b) => {
+                              const distA = a.store.distanceMeters ?? Infinity;
+                              const distB = b.store.distanceMeters ?? Infinity;
+                              return distA - distB;
+                            });
+
+                            return storeGroups.map((storeGroup, storeIdx) => {
+                              const locationLink = typeof storeGroup.store.location === 'string'
+                                ? storeGroup.store.location
+                                : null;
+
+                              return (
+                                <div key={storeGroup.store.id || storeIdx} className="border border-border rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-card/90 shadow-sm">
+                                  {/* Заголовок магазина */}
+                                  <div className="mb-3 sm:mb-4 pb-3 border-b border-border">
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 text-sm sm:text-base font-semibold mb-1">
+                                          <Store className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
+                                          <span className="text-foreground">{storeGroup.store.name}</span>
+                                        </div>
+                                        {storeGroup.store.distanceFormatted && (
+                                          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-1">
+                                            <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                            <span>{storeGroup.store.distanceFormatted}</span>
+                                          </div>
+                                        )}
+                                        {storeGroup.store.address && (
+                                          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                                            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                            <span className="line-clamp-2">{storeGroup.store.address}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {locationLink && (
+                                        <a
+                                          href={locationLink}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="flex-shrink-0 px-3 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg border border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all text-primary font-medium whitespace-nowrap"
+                                        >
+                                          <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1.5" />
+                                          <span className="hidden sm:inline">2ГИС</span>
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Товары в этом магазине */}
+                                  <div className="space-y-3">
+                                    {storeGroup.products.map((productData, productIdx) => {
+                                      const { item, allocatedQuantity } = productData;
+                                      // Проверяем, есть ли еще товары этого же типа в других магазинах
+                                      const totalAllocated = (item.offers || [])
+                                        .filter(o => o.allocatedQuantity && o.allocatedQuantity > 0)
+                                        .reduce((sum, o) => sum + (o.allocatedQuantity || 0), 0);
+
+                                      return (
+                                        <div key={`${item.product.id}-${productIdx}`} className="border border-border rounded-lg p-2 sm:p-3 bg-background/50">
+                                          <div className="flex gap-2 sm:gap-3">
+                                            {/* Изображение товара */}
+                                            {item.product.images && item.product.images.length > 0 && item.product.images[0] && (
+                                              <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-border bg-background/50">
+                                                <img
+                                                  src={item.product.images[0]}
+                                                  alt={item.product.name}
+                                                  className="w-full h-full object-cover"
+                                                  onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none';
+                                                  }}
+                                                />
+                                              </div>
+                                            )}
+                                            {/* Информация о товаре */}
+                                            <div className="flex-1 min-w-0">
+                                              <div className="mb-1">
+                                                <div className="text-xs text-muted-foreground mb-0.5">
+                                                  Запрошено: <span className="font-medium">{item.requestedName}</span>
+                                                  {item.requestedQuantity && (
+                                                    <span className="ml-1">({item.requestedQuantity} шт)</span>
+                                                  )}
+                                                </div>
+                                                <div className="font-semibold text-xs sm:text-sm text-foreground">{item.product.name}</div>
+                                              </div>
+                                              {item.product.brandName && (
+                                                <div className="text-xs text-muted-foreground mb-1">{item.product.brandName}</div>
+                                              )}
+                                              {item.product.packageInfo && (
+                                                <div className="text-xs text-muted-foreground mb-1">{item.product.packageInfo}</div>
+                                              )}
+                                              
+                                              {/* Информация о количестве в этом магазине */}
+                                              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                                                <div className="px-2 py-1 bg-primary/10 text-primary rounded-lg text-xs sm:text-sm font-semibold">
+                                                  В этом магазине: {allocatedQuantity} шт
+                                                </div>
+                                                {item.fulfillmentInfo && (
+                                                  <div className={`text-xs font-medium ${
+                                                    item.fulfillmentInfo.isFullyFulfilled
+                                                      ? 'text-green-600 dark:text-green-400'
+                                                      : 'text-orange-600 dark:text-orange-400'
+                                                  }`}>
+                                                    {item.fulfillmentInfo.isFullyFulfilled ? '✓ Полностью' : `⚠ Частично (${item.fulfillmentInfo.fulfilledQuantity}/${item.fulfillmentInfo.requestedQuantity})`}
+                                                  </div>
+                                                )}
+                                              </div>
+                                              
+                                              {/* Общая информация о выполнении заказа */}
+                                              {item.fulfillmentInfo && item.fulfillmentInfo.storesCount > 1 && (
+                                                <div className="mt-2 text-xs text-muted-foreground">
+                                                  Всего найдено: {item.fulfillmentInfo.fulfilledQuantity} шт из {item.fulfillmentInfo.storesCount} магазин(ов)
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ненайденные товары */}
+                    {message.batchResults.notFound && message.batchResults.notFound.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                            <X className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 dark:text-red-400" />
+                          </div>
+                          <h3 className="text-sm sm:text-base font-semibold text-red-600 dark:text-red-400">
+                            Не найдено: {message.batchResults.notFound.length} товар(ов)
+                          </h3>
+                        </div>
+                        <div className="space-y-2 sm:space-y-3">
+                          {message.batchResults.notFound.map((item, idx) => (
+                            <div key={`${item.productName}-${idx}`} className="border border-red-200 dark:border-red-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-red-50/50 dark:bg-red-950/20 shadow-sm">
+                              <div className="flex items-start gap-2 sm:gap-3">
+                                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  <X className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-600 dark:text-red-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-sm sm:text-base text-red-700 dark:text-red-300 mb-1">
+                                    {item.productName}
+                                  </div>
+                                  <div className="text-xs sm:text-sm text-red-600 dark:text-red-400">
+                                    {item.reason}
+                                  </div>
+                                </div>
                               </div>
-                              {store.distance && store.distance !== '—' && (
-                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                  <Navigation className="w-3.5 h-3.5" />
-                                  <span>{store.distance}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {message.results && message.results.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <h3 className="text-sm font-semibold mb-3 text-foreground">Магазины:</h3>
+                    <div className="space-y-3">
+                      {message.results
+                        .filter((store) => {
+                          // Фильтруем магазины: показываем только те, у которых есть товары в наличии
+                          return store.items && store.items.some(item => item.availability === 'в наличии');
+                        })
+                        .map((store, idx) => (
+                          <div key={`${store.storeName}-${idx}`} className="border border-border rounded-xl p-4 bg-card/90 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="space-y-3">
+                              <div>
+                                <h4 className="text-sm font-semibold mb-1">{store.storeName}</h4>
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  <span>{store.address}</span>
+                                </div>
+                                {store.distance && store.distance !== '—' && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Navigation className="w-3.5 h-3.5" />
+                                    <span>{store.distance}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Список товаров в магазине */}
+                              {store.items && store.items.length > 0 && (
+                                <div className="space-y-2">
+                                  {store.items.map((item, itemIdx) => (
+                                    <div key={itemIdx} className="p-2 bg-background/50 rounded-lg">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-xs font-medium">{item.name}</div>
+                                          {item.allocatedQuantity && (
+                                            <div className="text-xs text-primary font-semibold mt-1">
+                                              В наличии: {item.allocatedQuantity} шт
+                                            </div>
+                                          )}
+                                        </div>
+                                        {item.price && (
+                                          <div className="text-xs font-semibold text-foreground whitespace-nowrap">
+                                            {item.price}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               )}
-                            </div>
 
-                            <a
-                              href={store.deeplink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center justify-center gap-2 w-full text-xs px-3 py-2 rounded-md border border-primary/30 hover:bg-primary/10 transition-colors text-primary font-medium"
-                            >
-                              <MapPin className="w-3.5 h-3.5" />
-                              Открыть в 2ГИС
-                            </a>
+                              <a
+                                href={store.deeplink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center justify-center gap-2 w-full text-xs px-3 py-2 rounded-lg border border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all text-primary font-medium"
+                              >
+                                <MapPin className="w-3.5 h-3.5" />
+                                Открыть в 2ГИС
+                              </a>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1173,7 +1980,7 @@ export function BuyerHome() {
         </div>
 
         {/* Закрепленная нижняя часть */}
-        <div className="flex-shrink-0 bg-card border-t border-border p-3 sm:p-4">
+        <div className="flex-shrink-0 bg-card/95 backdrop-blur-sm border-t border-border p-3 sm:p-4">
           <input
             ref={fileInputRef}
             type="file"
@@ -1182,6 +1989,15 @@ export function BuyerHome() {
             className="hidden"
           />
           <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setShowBatchSearch(true)}
+              disabled={sending || uploadingImage || isRecording || batchSearching}
+              className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              title="Массовый поиск товаров"
+            >
+              <ShoppingBasket className="w-4 h-4" />
+            </button>
             <button
               type="button"
               onClick={handleAttachClick}
@@ -1228,6 +2044,100 @@ export function BuyerHome() {
           </div>
         </div>
       </div>
+
+      {/* Модальное окно для массового поиска */}
+      {showBatchSearch && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowBatchSearch(false);
+              setBatchProductIds('');
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-xl sm:rounded-2xl shadow-xl max-w-lg w-full p-4 sm:p-6 space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <ShoppingBasket className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold">Массовый поиск</h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Список товаров</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBatchSearch(false);
+                  setBatchProductIds('');
+                }}
+                className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg hover:bg-muted transition-colors flex-shrink-0"
+                aria-label="Закрыть"
+              >
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm sm:text-base font-medium block mb-2">
+                  Названия товаров
+                </label>
+                <textarea
+                  value={batchProductIds}
+                  onChange={(e) => setBatchProductIds(e.target.value)}
+                  placeholder="Введите названия товаров:&#10;&#10;Coca-Cola&#10;Хлеб&#10;Молоко&#10;&#10;Или через запятую:&#10;Coca-Cola, Хлеб, Молоко"
+                  disabled={batchSearching}
+                  className="w-full min-h-[140px] sm:min-h-[160px] px-3 sm:px-4 py-2.5 sm:py-3 bg-input-background border border-border rounded-lg sm:rounded-xl text-base resize-none disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all placeholder:text-muted-foreground/60"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
+              <div className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg border border-border/50">
+                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-xs text-primary font-semibold">i</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Введите названия товаров, разделенные запятыми или переносами строк. Каждое название будет обработано отдельно.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBatchSearch(false);
+                  setBatchProductIds('');
+                }}
+                disabled={batchSearching}
+                className="flex-1 px-4 sm:px-5 py-2.5 sm:py-3 border border-border rounded-lg sm:rounded-xl hover:bg-muted transition-colors disabled:opacity-50 font-medium text-sm sm:text-base"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={handleBatchSearch}
+                disabled={batchSearching || !batchProductIds.trim()}
+                className="flex-1 px-4 sm:px-5 py-2.5 sm:py-3 bg-primary text-primary-foreground rounded-lg sm:rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base shadow-md hover:shadow-lg"
+              >
+                {batchSearching ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                    Поиск...
+                  </span>
+                ) : (
+                  'Найти товары'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ScrollToTopButton />
     </div>
   );

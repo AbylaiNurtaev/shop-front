@@ -18,3 +18,30 @@ button:not(:disabled) {
     opacity: 1;
   }
 }
+
+/* Стили для toast уведомлений */
+[data-sonner-toaster] {
+  --normal-bg: var(--popover);
+  --normal-text: var(--foreground);
+  --normal-border: var(--border);
+}
+
+[data-sonner-toast] {
+  background: var(--popover) !important;
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: var(--foreground) !important;
+  opacity: 0.9;
+}
+
+[data-sonner-toast] [data-button] {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+[data-sonner-toast] [data-button]:hover {
+  opacity: 0.9;
+}

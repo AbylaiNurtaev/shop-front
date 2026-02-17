@@ -335,37 +335,40 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
 
             {/* Expiring Products */}
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border-2 border-purple-200 dark:border-purple-700 rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-2 gap-2 min-w-0">
-                <p className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide flex-shrink-0">Срок годности</p>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button
-                    onClick={() => setExpiryView('soon')}
-                    className={`text-xs px-2 py-0.5 rounded transition-colors whitespace-nowrap ${expiryView === 'soon' ? 'bg-purple-200 dark:bg-purple-700 text-purple-900 dark:text-purple-100 font-medium' : 'text-purple-600 dark:text-purple-400'
-                      }`}
-                  >
-                    Скоро
-                  </button>
-                  <button
-                    onClick={() => setExpiryView('expired')}
-                    className={`text-xs px-2 py-0.5 rounded transition-colors whitespace-nowrap ${expiryView === 'expired' ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100 font-medium' : 'text-red-600 dark:text-red-400'
-                      }`}
-                  >
-                    Просрочено
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1 truncate">
-                    {expiryView === 'soon' ? 'Истекает скоро' : 'Просрочено'}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-1">
+                    Срок годности
                   </p>
-                  <p className="text-3xl font-black text-purple-900 dark:text-purple-100 break-words">
+                  <p className="text-3xl font-black text-purple-900 dark:text-purple-100">
                     {expiryView === 'soon' ? expiringSoonCount : expiredCount}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-200 dark:bg-purple-700 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-purple-200 dark:bg-purple-700 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">⏰</span>
                 </div>
+              </div>
+              <div className="mt-2 flex items-center gap-1.5">
+                <button
+                  onClick={() => setExpiryView('soon')}
+                  className={`text-xs px-2 py-0.5 rounded transition-colors whitespace-nowrap ${
+                    expiryView === 'soon'
+                      ? 'bg-purple-200 dark:bg-purple-700 text-purple-900 dark:text-purple-100 font-medium'
+                      : 'text-purple-600 dark:text-purple-400'
+                  }`}
+                >
+                  Скоро
+                </button>
+                <button
+                  onClick={() => setExpiryView('expired')}
+                  className={`text-xs px-2 py-0.5 rounded transition-colors whitespace-nowrap ${
+                    expiryView === 'expired'
+                      ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100 font-medium'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}
+                >
+                  Просрочено
+                </button>
               </div>
             </div>
           </div>
@@ -589,38 +592,41 @@ export function Inventory({ products, categories, onUpdateQuantity }: InventoryP
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border border-purple-200 dark:border-purple-700 rounded-2xl p-4 min-w-0 overflow-hidden">
-              <div className="flex flex-col mb-2 gap-1.5 min-w-0">
-                <p className="text-xs text-purple-700 dark:text-purple-300 font-medium">Срок годности</p>
-                <div className="flex items-center gap-1 flex-wrap">
-                  <button
-                    onClick={() => setExpiryView('soon')}
-                    className={`text-[10px] px-1.5 py-0.5 rounded transition-colors whitespace-nowrap ${expiryView === 'soon' ? 'bg-purple-200 dark:bg-purple-700 text-purple-900 dark:text-purple-100 font-medium' : 'text-purple-600 dark:text-purple-400'
-                      }`}
-                  >
-                    Скоро
-                  </button>
-                  <button
-                    onClick={() => setExpiryView('expired')}
-                    className={`text-[10px] px-1.5 py-0.5 rounded transition-colors whitespace-nowrap ${expiryView === 'expired' ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100 font-medium' : 'text-red-600 dark:text-red-400'
-                      }`}
-                  >
-                    Просрочено
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1 truncate">
-                    {expiryView === 'soon' ? 'Истекает скоро' : 'Просрочено'}
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 border border-purple-200 dark:border-purple-700 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-purple-700 dark:text-purple-300 font-medium mb-1">
+                    Срок годности
                   </p>
-                  <p className="text-3xl font-bold text-purple-900 dark:text-purple-100 break-words">
+                  <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">
                     {expiryView === 'soon' ? expiringSoonCount : expiredCount}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-200 dark:bg-purple-700 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-purple-200 dark:bg-purple-700 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">⏰</span>
                 </div>
+              </div>
+              <div className="mt-2 flex items-center gap-1 flex-wrap">
+                <button
+                  onClick={() => setExpiryView('soon')}
+                  className={`text-[10px] px-1.5 py-0.5 rounded transition-colors whitespace-nowrap ${
+                    expiryView === 'soon'
+                      ? 'bg-purple-200 dark:bg-purple-700 text-purple-900 dark:text-purple-100 font-medium'
+                      : 'text-purple-600 dark:text-purple-400'
+                  }`}
+                >
+                  Скоро
+                </button>
+                <button
+                  onClick={() => setExpiryView('expired')}
+                  className={`text-[10px] px-1.5 py-0.5 rounded transition-colors whitespace-nowrap ${
+                    expiryView === 'expired'
+                      ? 'bg-red-200 dark:bg-red-700 text-red-900 dark:text-red-100 font-medium'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}
+                >
+                  Просрочено
+                </button>
               </div>
             </div>
           </div>

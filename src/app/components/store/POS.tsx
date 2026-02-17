@@ -60,11 +60,19 @@ export function POS() {
   const cardInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const qrCodeRegionId = 'pos-camera';
+  const lastScannedRef = useRef<{ code: string; at: number }>({ code: '', at: 0 });
+  const handleScanRef = useRef<(sku: string) => Promise<void>>(async () => {});
+  const SCAN_DEBOUNCE_MS = 1500;
 
   // Загрузка текущего чека при монтировании
   useEffect(() => {
     loadCurrentSale();
   }, []);
+
+  // Актуальный handleScan для колбэка сканера (избегаем устаревшего замыкания)
+  useEffect(() => {
+    handleScanRef.current = handleScan;
+  });
 
   // Автофокус на поле ввода артикула
   useEffect(() => {
@@ -132,8 +140,20 @@ export function POS() {
           config.aspectRatio = 1.0;
         }
 
-        const onScanError = (errorMessage: string) => {
-          // Игнорируем ошибки сканирования (пока функциональность не реализована)
+        const onScanError = (_errorMessage: string) => {
+          // Игнорируем частые ошибки распознавания
+        };
+
+        const onScanSuccess = (decodedText: string) => {
+          const code = decodedText.trim();
+          if (!code) return;
+          const now = Date.now();
+          if (lastScannedRef.current.code === code && now - lastScannedRef.current.at < SCAN_DEBOUNCE_MS) {
+            return;
+          }
+          lastScannedRef.current = { code, at: now };
+          toast.info(`Штрихкод: ${code}`);
+          handleScanRef.current(code);
         };
 
         try {
@@ -141,11 +161,7 @@ export function POS() {
           await scanner.start(
             { facingMode: 'environment' },
             config,
-            (decodedText: string) => {
-              // Пока просто игнорируем отсканированный код
-              // В будущем здесь будет обработка сканирования
-              console.log('Отсканировано:', decodedText);
-            },
+            onScanSuccess,
             onScanError
           );
         } catch (facingModeError: any) {
@@ -166,10 +182,7 @@ export function POS() {
               await scanner.start(
                 cameraId,
                 config,
-                (decodedText: string) => {
-                  // Пока просто игнорируем отсканированный код
-                  console.log('Отсканировано:', decodedText);
-                },
+                onScanSuccess,
                 onScanError
               );
             } else {

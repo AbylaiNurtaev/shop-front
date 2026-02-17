@@ -138,7 +138,7 @@ export function Expenses() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       toast.error('Введите название расхода');
       return;
@@ -206,17 +206,18 @@ export function Expenses() {
 
   // Гарантируем, что expenses всегда массив
   const expensesList = Array.isArray(expenses) ? expenses : [];
-  
+
   const totalAmount = expensesList.reduce((sum, expense) => sum + (expense.amount || 0), 0);
-  const defaultCurrency = expensesList.length > 0 
-    ? expensesList[0].currency 
+  const defaultCurrency = expensesList.length > 0
+    ? expensesList[0].currency
     : userCurrency;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Layout */}
       <div className="md:hidden">
-        <div className="bg-card border-b border-border sticky top-0 z-20 shadow-sm">
+        {/* Фиксированная шапка с общей суммой */}
+        <div className="bg-card border-b border-border fixed inset-x-0 top-0 z-20 shadow-sm">
           <div className="p-4">
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-2xl font-bold text-foreground">Расходы</h1>
@@ -239,60 +240,63 @@ export function Expenses() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : expensesList.length === 0 ? (
-          <div className="p-4 text-center py-20">
-            <DollarSign className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground mb-4">Нет расходов</p>
-            <button
-              onClick={handleCreateExpense}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Добавить расход
-            </button>
-          </div>
-        ) : (
-          <div className="p-4 space-y-4 pb-24">
-            {expensesList.map((expense) => (
-              <div
-                key={expense.id}
-                className="bg-card border-2 border-border rounded-2xl p-5 shadow-sm"
+        {/* Контент с отступом под фиксированную шапку */}
+        <div className="pt-44">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : expensesList.length === 0 ? (
+            <div className="p-4 text-center py-20">
+              <DollarSign className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground mb-4">Нет расходов</p>
+              <button
+                onClick={handleCreateExpense}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg text-foreground mb-1">
-                      {expense.name}
-                    </h3>
-                    <div className="text-2xl font-bold text-primary mb-2">
-                      {formatAmount(expense.amount, expense.currency)}
+                Добавить расход
+              </button>
+            </div>
+          ) : (
+            <div className="p-4 space-y-4 pb-24">
+              {expensesList.map((expense) => (
+                <div
+                  key={expense.id}
+                  className="bg-card border-2 border-border rounded-2xl p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg text-foreground mb-1">
+                        {expense.name}
+                      </h3>
+                      <div className="text-2xl font-bold text-primary mb-2">
+                        {formatAmount(expense.amount, expense.currency)}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        <span>{formatDate(expense.createdAt)}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span>{formatDate(expense.createdAt)}</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditExpense(expense)}
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4 text-foreground" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteExpense(expense.id)}
+                        className="p-2 hover:bg-destructive/10 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditExpense(expense)}
-                      className="p-2 hover:bg-muted rounded-lg transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4 text-foreground" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteExpense(expense.id)}
-                      className="p-2 hover:bg-destructive/10 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Desktop Layout */}
@@ -312,7 +316,7 @@ export function Expenses() {
         </div>
 
         {expensesList.length > 0 && (
-          <div className="mb-6 p-4 bg-card border border-border rounded-lg">
+          <div className="mb-6 p-4 bg-card border border-border rounded-lg sticky top-0 z-10 shadow-sm">
             <div className="text-sm text-muted-foreground mb-1">Общая сумма</div>
             <div className="text-3xl font-bold text-foreground">
               {formatAmount(totalAmount, defaultCurrency)}
@@ -427,7 +431,7 @@ export function Expenses() {
                     placeholder="Например: Аренда, Интернет"
                     required
                   />
-                  
+
                   {/* Готовые расходы - показываем только при создании нового расхода */}
                   {!editingExpense && (
                     <div className="mt-3">
@@ -438,11 +442,10 @@ export function Expenses() {
                             key={expense.name}
                             type="button"
                             onClick={() => handleSelectPredefinedExpense(expense.name)}
-                            className={`px-3 py-1.5 text-sm rounded-lg border-2 transition-all ${
-                              formData.name === expense.name
+                            className={`px-3 py-1.5 text-sm rounded-lg border-2 transition-all ${formData.name === expense.name
                                 ? 'bg-primary text-primary-foreground border-primary'
                                 : 'bg-card text-foreground border-border hover:border-primary/50 hover:bg-accent'
-                            }`}
+                              }`}
                           >
                             <span className="mr-1.5">{expense.icon}</span>
                             {expense.name}

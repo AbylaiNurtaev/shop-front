@@ -1,5 +1,8 @@
-import { Package, BarChart3, FolderTree, LogOut, Settings, Store, Users, Building2, MessageCircle, Brain, Network, History, Calendar, QrCode, ShoppingCart, AlertTriangle, TrendingDown, Menu, X, Search, FileText, DollarSign } from 'lucide-react';
+import { Package, BarChart3, FolderTree, LogOut, Settings, Store, Users, Building2, MessageCircle, Brain, Network, History, Calendar, QrCode, ShoppingCart, AlertTriangle, TrendingDown, Menu, X, Search, FileText, DollarSign, Sun, Moon } from 'lucide-react';
 import { useState, useEffect, React } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useTheme } from '../hooks/useTheme';
+import { Switch } from './ui/switch';
 
 interface MobileNavProps {
   role: 'store' | 'brand' | 'admin' | 'distributor' | 'salesRep';
@@ -8,19 +11,39 @@ interface MobileNavProps {
   userEmail: string;
   onLogout: () => void;
   userRole?: 'store' | 'storeSeller';
+  productsWithoutCostPrice?: number;
 }
 
-export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, userRole }: MobileNavProps) {
+export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, userRole, productsWithoutCostPrice = 0 }: MobileNavProps) {
+  const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
+  const [showPulse, setShowPulse] = useState(true);
+  
+  // Проверяем, нужно ли подсветить раздел "Товары"
+  const shouldHighlightProducts = location.state && 
+    typeof location.state === 'object' && 
+    'highlightProductId' in location.state;
+  
+  // Убираем анимацию pulse через 3 секунды
+  useEffect(() => {
+    if (shouldHighlightProducts) {
+      setShowPulse(true);
+      const timer = setTimeout(() => {
+        setShowPulse(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldHighlightProducts]);
   const adminMenuItems = [
     { id: 'brands', label: 'Бренды', icon: Building2 },
     { id: 'categories', label: 'Категории', icon: FolderTree },
   ];
   // Для владельца магазина: 3 основных элемента
   const storeOwnerMainItems = [
-    { id: 'products', label: 'Товары', icon: Package },
     { id: 'inventory', label: 'Склад', icon: BarChart3 },
+    { id: 'products', label: 'Товары', icon: Package },
     { id: 'settings', label: 'Настройки', icon: Settings },
   ];
 
@@ -161,7 +184,7 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
           <div className="md:hidden fixed bottom-20 left-0 right-0 bg-card border-t-2 border-border z-50 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Меню</h3>
+                <h3 className="text-lg font-semibold text-foreground text-left">Меню</h3>
                 <button
                   onClick={() => setIsMenuOpen(false)}
                   className="p-2 hover:bg-accent rounded-lg transition-colors"
@@ -173,6 +196,8 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                 {burgerMenuItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = currentView === item.id;
+                  const isHighlighted = item.id === 'products' && shouldHighlightProducts && !isActive;
+                  const showBadge = item.id === 'products' && productsWithoutCostPrice > 0;
                   return (
                     <button
                       key={item.id}
@@ -180,16 +205,41 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                         onNavigate(item.id);
                         setIsMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-foreground hover:bg-accent'
-                        }`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative text-left ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : isHighlighted
+                            ? `bg-primary/20 dark:bg-primary/30 text-primary border-l-4 border-l-primary shadow-sm ${showPulse ? 'animate-pulse' : ''}`
+                            : 'text-foreground hover:bg-accent'
+                      }`}
                     >
-                      <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
-                      <span className="font-medium">{item.label}</span>
+                      <div className="relative">
+                        <Icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+                        {showBadge && (
+                          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-card" />
+                        )}
+                      </div>
+                      <span className={`font-medium flex-1 text-left ${isHighlighted ? 'font-semibold' : ''}`}>{item.label}</span>
                     </button>
                   );
                 })}
+                {/* Переключатель темы */}
+                <div className="border-t border-border my-2" />
+                <div className="w-full flex items-center justify-between px-4 py-3 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {theme === 'dark' ? (
+                      <Moon className="w-5 h-5 text-foreground" strokeWidth={2} />
+                    ) : (
+                      <Sun className="w-5 h-5 text-foreground" strokeWidth={2} />
+                    )}
+                    <span className="font-medium text-left text-foreground">Темная тема</span>
+                  </div>
+                  <Switch
+                    checked={theme === 'dark'}
+                    onCheckedChange={toggleTheme}
+                  />
+                </div>
+                
                 {/* Кнопка выхода в бургер-меню для Дс, ТП, владельца магазина и бренда */}
                 {!shouldShowLogoutInNav && (
                   <>
@@ -199,10 +249,10 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
                         onLogout();
                         setIsMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-destructive hover:bg-destructive/10"
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-destructive hover:bg-destructive/10 text-left"
                     >
                       <LogOut className="w-5 h-5" strokeWidth={2} />
-                      <span className="font-medium">Выход</span>
+                      <span className="font-medium text-left">Выход</span>
                     </button>
                   </>
                 )}
@@ -219,17 +269,27 @@ export function MobileNav({ role, currentView, onNavigate, userEmail, onLogout, 
           {mainItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
+            const isHighlighted = item.id === 'products' && shouldHighlightProducts && !isActive;
+            const showBadge = item.id === 'products' && productsWithoutCostPrice > 0;
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all ${isActive
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-foreground active:bg-accent'
-                  }`}
+                className={`flex flex-col items-center gap-1 px-2 py-3 rounded-xl transition-all relative ${
+                  isActive
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : isHighlighted
+                      ? `bg-primary/20 dark:bg-primary/30 text-primary border-2 border-primary shadow-sm ${showPulse ? 'animate-pulse' : ''}`
+                      : 'text-foreground active:bg-accent'
+                }`}
               >
-                <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
-                <span className={`text-xs leading-tight ${isActive ? 'font-bold' : 'font-medium'}`}>
+                <div className="relative">
+                  <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
+                  {showBadge && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-card" />
+                  )}
+                </div>
+                <span className={`text-xs leading-tight ${isActive ? 'font-bold' : isHighlighted ? 'font-semibold' : 'font-medium'}`}>
                   {item.label}
                 </span>
               </button>

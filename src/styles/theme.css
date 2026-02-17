@@ -42,52 +42,52 @@
 }
 
 .dark {
-  /* Основной фон - нейтральный тёмно-серый с лёгким тёплым оттенком */
-  --background: oklch(0.15 0.005 30);
-  --foreground: oklch(0.95 0.003 30);
+  /* Основной фон - чистый нейтральный тёмно-серый без теплых оттенков */
+  --background: oklch(0.12 0 0);
+  --foreground: oklch(0.98 0 0);
   /* Карточки - немного светлее фона для глубины */
-  --card: oklch(0.18 0.005 30);
-  --card-foreground: oklch(0.95 0.003 30);
-  --popover: oklch(0.18 0.005 30);
-  --popover-foreground: oklch(0.95 0.003 30);
-  /* Primary - светлый с лёгким тёплым оттенком */
-  --primary: oklch(0.70 0.10 200);
-  --primary-foreground: oklch(0.15 0.005 30);
-  /* Secondary - средний серый */
-  --secondary: oklch(0.28 0.005 30);
-  --secondary-foreground: oklch(0.95 0.003 30);
+  --card: oklch(0.16 0 0);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.16 0 0);
+  --popover-foreground: oklch(0.98 0 0);
+  /* Primary - современный синий/фиолетовый акцент */
+  --primary: oklch(0.65 0.15 250);
+  --primary-foreground: oklch(0.98 0 0);
+  /* Secondary - нейтральный серый */
+  --secondary: oklch(0.25 0 0);
+  --secondary-foreground: oklch(0.98 0 0);
   /* Muted - для неактивных элементов */
-  --muted: oklch(0.25 0.005 30);
-  --muted-foreground: oklch(0.60 0.003 30);
+  --muted: oklch(0.22 0 0);
+  --muted-foreground: oklch(0.65 0 0);
   /* Accent - для hover состояний */
-  --accent: oklch(0.30 0.008 30);
-  --accent-foreground: oklch(0.95 0.003 30);
-  /* Destructive - мягкий красный */
-  --destructive: oklch(0.55 0.18 25);
-  --destructive-foreground: oklch(0.95 0.003 30);
+  --accent: oklch(0.20 0 0);
+  --accent-foreground: oklch(0.98 0 0);
+  /* Destructive - яркий красный */
+  --destructive: oklch(0.60 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
   /* Границы - видимые, но не резкие */
-  --border: oklch(0.28 0.005 30);
-  --input: oklch(0.25 0.005 30);
-  --input-background: oklch(0.20 0.005 30);
-  --switch-background: oklch(0.32 0.005 30);
-  --ring: oklch(0.50 0.08 200);
+  --border: oklch(0.25 0 0);
+  --input: oklch(0.20 0 0);
+  --input-background: oklch(0.18 0 0);
+  --switch-background: oklch(0.30 0 0);
+  --ring: oklch(0.65 0.15 250);
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   /* Графики - яркие, но приятные цвета */
-  --chart-1: oklch(0.65 0.20 200);
-  --chart-2: oklch(0.70 0.15 150);
-  --chart-3: oklch(0.75 0.18 70);
-  --chart-4: oklch(0.68 0.22 280);
-  --chart-5: oklch(0.72 0.20 20);
+  --chart-1: oklch(0.65 0.20 250);
+  --chart-2: oklch(0.70 0.15 180);
+  --chart-3: oklch(0.75 0.18 120);
+  --chart-4: oklch(0.68 0.22 300);
+  --chart-5: oklch(0.72 0.20 60);
   /* Sidebar - немного темнее основного фона */
-  --sidebar: oklch(0.13 0.005 30);
-  --sidebar-foreground: oklch(0.95 0.003 30);
-  --sidebar-primary: oklch(0.65 0.15 200);
-  --sidebar-primary-foreground: oklch(0.95 0.003 30);
-  --sidebar-accent: oklch(0.25 0.005 30);
-  --sidebar-accent-foreground: oklch(0.95 0.003 30);
-  --sidebar-border: oklch(0.28 0.005 30);
-  --sidebar-ring: oklch(0.50 0.08 200);
+  --sidebar: oklch(0.10 0 0);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.65 0.15 250);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.20 0 0);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.25 0 0);
+  --sidebar-ring: oklch(0.65 0.15 250);
 }
 
 @theme inline {
